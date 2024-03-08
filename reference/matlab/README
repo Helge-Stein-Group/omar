@@ -1,0 +1,29 @@
+The files in this directory are for the Matlab interface to earth.
+
+The interface is implemented as a Matlab object in the file earth.m.  Type 
+"doc earth" for user documentation.
+
+The class uses the binary mex interface earthmex, which must be built and
+exist on the search path.  This file is called earthmex.mexmaci64 on a 64-bit 
+Mac and a recent version of Matlab, but the extension will vary (at least)
+by platform.
+
+With luck, the mex binary can be built from earthmex.c as follows:
+1.  In Matlab change to the directory containing this file
+2.  Copy the following into the command window and press enter:
+  mex -DSTANDALONE -DMATLAB -I../src earthmex.c ../src/earth.c ...
+    ../src/blas/d_sign.c ../src/blas/daxpy.c ../src/blas/dcopy.c ...
+    ../src/blas/ddot.c ../src/blas/dnrm2.c ../src/blas/dqrls.c ...
+    ../src/blas/dqrsl.c ../src/blas/dscal.c ../src/blas/dtrsl.c ...
+    ../src/R/dqrdc2.c
+
+If everything is set up correctly and the binary is built as required, 
+then earthtest.m demonstrates the functionality.  The file trees.txt is
+used for one example, and is derived from files for the dataset "trees"
+in the R environment.
+
+For a Mac platform the xcode project matlab.xcodeproj (which uses the 
+file mex.xconfig) should also build the mex binary.
+
+Fred Nicolls
+fred.nicolls@uct.ac.za
