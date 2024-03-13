@@ -136,21 +136,22 @@ def backward_pass(
 
     while len(best_trimmed_set) > 1:
         best_trimmed_lof = np.inf
+        starting_set = best_trimmed_set.copy()
         penalty_term = gcv_addition(len(best_trimmed_set)-1, len(y))
         for removal_idx in best_trimmed_set:
             if removal_idx == 0:  # First basis function (constant 1) cannot be excluded
                 continue
-            current_set = best_trimmed_set - {removal_idx}
+            trimmed_set = starting_set - {removal_idx}
             lof = (
-                    evaluate_model(X, y, [model_functions[i] for i in current_set])
+                    evaluate_model(X, y, [model_functions[i] for i in trimmed_set])
                     / penalty_term
             )
             if lof < best_trimmed_lof:
                 best_trimmed_lof = lof
-                best_trimmed_set = current_set
+                best_trimmed_set = trimmed_set
             if lof < best_lof:
                 best_lof = lof
-                best_set = current_set
+                best_set = trimmed_set
 
     return [model_functions[i] for i in best_set]
 
