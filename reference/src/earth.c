@@ -1,103 +1,9 @@
-// earth.c
-//
-// This code is derived from code in the Rational Fortran file dmarss.r which is
-// part of the R and S mda package by Hastie and Tibshirani.
-// Comments containing "TODO" mark known issues
-//
-// See the R earth documentation for descriptions of the principal data structures.
-// See also www.milbo.users.sonic.net.  This code uses a subset of C99.
-//
-// Stephen Milborrow Feb 2007 Petaluma
-//
-// References:
-//
-// HastieTibs: Trevor Hastie and Robert Tibshirani
-//      S library mda version 0.3.2 dmarss.r Ratfor code
-//      Modifications for R by Kurt Hornik, Friedrich Leisch, Brian Ripley
-//
-// FriedmanMars: Multivariate Adaptive Regression Splines (with discussion)
-//      Annals of Statistics 19/1, 1--141, 1991
-//
-// FriedmanFastMars: Friedman "Fast MARS"
-//      Dep. of Stats. Stanford, Tech Report 110, May 1993
-//
-// Miller: Alan Miller (2nd ed. 2002) Subset Selection in Regression
-//
-//-----------------------------------------------------------------------------
-// This program is free software; you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation; either version 2 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// A copy of the GNU General Public License is available at
-// http://www.r-project.org/Licenses
-//
-//-----------------------------------------------------------------------------
-
-#if !STANDALONE
-#define USING_R 1
-#endif // STANDALONE
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
 #include <float.h>
 #include <math.h>
-#if _MSC_VER
-    #include <crtdbg.h> // microsoft malloc debugging library
-#endif
-
-#if _MSC_VER            // microsoft
-    #define _C_ "C"
-    // disable warning: 'vsprintf': This function or variable may be unsafe
-    #pragma warning(disable: 4996)
-    #if _DEBUG          // debugging enabled?
-        // disable warning: too many actual params for macro (for malloc1 and calloc1)
-        #pragma warning(disable: 4002)
-    #endif
-#else
-    #define _C_
-    #ifndef bool
-        typedef int bool;
-        #define false 0
-        #define true  1
-    #endif
-#endif
-
-#if USING_R             // R with gcc
-    #include "R.h"
-    #include "Rinternals.h" // needed for Allowed function handling
-    #include "allowed.h"
-    #define printf Rprintf
-    #define FINITE(x) R_FINITE(x)
-    #define ASSERT(x)   \
-        if (!(x)) error("internal assertion failed in file %s line %d: %s\n", \
-                        __FILE__, __LINE__, #x)
-#else
-    #define warning printf
-    void error(const char *args, ...);
-#if _MSC_VER // microsoft
-    #define ISNAN(x)  _isnan(x)
-    #define FINITE(x) _finite(x)
-#else
-    #define ISNAN(x)  isnan(x)
-    #define FINITE(x) finite(x)
-#endif
-    #define ASSERT(x)   \
-        if (!(x)) error("internal assertion failed in file %s line %d: %s\n", \
-                        __FILE__, __LINE__, #x)
-#endif
-
-#ifdef MATLAB
-#include "mex.h" // for printf
-#endif
-
 #include "earth.h"
 
 extern _C_ int dqrdc2_(double *x, int *ldx, int *n, int *p,
@@ -187,67 +93,8 @@ static char *sFormatMemSize(const unsigned MemSize, const bool Align);
 // free1 is a macro so we can zero p
 #define free1(p) { if (p) free(p); p = NULL; }
 
-#if _MSC_VER && _DEBUG  // microsoft C and debugging enabled?
-
-#define malloc1(size) _malloc_dbg((size), _NORMAL_BLOCK, __FILE__, __LINE__)
-#define calloc1(num, size) \
-                      _calloc_dbg((num), (size), _NORMAL_BLOCK, __FILE__, __LINE__)
-#else
-static void *malloc1(size_t size, const char *args, ...)
-{
-    void *p = malloc(size);
-    if (!p || TraceGlobal == 1.5) {
-        if (args == NULL)
-            printf("malloc %s\n", sFormatMemSize(size, true));
-        else {
-            char s[100];
-            va_list p;
-            va_start(p, args);
-            vsprintf(s, args, p);
-            va_end(p);
-            printf("malloc %s: %s\n", sFormatMemSize(size, true), s);
-        }
-    }
-    if (!p)
-        error("Out of memory (could not allocate %s)", sFormatMemSize(size, false));
-    return p;
-}
-
-static void *calloc1(size_t num, size_t size, const char *args, ...)
-{
-    void *p = calloc(num, size);
-    if (!p || TraceGlobal == 1.5) {
-        if (args == NULL)
-            printf("calloc %s\n", sFormatMemSize(size, true));
-        else {
-            char s[100];
-            va_list p;
-            va_start(p, args);
-            vsprintf(s, args, p);
-            va_end(p);
-            printf("calloc %s: %s\n", sFormatMemSize(size, true), s);
-        }
-    }
-    if (!p)
-        error("Out of memory (could not allocate %s)", sFormatMemSize(size, false));
-    return p;
-}
-#endif
-
 // After calling this, on program termination we will get a report if there are
 // writes outside the borders of allocated blocks or if there are non-freed blocks.
-
-#if _MSC_VER && _DEBUG          // microsoft C and debugging enabled?
-static void InitMallocTracking(void)
-{
-    _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_WNDW);
-    _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
-    _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
-    int Flag = _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
-    Flag |= (_CRTDBG_ALLOC_MEM_DF|_CRTDBG_DELAY_FREE_MEM_DF|_CRTDBG_LEAK_CHECK_DF);
-    _CrtSetDbgFlag(Flag);
-}
-#endif
 
 //-----------------------------------------------------------------------------
 // These are malloced blocks.  They unfortunately have to be declared globally so
@@ -280,30 +127,6 @@ static bool *BoolFullSet;       // local to ForwardPassR
 static void FreeQ(void);
 #endif
 
-#if USING_R
-void FreeR(void)                // for use by R
-{
-    free1(WorkingSet);
-    free1(CovSx);
-    free1(CovCol);
-    free1(ycboSum);
-    free1(xOrder);
-    free1(bxOrthMean);
-    free1(bxOrthCenteredT);
-    free1(bxOrth);
-    free1(yMean);
-    free1(Weights);
-    free1(BoolFullSet);
-    free1(iDirs);
-    free1(nUses);
-    free1(nFactorsInTerm);
-    FreeBetaCache();
-#if FAST_MARS
-    FreeQ();
-#endif
-}
-#endif
-
 //-----------------------------------------------------------------------------
 static char *sFormatMemSize(const unsigned MemSize, const bool Align)
 {
@@ -323,16 +146,6 @@ static char *sFormatMemSize(const unsigned MemSize, const bool Align)
 //-----------------------------------------------------------------------------
 // Gets called periodically to service the R framework.
 // Will not return if the user interrupts.
-
-#if USING_R
-
-static INLINE void ServiceR(void)
-{
-    R_FlushConsole();
-    R_CheckUserInterrupt();     // may never return
-}
-
-#endif
 
 //-----------------------------------------------------------------------------
 #if FAST_MARS
@@ -597,7 +410,6 @@ static int CopyUsedCols(double **pxUsed,                // out
 //-----------------------------------------------------------------------------
 // Print a summary of the model, for debug tracing
 
-#if STANDALONE
 static void PrintSummary(
     const int    nMaxTerms,         // in
     const int    nTerms,            // in: number of cols in bx, some may be unused
@@ -648,7 +460,6 @@ static void PrintSummary(
     }
     printf("\n");
 }
-#endif // STANDALONE
 
 //-----------------------------------------------------------------------------
 // Set Diags to the diagonal values of inverse(X'X),
@@ -896,29 +707,6 @@ static void Regress(
     free1(qraux);
     free1(work);
 }
-
-//-----------------------------------------------------------------------------
-// This routine is for testing Regress from R, to compare results to R's lm().
-
-#if USING_R
-void RegressR(                  // for testing earth routine Regress from R
-    double       Betas[],       // out: (nUsedCols+1) * nResp, +1 is for intercept
-    double       Residuals[],   // out: nCases * nResp
-    double       Rss[],         // out: RSS, summed over all nResp
-    double       Diags[],       // out: diags of inv(transpose(x) * x)
-    int          *pnRank,       // out: nbr of indep cols in x
-    int          iPivots[],     // out: nCols
-    const double x[],           // in: nCases x nCols
-    const double y[],           // in: nCases x nResp
-    const int    *pnCases,      // in: number of rows in x and in y
-    const int    *pnResp,       // in: number of cols in y
-    int          *pnCols,       // in: number of columns in x, some may not be used
-    const bool   UsedCols[])    // in: specifies used columns in x
-{
-    Regress(Betas, Residuals, Rss, Diags, pnRank, iPivots,
-        x, y, NULL, *pnCases, *pnResp, *pnCols, UsedCols);
-}
-#endif
 
 //-----------------------------------------------------------------------------
 // Regress y on bx to get Residuals and Betas.  If bx isn't of full rank,

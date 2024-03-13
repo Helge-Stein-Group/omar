@@ -1,12 +1,17 @@
 import numpy as np
 
-from src.omars import omars
-from src.utils import sigmoid
+import sys
+
+sys.path.append('../src')
+
+from omars import omars, predict
+from utils import sigmoid
 
 
-def data_generation_model1(n_samples: int, dim: int) -> (np.ndarray, np.ndarray):
+def data_generation_model1(n_samples: int, dim: int) -> np.ndarray:
     X = np.random.normal(size=(n_samples, dim))
-    y_true = np.max([0, (X[:, 0] - 1)]) + np.max([0, (X[:, 0] - 1)]) * np.max([0, (X[:, 1] - 0.8)])
+    zero = np.zeros(n_samples)
+    y_true = np.maximum(zero, (X[:, 0] - 1)) + np.maximum(zero, (X[:, 0] - 1)) * np.maximum(0, (X[:, 1] - 0.8))
     y = y_true + 0.12 * np.random.normal(size=n_samples)
     return X, y, y_true
 
@@ -17,8 +22,6 @@ def evaluate_prediction(y_pred: np.ndarray, y_true: np.ndarray, y: np.ndarray) -
 
     r2 = 1 - mse / mse_0
 
-    print(f"R2: {r2}")
-
     return r2
 
 
@@ -28,10 +31,12 @@ def test_scenario1():
 
     X, y, y_true = data_generation_model1(n_samples, dim)
 
-    y_pred = omars(X, y)
+    coefficients, model_functions = omars(X, y, 10)
+    y_pred = predict(X, coefficients, model_functions)
 
     r2 = evaluate_prediction(y_pred, y_true, y)
 
+    print(f"Scenario 1: R2: {r2}")
     assert r2 > 0.9
 
 
@@ -41,10 +46,12 @@ def test_scenario2():
 
     X, y, y_true = data_generation_model1(n_samples, dim)
 
-    y_pred = omars(X, y)
+    coefficients, model_functions = omars(X, y, 10)
+    y_pred = predict(X, coefficients, model_functions)
 
     r2 = evaluate_prediction(y_pred, y_true, y)
 
+    print(f"Scenario 2: R2: {r2}")
     assert r2 > 0.9
 
 
@@ -57,8 +64,16 @@ def test_scenario3():
     l2 = X[:, 5] - X[:, 6] + X[:, 7] - X[:, 8] + X[:, 9]
     y = sigmoid(l1) + sigmoid(l2) + 0.12 * np.random.normal(size=n_samples)
 
-    y_pred = omars(X, y)
+    coefficients, model_functions = omars(X, y, 20)
+    y_pred = predict(X, coefficients, model_functions)
 
     r2 = evaluate_prediction(y_pred, y, y)
 
+    print(f"Scenario 3: R2: {r2}")
     assert r2 > 0.7
+
+
+test_scenario1()
+test_scenario2()
+test_scenario3()
+
