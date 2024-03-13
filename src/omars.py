@@ -1,12 +1,8 @@
 import numpy as np
-from enum import Enum
 from dataclasses import dataclass, field
 from copy import deepcopy
 
-
-class Sign(Enum):
-    pos = 1
-    neg = -1
+from utils import Sign
 
 
 @dataclass
@@ -31,9 +27,9 @@ def basis_function(
     if not desc.v or idx == len(desc.v):
         return np.ones(X.shape[0])
     else:
-        sign = desc.sign[0].value
-        v = desc.v[0]
-        t = desc.t[0]
+        sign = desc.sign[idx].value
+        v = desc.v[idx]
+        t = desc.t[idx]
         return np.maximum(np.zeros(X.shape[0]), sign * (X[:, v] - t)) * basis_function(X, desc, idx + 1)
 
 
@@ -124,21 +120,23 @@ def forward_pass(
     return model_functions
 
 
+def gcv_addition(r, N):
+    c = 3
+    k = (r - 1) / 2
+    C_m = r + c * k
+    return (1 - C_m / N) ** 2
+
+
 def backward_pass(
         X: np.ndarray, y: np.ndarray, model_functions: list[BasisFunctionDescription]
 ) -> list[BasisFunctionDescription]:
     best_set = set(range(len(model_functions)))
     best_trimmed_set = best_set.copy()
-    best_lof = evaluate_model(X, y, model_functions)
+    best_lof = evaluate_model(X, y, model_functions) / gcv_addition(len(best_trimmed_set), len(y))
 
     while len(best_trimmed_set) > 1:
         best_trimmed_lof = np.inf
-        r = len(best_trimmed_set)
-        c = 3
-        k = (r - 1) / 2
-        C_m = r + c * k
-        N = len(y)
-        penalty_term = (1 - C_m / N) ** 2
+        penalty_term = gcv_addition(len(best_trimmed_set)-1, len(y))
         for removal_idx in best_trimmed_set:
             if removal_idx == 0:  # First basis function (constant 1) cannot be excluded
                 continue

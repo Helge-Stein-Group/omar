@@ -8,7 +8,7 @@ from omars import omars, predict
 from utils import sigmoid
 
 
-def data_generation_model1(n_samples: int, dim: int) -> np.ndarray:
+def data_generation_model(n_samples: int, dim: int) -> np.ndarray:
     X = np.random.normal(size=(n_samples, dim))
     zero = np.zeros(n_samples)
     y_true = np.maximum(zero, (X[:, 0] - 1)) + np.maximum(zero, (X[:, 0] - 1)) * np.maximum(0, (X[:, 1] - 0.8))
@@ -29,7 +29,7 @@ def test_scenario1():
     n_samples = 100
     dim = 2
 
-    X, y, y_true = data_generation_model1(n_samples, dim)
+    X, y, y_true = data_generation_model(n_samples, dim)
 
     coefficients, model_functions = omars(X, y, 10)
     y_pred = predict(X, coefficients, model_functions)
@@ -37,6 +37,7 @@ def test_scenario1():
     r2 = evaluate_prediction(y_pred, y_true, y)
 
     print(f"Scenario 1: R2: {r2}")
+    print(f"Number of basis functions: {len(model_functions)}")
     assert r2 > 0.9
 
 
@@ -44,7 +45,7 @@ def test_scenario2():
     n_samples = 100
     dim = 20
 
-    X, y, y_true = data_generation_model1(n_samples, dim)
+    X, y, y_true = data_generation_model(n_samples, dim)
 
     coefficients, model_functions = omars(X, y, 10)
     y_pred = predict(X, coefficients, model_functions)
@@ -52,6 +53,7 @@ def test_scenario2():
     r2 = evaluate_prediction(y_pred, y_true, y)
 
     print(f"Scenario 2: R2: {r2}")
+    print(f"Number of basis functions: {len(model_functions)}")
     assert r2 > 0.9
 
 
@@ -70,10 +72,10 @@ def test_scenario3():
     r2 = evaluate_prediction(y_pred, y, y)
 
     print(f"Scenario 3: R2: {r2}")
+    print(f"Number of basis functions: {len(model_functions)}")
     assert r2 > 0.7
 
 
 test_scenario1()
 test_scenario2()
 test_scenario3()
-
