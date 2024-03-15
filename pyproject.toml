@@ -1,0 +1,18 @@
+[project]
+name = "omars"
+version = "0.0.1"
+authors = [
+  { name="Tim Walter", email="tim.walter@tum.de" },
+]
+description = "Open Multivariate Adaptive Regression Splines"
+readme = "README.md"
+requires-python = ">=3.12"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/Helge-Stein-Group/OMARS"
+Issues = "https://github.com/Helge-Stein-Group/OMARS/issues"

@@ -1,5 +1,6 @@
-import numpy as np
 from enum import Enum
+
+import numpy as np
 
 
 class Sign(Enum):
@@ -9,3 +10,7 @@ class Sign(Enum):
 
 def sigmoid(x: np.ndarray) -> np.ndarray:
     return 1 / (1 + np.exp(-x))
+
+
+def hinge(x: np.ndarray):
+    return np.maximum(x, np.zeros(x.shape))
