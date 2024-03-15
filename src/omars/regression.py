@@ -53,6 +53,13 @@ class Model:
     def __len__(self):
         return len(self.basis) - 1
 
+    def __getitem__(self, i: int):
+        assert isinstance(i, int)
+        assert i < len(self.basis)
+
+        return Model([self.basis[i]], self.coefficients[i].reshape(1, -1),
+                     self.singular_values[i].reshape(1, -1))
+
     def add(self, bases: list[Basis]):
         assert all(isinstance(b, Basis) for b in bases)
 
@@ -92,6 +99,13 @@ def evaluate_model_mse(x: np.ndarray, y: np.ndarray, model: Model) -> float:
     return mse / len(y)
 
 
+def evaluate_model_gcv(x: np.ndarray, y: np.ndarray, model: Model,
+                       d: float = 3) -> float:
+    mse = evaluate_model_mse(x, y, model)
+    c_m = len(model.singular_values) + d * len(model)
+    return mse / (1 - c_m / len(y)) ** 2
+
+
 def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
     assert x.ndim == 2
     assert y.ndim == 1
@@ -126,13 +140,6 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
         model = best_candidate_model
 
     return model
-
-
-def evaluate_model_gcv(x: np.ndarray, y: np.ndarray, model: Model,
-                       c: float = 3) -> float:
-    mse = evaluate_model_mse(x, y, model)
-    c_m = len(model.singular_values) + c * len(model)
-    return mse / (1 - c_m / len(y)) ** 2
 
 
 def backward_pass(x: np.ndarray, y: np.ndarray, model: Model) -> Model:

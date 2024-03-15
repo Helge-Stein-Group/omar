@@ -2,7 +2,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 
-from omars.regression import BasisFunctionDescription
+from omars.regression import Model
 
 mpl.use("Qt5Agg")
 
@@ -10,15 +10,14 @@ mpl.use("Qt5Agg")
 def inspect_fit(
         x: np.ndarray,
         y: np.ndarray,
-        model_functions: list[BasisFunctionDescription],
-        coefficients: np.ndarray,
+        model: Model,
         title: str,
 ) -> None:
     assert x.ndim == 2
     assert y.ndim == 1
     assert x.shape[0] == y.shape[0]
     assert x.shape[1] == 2
-    assert len(model_functions) == coefficients.size
+    assert isinstance(model, Model)
     assert isinstance(title, str)
 
     fig = plt.figure()
@@ -32,8 +31,7 @@ def inspect_fit(
     x_func = np.linspace(min(data_x), max(data_x), 100)
     y_func = np.linspace(min(data_y), max(data_y), 100)
     x_func, y_func = np.meshgrid(x_func, y_func)
-    z_func = predict(np.c_[x_func.ravel(), y_func.ravel()], coefficients,
-                     model_functions)
+    z_func = model(np.c_[x_func.ravel(), y_func.ravel()])
 
     ax.plot_surface(x_func, y_func, z_func.reshape(x_func.shape), alpha=0.5,
                     cmap="coolwarm")
@@ -56,19 +54,19 @@ def inspect_fit(
 
 if __name__ == "__main__":
     from tests.simulated_test import data_generation_model
-    from omars.regression import fit, predict
+    from omars.regression import fit
 
     n_samples = 100
     ndim = 2
 
     x, y, y_true = data_generation_model(n_samples, ndim)
-    coefficients, model_functions = fit(x, y, 10)
-    y_pred = predict(x, coefficients, model_functions)
+    model = fit(x, y, 10)
+    y_pred = model(x)
 
-    print(model_functions)
-    inspect_fit(x, y, model_functions, coefficients, "Full model")
-    for i in range(len(model_functions)):
-        print(model_functions[i])
-        print(coefficients[i])
-        inspect_fit(x, y_pred, [model_functions[i]], coefficients[i:i + 1], str(i))
-    inspect_fit(x, y, model_functions, coefficients, "Full model")
+    print(model.basis)
+    inspect_fit(x, y, model, "Full model")
+    for i in range(len(model)):
+        print(model.basis[i])
+        print(model.coefficients[i])
+        inspect_fit(x, y_pred, model[i], str(i))
+    inspect_fit(x, y, model, "Full model")
