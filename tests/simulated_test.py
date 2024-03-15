@@ -11,7 +11,7 @@ def data_generation_model(n_samples: int, dim: int) \
     y_true = (np.maximum(zero, (x[:, 0] - 1)) +
               np.maximum(zero, (x[:, 0] - 1)) * np.maximum(0, (x[:, 1] - 0.8)))
     # TODO only for debugging (make 0 -> 0.12)
-    y = y_true + 0 * np.random.normal(size=n_samples)
+    y = y_true + 0.12 * np.random.normal(size=n_samples)
     return x, y, y_true
 
 

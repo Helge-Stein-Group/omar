@@ -36,8 +36,9 @@ class Basis:
 
 @dataclass
 class Model:
-    coefficients: np.ndarray = None
     basis: list[Basis] = field(default_factory=lambda: [Basis()])
+    coefficients: np.ndarray = None
+    singular_values: np.ndarray = None
 
     def data_matrix(self, x: np.ndarray) -> np.ndarray:
         assert x.ndim == 2
@@ -50,7 +51,7 @@ class Model:
         return self.data_matrix(x) @ self.coefficients
 
     def __len__(self):
-        return len(self.basis)
+        return len(self.basis) - 1
 
     def add(self, bases: list[Basis]):
         assert all(isinstance(b, Basis) for b in bases)
@@ -81,13 +82,14 @@ def evaluate_model_mse(x: np.ndarray, y: np.ndarray, model: Model) -> float:
     be recalculated.
     '''
     data_matrix = model.data_matrix(x)
-    coefficients, lof, rank, sv = np.linalg.lstsq(data_matrix, y, rcond=None)
+    coefficients, mse, rank, sv = np.linalg.lstsq(data_matrix, y, rcond=None)
     model.coefficients = coefficients
-    if lof.size == 0:
+    model.singular_values = sv
+    if mse.size == 0:
         y_pred = data_matrix @ coefficients
-        lof = np.sum((y - y_pred) ** 2)
+        mse = np.sum((y - y_pred) ** 2)
 
-    return lof / len(y)
+    return mse / len(y)
 
 
 def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
@@ -129,9 +131,9 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
 def evaluate_model_gcv(x: np.ndarray, y: np.ndarray, model: Model,
                        c: float = 3) -> float:
     mse = evaluate_model_mse(x, y, model)
-    c_m = len(model) + c * (len(model) - 1) / 2
+    c_m = len(model.singular_values) + c * len(model)
     return mse / (1 - c_m / len(y)) ** 2
-#Probem is here?
+
 
 def backward_pass(x: np.ndarray, y: np.ndarray, model: Model) -> Model:
     assert x.ndim == 2
