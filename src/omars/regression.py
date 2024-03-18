@@ -38,6 +38,8 @@ class Model:
     basis: list[Basis] = field(default_factory=lambda: [Basis()])
     coefficients: np.ndarray = None
     singular_values: np.ndarray = None
+    fit_matrix: np.ndarray = None
+    gcv: float = None
 
     def data_matrix(self, x: np.ndarray) -> np.ndarray:
         assert x.ndim == 2
@@ -72,33 +74,31 @@ class Model:
         del self.basis[i]
         return self
 
+    def fit(self, x: np.ndarray, y: np.ndarray, d: float = 3):
+        assert x.ndim == 2
+        assert y.ndim == 1
+        assert x.shape[0] == y.shape[0]
+        assert isinstance(d, (int, float))
 
-def evaluate_model(x: np.ndarray, y: np.ndarray, model: Model,
-                   d: float = 3) -> float:
-    assert x.ndim == 2
-    assert y.ndim == 1
-    assert x.shape[0] == y.shape[0]
-    assert isinstance(model, Model)
-    assert isinstance(d, (int, float))
+        '''
+        ATTENTION !!!
+        The basis through the forward pass does not need to be linearly independent, 
+        which may lead to a singular matrix, this is can be solved by pivoting in the 
+        Cholesky decomposition, in the paper a small value is added to the diagonal.
+        Here numpy can deal with singular matrices, but the lack of fit needs to 
+        be recalculated.
+        '''
 
-    '''
-    ATTENTION !!!
-    The basis through the forward pass does not need to be linearly independent, 
-    which may lead to a singular matrix, this is can be solved by pivoting in the 
-    Cholesky decomposition, in the paper a small value is added to the diagonal.
-    Here numpy can deal with singular matrices, but the lack of fit needs to 
-    be recalculated.
-    '''
-    data_matrix = model.data_matrix(x)
-    coefficients, mse, rank, sv = np.linalg.lstsq(data_matrix, y, rcond=None)
-    model.coefficients = coefficients
-    model.singular_values = sv
-    if mse.size == 0:
-        y_pred = data_matrix @ coefficients
-        mse = np.sum((y - y_pred) ** 2)
+        self.fit_matrix = self.data_matrix(x)
+        coefficients, mse, rank, sv = np.linalg.lstsq(self.fit_matrix, y, rcond=None)
+        self.coefficients = coefficients
+        self.singular_values = sv
+        if mse.size == 0:
+            y_pred = self.fit_matrix @ coefficients
+            mse = np.sum((y - y_pred) ** 2)
 
-    c_m = len(model.singular_values) + d * (len(model)-1)
-    return mse / len(y) / (1 - c_m / len(y)) ** 2
+        c_m = len(self.singular_values) + d * (len(self.basis) - 1)
+        self.gcv = mse / len(y) / (1 - c_m / len(y)) ** 2
 
 
 def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
@@ -116,7 +116,8 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
             ineligible_covariates = set(selected_basis.v)
             eligible_covariates = covariates - ineligible_covariates
             for v in eligible_covariates:
-                eligible_knots = set(x[:, v][np.where(selected_basis(x) > 0)])
+                eligible_knots = x[:, v][np.where(selected_basis(x) > 0)]
+                eligible_knots[::-1].sort()
                 for t in eligible_knots:
                     candidate_model = deepcopy(model)
                     unhinged_candidate = deepcopy(selected_basis)
@@ -124,9 +125,9 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
                     hinged_candidate = deepcopy(selected_basis)
                     hinged_candidate.add(v, t, True)
                     candidate_model.add([unhinged_candidate, hinged_candidate])
-                    gcv = evaluate_model(x, y, candidate_model)
-                    if gcv < best_gcv:
-                        best_gcv = gcv
+                    candidate_model.fit(x, y)
+                    if candidate_model.gcv < best_gcv:
+                        best_gcv = candidate_model.gcv
                         best_candidate_model = candidate_model
 
         model = best_candidate_model
@@ -142,7 +143,7 @@ def backward_pass(x: np.ndarray, y: np.ndarray, model: Model) -> Model:
 
     best_model = model
     best_trimmed_model = deepcopy(model)
-    best_gcv = evaluate_model(x, y, model)
+    best_gcv = model.gcv
 
     while len(best_trimmed_model) > 1:
         best_trimmed_gcv = np.inf
@@ -151,12 +152,12 @@ def backward_pass(x: np.ndarray, y: np.ndarray, model: Model) -> Model:
             if i == 0:  # First basis function (constant 1) cannot be excluded
                 continue
             trimmed_model = deepcopy(previous_model).remove(i)
-            gcv = evaluate_model(x, y, trimmed_model)
-            if gcv < best_trimmed_gcv:
-                best_trimmed_gcv = gcv
+            trimmed_model.fit(x, y)
+            if trimmed_model.gcv < best_trimmed_gcv:
+                best_trimmed_gcv = trimmed_model.gcv
                 best_trimmed_model = trimmed_model
-            if gcv < best_gcv:
-                best_gcv = gcv
+            if trimmed_model.gcv < best_gcv:
+                best_gcv = trimmed_model.gcv
                 best_model = trimmed_model
 
     return best_model
