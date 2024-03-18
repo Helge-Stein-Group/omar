@@ -2,6 +2,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 
 import numpy as np
+from scipy.linalg import cho_factor, cho_solve
 
 
 @dataclass
@@ -16,12 +17,10 @@ class Basis:
 
         if len(self.v) == 0:
             return np.ones(x.shape[0])
-        return np.prod(
-            np.maximum(
-                np.zeros((x.shape[0], len(self.v)), dtype=float),
-                x[:, self.v] - self.t,
-                where=self.hinge),
-            axis=1)
+        result = x[:, self.v] - self.t
+        np.maximum(np.zeros((x.shape[0], len(self.v)), dtype=float), result,
+                   where=self.hinge, out=result)
+        return result.prod(axis=1)
 
     def add(self, v: int, t: float, hinge: bool):
         assert isinstance(v, int)
@@ -37,7 +36,6 @@ class Basis:
 class Model:
     basis: list[Basis] = field(default_factory=lambda: [Basis()])
     coefficients: np.ndarray = None
-    singular_values: np.ndarray = None
     fit_matrix: np.ndarray = None
     gcv: float = None
 
@@ -58,8 +56,7 @@ class Model:
         assert isinstance(i, int)
         assert i < len(self.basis)
 
-        return Model([self.basis[i]], self.coefficients[i].reshape(1, -1),
-                     self.singular_values[i].reshape(1, -1))
+        return Model([self.basis[i]], self.coefficients[i].reshape(1, -1))
 
     def add(self, bases: list[Basis]):
         assert all(isinstance(b, Basis) for b in bases)
@@ -85,19 +82,20 @@ class Model:
         The basis through the forward pass does not need to be linearly independent, 
         which may lead to a singular matrix, this is can be solved by pivoting in the 
         Cholesky decomposition, in the paper a small value is added to the diagonal.
-        Here numpy can deal with singular matrices, but the lack of fit needs to 
-        be recalculated.
         '''
-
         self.fit_matrix = self.data_matrix(x)
-        coefficients, mse, rank, sv = np.linalg.lstsq(self.fit_matrix, y, rcond=None)
-        self.coefficients = coefficients
-        self.singular_values = sv
-        if mse.size == 0:
-            y_pred = self.fit_matrix @ coefficients
-            mse = np.sum((y - y_pred) ** 2)
 
-        c_m = len(self.singular_values) + d * (len(self.basis) - 1)
+        covariance_matrix = self.fit_matrix.T @ (
+                self.fit_matrix - np.mean(self.fit_matrix, axis=0))
+        covariance_matrix += np.eye(covariance_matrix.shape[0]) * 1e-6
+        rhs = self.fit_matrix.T @ (y - np.mean(y))
+        l, lower = cho_factor(covariance_matrix)
+        self.coefficients = cho_solve((l, lower), rhs)
+
+        y_pred = self.fit_matrix @ self.coefficients
+        mse = np.sum((y - y_pred) ** 2)
+
+        c_m = len(self.basis) + d * (len(self.basis) - 1)
         self.gcv = mse / len(y) / (1 - c_m / len(y)) ** 2
 
 
