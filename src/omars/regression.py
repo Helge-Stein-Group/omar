@@ -12,7 +12,7 @@ class Basis:
     t: list[float] = field(default_factory=list)  # Knot value
     sign: list[Sign] = field(default_factory=list)  # Sign of basis function
 
-    def __call__(self, x: np.ndarray, i: int = 0) -> np.ndarray:
+    def __call__(self, x: np.ndarray, i: int = 0) -> np.ndarray:  # vectorise
         assert x.ndim == 2
         assert isinstance(i, int)
 
@@ -74,11 +74,13 @@ class Model:
         return self
 
 
-def evaluate_model_mse(x: np.ndarray, y: np.ndarray, model: Model) -> float:
+def evaluate_model(x: np.ndarray, y: np.ndarray, model: Model,
+                   d: float = 3) -> float:
     assert x.ndim == 2
     assert y.ndim == 1
     assert x.shape[0] == y.shape[0]
     assert isinstance(model, Model)
+    assert isinstance(d, (int, float))
 
     '''
     ATTENTION !!!
@@ -96,14 +98,8 @@ def evaluate_model_mse(x: np.ndarray, y: np.ndarray, model: Model) -> float:
         y_pred = data_matrix @ coefficients
         mse = np.sum((y - y_pred) ** 2)
 
-    return mse / len(y)
-
-
-def evaluate_model_gcv(x: np.ndarray, y: np.ndarray, model: Model,
-                       d: float = 3) -> float:
-    mse = evaluate_model_mse(x, y, model)
     c_m = len(model.singular_values) + d * len(model)
-    return mse / (1 - c_m / len(y)) ** 2
+    return mse / len(y) / (1 - c_m / len(y)) ** 2
 
 
 def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
@@ -132,7 +128,7 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
                     neg_candidate = deepcopy(selected_basis)
                     neg_candidate.add(v, t, Sign.neg)
                     candidate_model.add([pos_candidate, neg_candidate])
-                    mse = evaluate_model_mse(x, y, candidate_model)
+                    mse = evaluate_model(x, y, candidate_model)
                     if mse < best_mse:
                         best_mse = mse
                         best_candidate_model = candidate_model
@@ -150,7 +146,7 @@ def backward_pass(x: np.ndarray, y: np.ndarray, model: Model) -> Model:
 
     best_model = model
     best_trimmed_model = deepcopy(model)
-    best_gcv = evaluate_model_gcv(x, y, model)
+    best_gcv = evaluate_model(x, y, model)
 
     while len(best_trimmed_model) > 1:
         best_trimmed_gcv = np.inf
@@ -159,7 +155,7 @@ def backward_pass(x: np.ndarray, y: np.ndarray, model: Model) -> Model:
             if i == 0:  # First basis function (constant 1) cannot be excluded
                 continue
             trimmed_model = deepcopy(previous_model).remove(i)
-            gcv = evaluate_model_gcv(x, y, trimmed_model)
+            gcv = evaluate_model(x, y, trimmed_model)
             if gcv < best_trimmed_gcv:
                 best_trimmed_gcv = gcv
                 best_trimmed_model = trimmed_model

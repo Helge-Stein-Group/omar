@@ -65,3 +65,11 @@ def test_scenario3():
     r2 = omars_test(x, y, sigmoid(l1) + sigmoid(l2), "Scenario 3")
 
     assert r2 < 0.8
+
+from datetime import datetime
+
+start = datetime.now()
+test_scenario1()
+test_scenario2()
+test_scenario3()
+print(datetime.now() - start)
