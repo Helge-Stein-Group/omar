@@ -1,7 +1,10 @@
 import numpy as np
 
 from omars.regression import fit
-from omars.utils import sigmoid
+
+
+def sigmoid(x: np.ndarray) -> np.ndarray:
+    return 1 / (1 + np.exp(-x))
 
 
 def data_generation_model(n_samples: int, dim: int) \
@@ -65,11 +68,3 @@ def test_scenario3():
     r2 = omars_test(x, y, sigmoid(l1) + sigmoid(l2), "Scenario 3")
 
     assert r2 < 0.8
-
-from datetime import datetime
-
-start = datetime.now()
-test_scenario1()
-test_scenario2()
-test_scenario3()
-print(datetime.now() - start)

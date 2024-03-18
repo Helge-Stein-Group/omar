@@ -3,35 +3,34 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from omars.utils import Sign, hinge
-
 
 @dataclass
 class Basis:
     v: list[int] = field(default_factory=list)  # Index of variable
-    t: list[float] = field(default_factory=list)  # Knot value
-    sign: list[Sign] = field(default_factory=list)  # Sign of basis function
+    t: np.ndarray = field(
+        default_factory=lambda: np.array([], dtype=float))  # Knots
+    hinge: list[bool] = field(default_factory=list)  # Whether to apply the hinge
 
-    def __call__(self, x: np.ndarray, i: int = 0) -> np.ndarray:  # vectorise
+    def __call__(self, x: np.ndarray) -> np.ndarray:
         assert x.ndim == 2
-        assert isinstance(i, int)
 
-        if not self.v or i == len(self.v):
+        if len(self.v) == 0:
             return np.ones(x.shape[0])
-        else:
-            sign = self.sign[i].value
-            v = self.v[i]
-            t = self.t[i]
-            return hinge(sign * (x[:, v] - t)) * self.__call__(x, i + 1)
+        return np.prod(
+            np.maximum(
+                np.zeros((x.shape[0], len(self.v)), dtype=float),
+                x[:, self.v] - self.t,
+                where=self.hinge),
+            axis=1)
 
-    def add(self, v: int, t: float, sign: Sign):
+    def add(self, v: int, t: float, hinge: bool):
         assert isinstance(v, int)
         assert isinstance(t, float)
-        assert isinstance(sign, Sign)
+        assert isinstance(hinge, bool)
 
         self.v.append(v)
-        self.t.append(t)
-        self.sign.append(sign)
+        self.t = np.append(self.t, t)
+        self.hinge.append(hinge)
 
 
 @dataclass
@@ -51,7 +50,7 @@ class Model:
         return self.data_matrix(x) @ self.coefficients
 
     def __len__(self):
-        return len(self.basis) - 1
+        return len(self.basis)
 
     def __getitem__(self, i: int):
         assert isinstance(i, int)
@@ -98,7 +97,7 @@ def evaluate_model(x: np.ndarray, y: np.ndarray, model: Model,
         y_pred = data_matrix @ coefficients
         mse = np.sum((y - y_pred) ** 2)
 
-    c_m = len(model.singular_values) + d * len(model)
+    c_m = len(model.singular_values) + d * (len(model)-1)
     return mse / len(y) / (1 - c_m / len(y)) ** 2
 
 
@@ -111,26 +110,23 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
     covariates = set(range(x.shape[1]))
     model = Model()
     while len(model) < m_max:
-        best_mse = np.inf
+        best_gcv = np.inf
         best_candidate_model = None
         for m, selected_basis in enumerate(model.basis):
             ineligible_covariates = set(selected_basis.v)
             eligible_covariates = covariates - ineligible_covariates
             for v in eligible_covariates:
-                eligible_knots = set([
-                    sample[v] for sample in x if
-                    selected_basis(sample.reshape(1, -1)) > 0
-                ])
+                eligible_knots = set(x[:, v][np.where(selected_basis(x) > 0)])
                 for t in eligible_knots:
                     candidate_model = deepcopy(model)
-                    pos_candidate = deepcopy(selected_basis)
-                    pos_candidate.add(v, t, Sign.pos)
-                    neg_candidate = deepcopy(selected_basis)
-                    neg_candidate.add(v, t, Sign.neg)
-                    candidate_model.add([pos_candidate, neg_candidate])
-                    mse = evaluate_model(x, y, candidate_model)
-                    if mse < best_mse:
-                        best_mse = mse
+                    unhinged_candidate = deepcopy(selected_basis)
+                    unhinged_candidate.add(v, 0.0, False)
+                    hinged_candidate = deepcopy(selected_basis)
+                    hinged_candidate.add(v, t, True)
+                    candidate_model.add([unhinged_candidate, hinged_candidate])
+                    gcv = evaluate_model(x, y, candidate_model)
+                    if gcv < best_gcv:
+                        best_gcv = gcv
                         best_candidate_model = candidate_model
 
         model = best_candidate_model

@@ -53,8 +53,8 @@ def inspect_fit(
 
 
 if __name__ == "__main__":
-    from tests.simulated_test import data_generation_model
     from omars.regression import fit
+    from tests.simulated_test import data_generation_model
 
     n_samples = 100
     ndim = 2
