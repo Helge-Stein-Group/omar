@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 import numpy as np
 from scipy.linalg import qr, solve_triangular, cho_factor, cho_solve
 
+method = 4
+
 
 @dataclass
 class Basis:
@@ -71,7 +73,7 @@ class Model:
         del self.basis[i]
         return self
 
-    def fit(self, x: np.ndarray, y: np.ndarray, d: float = 3, method: int = 0):
+    def fit(self, x: np.ndarray, y: np.ndarray, d: float = 3):
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]

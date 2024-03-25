@@ -1,6 +1,7 @@
 import numpy as np
+from datetime import datetime
 
-from omars.regression import fit
+import omars.regression as omars
 
 
 def sigmoid(x: np.ndarray) -> np.ndarray:
@@ -27,7 +28,7 @@ def evaluate_prediction(y_pred: np.ndarray, y_true: np.ndarray, y: np.ndarray) -
 
 
 def omars_test(x: np.ndarray, y: np.ndarray, y_true: np.ndarray, name: str) -> float:
-    model = fit(x, y, 10)
+    model = omars.fit(x, y, 10)
     y_pred = model(x)
 
     r2 = evaluate_prediction(y_pred, y_true, y)
@@ -68,3 +69,16 @@ def test_scenario3():
     r2 = omars_test(x, y, sigmoid(l1) + sigmoid(l2), "Scenario 3")
 
     assert r2 < 0.8
+
+
+def test_speed():
+    for n in range(2, 4):
+        n_samples = 10 ** n
+        dim = 4
+        x, y, y_true = data_generation_model(n_samples, dim)
+        for i in range(5):
+            omars.method = i
+            start = datetime.now()
+            omars_test(x, y, y_true, f"Speed test (Method: {i}): {n_samples}")
+            end = datetime.now()
+            print(f"Speed test (Method: {i}): {n_samples} - Time elapsed: {end - start}")
