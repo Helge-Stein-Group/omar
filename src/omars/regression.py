@@ -2,7 +2,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 
 import numpy as np
-from scipy.linalg import qr, solve_triangular
+from scipy.linalg import qr, solve_triangular, cho_factor, cho_solve
 
 
 @dataclass
@@ -71,27 +71,49 @@ class Model:
         del self.basis[i]
         return self
 
-    def fit(self, x: np.ndarray, y: np.ndarray, d: float = 3):
+    def fit(self, x: np.ndarray, y: np.ndarray, d: float = 3, method: int = 0):
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
         assert isinstance(d, (int, float))
 
         '''
-        ATTENTION !!!
-        The basis through the forward pass does not need to be linearly independent, 
-        which may lead to a singular matrix, this is can be solved by pivoting in the 
-        Cholesky decomposition, in the paper a small value is added to the diagonal.
+           ATTENTION !!!
+           The basis through the forward pass does not need to be linearly independent, 
+           which may lead to a singular matrix. Here we can either add a small diagonal value or set the dependent 
+           coefficients to 0 to obtain a unique solution again.
         '''
         self.fit_matrix = self.data_matrix(x)
 
-        covariance_matrix = self.fit_matrix.T @ (
-                self.fit_matrix - np.mean(self.fit_matrix, axis=0))
-        covariance_matrix += np.eye(covariance_matrix.shape[0]) * 1e-6
-        rhs = self.fit_matrix.T @ (y - np.mean(y))
-        q,r = qr(covariance_matrix)
-        self.coefficients = solve_triangular(r, q.T @ rhs)
-
+        # QR Seems more promising due to the qr_insert complexity of O(mn)
+        if method == 0:  # for reference only
+            self.coefficients = np.linalg.lstsq(self.fit_matrix, y, rcond=None)[0]
+        elif method == 1:
+            covariance_matrix = self.fit_matrix.T @ (self.fit_matrix - np.mean(self.fit_matrix, axis=0))
+            covariance_matrix += np.eye(covariance_matrix.shape[0]) * 1e-6
+            rhs = self.fit_matrix.T @ (y - np.mean(y))
+            l, lower = cho_factor(covariance_matrix)
+            self.coefficients = cho_solve((l, lower), rhs)
+        elif method == 2:
+            self.fit_matrix += 1e-6 * np.eye(*self.fit_matrix.shape)
+            q, r = qr(self.fit_matrix, mode='economic')
+            self.coefficients = solve_triangular(r, q.T @ y)
+        elif method == 3:
+            q, r = qr(self.fit_matrix, mode='economic')
+            dependent_cols = np.where(~r.any(axis=0))[0]
+            r = np.delete(r, dependent_cols, axis=0)
+            r = np.delete(r, dependent_cols, axis=1)
+            q = np.delete(q, dependent_cols, axis=1)
+            self.coefficients = solve_triangular(r, q.T @ y)
+            self.coefficients = np.append(self.coefficients, np.zeros(len(dependent_cols)))  # Basic solution
+        elif method == 4:
+            covariance_matrix = self.fit_matrix.T @ (self.fit_matrix - np.mean(self.fit_matrix, axis=0))
+            covariance_matrix += np.eye(covariance_matrix.shape[0]) * 1e-6
+            rhs = self.fit_matrix.T @ (y - np.mean(y))
+            q, r = qr(covariance_matrix)
+            self.coefficients = solve_triangular(r, q.T @ rhs)
+        else:
+            raise NotImplementedError
         y_pred = self.fit_matrix @ self.coefficients
         mse = np.sum((y - y_pred) ** 2)
 
