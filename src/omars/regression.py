@@ -2,7 +2,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 
 import numpy as np
-from scipy.linalg import cho_factor, cho_solve
+from scipy.linalg import qr, solve_triangular
 
 
 @dataclass
@@ -89,8 +89,8 @@ class Model:
                 self.fit_matrix - np.mean(self.fit_matrix, axis=0))
         covariance_matrix += np.eye(covariance_matrix.shape[0]) * 1e-6
         rhs = self.fit_matrix.T @ (y - np.mean(y))
-        l, lower = cho_factor(covariance_matrix)
-        self.coefficients = cho_solve((l, lower), rhs)
+        q,r = qr(covariance_matrix)
+        self.coefficients = solve_triangular(r, q.T @ rhs)
 
         y_pred = self.fit_matrix @ self.coefficients
         mse = np.sum((y - y_pred) ** 2)
