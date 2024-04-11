@@ -74,7 +74,7 @@ times = {
 
 labels = np.linspace(10, 1e5, 100, dtype=int)
 for n in labels:
-    a = np.random.rand(n, 5)
+    a = np.random.rand(n, 10)
     b = np.random.rand(n)
 
     for method in times.keys():
