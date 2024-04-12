@@ -89,13 +89,12 @@ class Model:
         self.fit_matrix = self.data_matrix(x)
 
         self.covariance_matrix = self.fit_matrix.T @ self.fit_matrix
-        self.covariance_matrix -= np.sum(self.fit_matrix.T, axis=1,
-                                         keepdims=True) * np.mean(self.fit_matrix,
-                                                                  axis=0, keepdims=True)
+        self.covariance_matrix -= (np.sum(self.fit_matrix.T, axis=1, keepdims=True) *
+                                   np.mean(self.fit_matrix, axis=0, keepdims=True))
         self.covariance_matrix += np.eye(self.covariance_matrix.shape[0]) * 1e-6
 
-        self.right_hand_side = self.fit_matrix.T @ y - np.mean(y) * np.sum(
-            self.fit_matrix, axis=0, keepdims=True)
+        self.right_hand_side = self.fit_matrix.T @ y
+        self.right_hand_side -= np.mean(y) * np.sum(self.fit_matrix, axis=0, keepdims=True)
 
         q, r = qr(self.covariance_matrix)
 
@@ -120,32 +119,25 @@ class Model:
         assert isinstance(d, (int, float))
 
         # correction for means, removing them here
-        self.covariance_matrix += np.sum(self.fit_matrix.T, axis=1,
-                                         keepdims=True) * np.mean(self.fit_matrix,
-                                                                  axis=0, keepdims=True)
-        self.covariance_matrix -= np.eye(self.covariance_matrix.shape[0]) * 1e-6
+        self.covariance_matrix += (np.sum(self.fit_matrix.T, axis=1, keepdims=True) *
+                                   np.mean(self.fit_matrix, axis=0, keepdims=True))
 
         # Update stuff
         self.fit_matrix = np.column_stack([self.fit_matrix, self.basis[-1](x)])
 
         covariance_addition = self.fit_matrix.T @ self.fit_matrix[:, -1]
-        self.covariance_matrix = np.row_stack(
-            [self.covariance_matrix, covariance_addition[:-1]])
-        self.covariance_matrix = np.column_stack(
-            [self.covariance_matrix, covariance_addition])
-        self.covariance_matrix -= np.sum(self.fit_matrix.T, axis=1,
-                                         keepdims=True) * np.mean(self.fit_matrix,
-                                                                  axis=0, keepdims=True)
-        self.covariance_matrix += np.eye(self.covariance_matrix.shape[0]) * 1e-6
+        covariance_addition[-1] += 1e-6
+        self.covariance_matrix = np.row_stack([self.covariance_matrix, covariance_addition[:-1]])
+        self.covariance_matrix = np.column_stack([self.covariance_matrix, covariance_addition])
+        self.covariance_matrix -= (np.sum(self.fit_matrix.T, axis=1, keepdims=True) *
+                                   np.mean(self.fit_matrix, axis=0, keepdims=True))
 
-        self.right_hand_side = np.append(self.right_hand_side,
-                                         self.fit_matrix[:, -1].T @ y - np.mean(
-                                             y) * np.sum(self.fit_matrix[:, -1], axis=0,
-                                                         keepdims=True))
+        right_hand_side_addition = self.fit_matrix[:, -1].T @ y
+        right_hand_side_addition -= np.mean(y) * np.sum(self.fit_matrix[:, -1], axis=0, keepdims=True)
+        self.right_hand_side = np.append(self.right_hand_side, right_hand_side_addition)
 
         # Update QR decomposition
         q, r = qr_insert(q, r, covariance_addition[:-1], q.shape[1], "col")
-        covariance_addition[-1] += 1e-6
         q, r = qr_insert(q, r, covariance_addition, q.shape[0], "row")
 
         self.coefficients = solve_triangular(r, q.T @ self.right_hand_side)
@@ -166,7 +158,7 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
     assert isinstance(m_max, int)
 
     covariates = set(range(x.shape[1]))
-    model = Model()
+    model = Model()  # Initial fit computation
     while len(model) < m_max:
         best_gcv = np.inf
         best_candidate_model = None
@@ -176,17 +168,22 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
             for v in eligible_covariates:
                 eligible_knots = x[:, v][np.where(selected_basis(x) > 0)]
                 eligible_knots[::-1].sort()
+                candidate_model = deepcopy(model)
+                unhinged_candidate = deepcopy(selected_basis)
+                unhinged_candidate.add(v, 0.0, False)
+                candidate_model.add([unhinged_candidate])  # Insert fit computation
+                hinged_candidate = deepcopy(selected_basis)
+                hinged_candidate.add(v, t, True)
+                candidate_model.add([hinged_candidate])  # Insert fit computation
+                candidate_model.fit(x, y)
                 for t in eligible_knots:
-                    candidate_model = deepcopy(model)
-                    unhinged_candidate = deepcopy(selected_basis)
-                    unhinged_candidate.add(v, 0.0, False)
                     hinged_candidate = deepcopy(selected_basis)
                     hinged_candidate.add(v, t, True)
-                    candidate_model.add([unhinged_candidate, hinged_candidate])
-                    candidate_model.fit(x, y)
+                    candidate_model.basis[-1] = hinged_candidate
+                    candidate_model.fit(x, y)  # Update fit computation
                     if candidate_model.gcv < best_gcv:
                         best_gcv = candidate_model.gcv
-                        best_candidate_model = candidate_model
+                        best_candidate_model = deepcopy(candidate_model)
 
         model = best_candidate_model
 

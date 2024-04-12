@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from timeit import timeit
-from scipy.linalg import cho_factor, cho_solve, qr, solve_triangular, qr_insert
+from scipy.linalg import cho_factor, cho_solve, qr, solve_triangular, qr_insert, qr_update
 
 
 def lstsq(a, b):
