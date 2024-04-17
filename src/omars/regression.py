@@ -2,7 +2,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 
 import numpy as np
-from scipy.linalg import qr, solve_triangular, qr_insert
+from scipy.linalg import cho_factor, cho_solve
 
 
 @dataclass
@@ -83,7 +83,7 @@ class Model:
         c_m = len(self.basis) + d * (len(self.basis) - 1)
         self.gcv = mse / len(y) / (1 - c_m / len(y)) ** 2
 
-    def fit(self, x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def fit(self, x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, bool]:
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
@@ -105,70 +105,33 @@ class Model:
         self.right_hand_side -= np.mean(y) * np.sum(self.fit_matrix, axis=0,
                                                     keepdims=True)
 
-        q, r = qr(self.covariance_matrix)
+        tri, lower = cho_factor(self.covariance_matrix)
 
-        self.coefficients = solve_triangular(r, q.T @ self.right_hand_side)
-
-        self.calculate_gcv(y)
-
-        return q, r
-
-    def fit_insert(self, x: np.ndarray, y: np.ndarray, q: np.ndarray,
-                   r: np.ndarray) -> None:
-        assert x.ndim == 2
-        assert y.ndim == 1
-        assert x.shape[0] == y.shape[0]
-        assert q.shape[0] == q.shape[1] == len(self.basis) - 1
-        assert r.shape[0] == r.shape[1] == len(self.basis) - 1
-        assert isinstance(r, np.ndarray)
-
-        # correction for means, removing them here
-        self.covariance_matrix += (np.sum(self.fit_matrix.T, axis=1, keepdims=True) *
-                                   np.mean(self.fit_matrix, axis=0, keepdims=True))
-
-        # Update stuff
-        self.fit_matrix = np.column_stack([self.fit_matrix, self.basis[-1](x)])
-
-        covariance_addition = self.fit_matrix.T @ self.fit_matrix[:, -1]
-        covariance_addition[-1] += 1e-6
-        self.covariance_matrix = np.row_stack(
-            [self.covariance_matrix, covariance_addition[:-1]])
-        self.covariance_matrix = np.column_stack(
-            [self.covariance_matrix, covariance_addition])
-        self.covariance_matrix -= (np.sum(self.fit_matrix.T, axis=1, keepdims=True) *
-                                   np.mean(self.fit_matrix, axis=0, keepdims=True))
-
-        right_hand_side_addition = self.fit_matrix[:, -1].T @ y
-        right_hand_side_addition -= np.mean(y) * np.sum(self.fit_matrix[:, -1], axis=0,
-                                                        keepdims=True)
-        self.right_hand_side = np.append(self.right_hand_side, right_hand_side_addition)
-
-        # Update QR decomposition
-        q, r = qr_insert(q, r, covariance_addition[:-1], q.shape[1], "col")
-        q, r = qr_insert(q, r, covariance_addition, q.shape[0], "row")
-
-        self.coefficients = solve_triangular(r, q.T @ self.right_hand_side)
+        self.coefficients = cho_solve((tri, lower), self.right_hand_side)
 
         self.calculate_gcv(y)
 
-        return q, r
+        return tri, lower
 
-    def fit_update(self, x: np.ndarray, y: np.ndarray, l: np.ndarray, u: float,
+    def fit_update(self, x: np.ndarray, y: np.ndarray, tri: np.ndarray, lower: bool, u: float,
                    t: float, v: int) -> None:
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
-        assert l.shape == self.covariance_matrix.shape
+        assert tri.shape[0] == tri.shape[1] == len(self.basis) - 1
+        assert isinstance(lower, bool)
         assert t <= u
 
+        # Update Fit matrix
         fit_matrix_addition = self.basis[-1](x)
-
+        self.fit_matrix[:, -1] = fit_matrix_addition
+        # Update Covariance matrix
         covariance_addition = self.covariance_matrix[-1, :]
         weights = x[:, v] - t
         weights[x[:, v] < t] = 0
         weights[x[:, v] >= u] = u - t
         covariance_addition[:-1] += np.sum(weights * (
-                self.fit_matrix - np.mean(self.fit_matrix, axis=0,
+                self.fit_matrix[:, :-1] - np.mean(self.fit_matrix[:, :-1], axis=0,
                                           keepdims=True)) * fit_matrix_addition,
                                            axis=0, keepdims=True)
         weights **= 2
@@ -182,9 +145,10 @@ class Model:
         weights[x[:, v] < t] = 0
         s_t = np.sum(weights * fit_matrix_addition, axis=0, keepdims=True) ** 2
         covariance_addition[-1] += (s_u - s_t) / len(y)
-
         covariance_addition[-1] += 1e-6
-
+        self.covariance_matrix[-1, :] = covariance_addition
+        self.covariance_matrix[:, -1] = covariance_addition
+        # Update right-hand side
         weights = (x[:, v] - t)
         weights[x[:, v] < t] = 0
         weights[x[:, v] >= u] = (u - t)

@@ -21,9 +21,5 @@ def fit_test():
     pass
 
 
-def fit_insert_test():
-    pass
-
-
 def fit_update_test():
     pass
