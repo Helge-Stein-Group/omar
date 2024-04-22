@@ -5,6 +5,21 @@ import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
 
+def cholesky_update(chol, update_vector, multiplier=1.):
+    omega = update_vector
+    b = 1
+
+    new_chol = np.zeros_like(chol)
+    for i in range(chol.shape[0]):
+        temp = chol[i, i] ** 2 + multiplier / b * omega[i] ** 2
+        new_chol[i, i] = np.sqrt(temp)
+        omega[i + 1:] -= omega[i] / chol[i, i] * chol[i + 1:, i]
+        new_chol[i + 1:, i] = new_chol[i, i] * (
+                chol[i + 1:, i] / chol[i, i] + multiplier * omega[i] * omega[i + 1:] / temp / b)
+        b += multiplier * omega[i] ** 2 / chol[i, i] ** 2
+    return new_chol
+
+
 @dataclass
 class Basis:
     v: list[int] = field(default_factory=list)  # Index of variable
@@ -105,7 +120,7 @@ class Model:
         self.right_hand_side -= np.mean(y) * np.sum(self.fit_matrix, axis=0,
                                                     keepdims=True)
 
-        tri, lower = cho_factor(self.covariance_matrix)
+        tri, lower = cho_factor(self.covariance_matrix, lower=True)
 
         self.coefficients = cho_solve((tri, lower), self.right_hand_side)
 
@@ -114,7 +129,7 @@ class Model:
         return tri, lower
 
     def fit_update(self, x: np.ndarray, y: np.ndarray, tri: np.ndarray, lower: bool, u: float,
-                   t: float, v: int) -> None:
+                   t: float, v: int) -> tuple[np.ndarray, bool]:
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
@@ -123,39 +138,55 @@ class Model:
         assert t <= u
 
         # Update Fit matrix
-        fit_matrix_addition = self.basis[-1](x)
-        self.fit_matrix[:, -1] = fit_matrix_addition
+        self.fit_matrix[:, -1] = self.basis[-1](x)
         # Update Covariance matrix
-        covariance_addition = self.covariance_matrix[-1, :]
+        covariance_addition = np.zeros_like(self.covariance_matrix[-1, :])
         weights = x[:, v] - t
         weights[x[:, v] < t] = 0
         weights[x[:, v] >= u] = u - t
         covariance_addition[:-1] += np.sum(weights * (
                 self.fit_matrix[:, :-1] - np.mean(self.fit_matrix[:, :-1], axis=0,
-                                          keepdims=True)) * fit_matrix_addition,
+                                                  keepdims=True)) * self.fit_matrix[:, -1],
                                            axis=0, keepdims=True)
         weights **= 2
         weights[x[:, v] >= u] *= 2 * x[:, v] - t - u
-        covariance_addition[-1] += np.sum(weights * fit_matrix_addition ** 2, axis=0,
+        covariance_addition[-1] += np.sum(weights * self.fit_matrix[:, -1] ** 2, axis=0,
                                           keepdims=True)
         weights = x[:, v] - u
         weights[x[:, v] < u] = 0
-        s_u = np.sum(weights * fit_matrix_addition, axis=0, keepdims=True) ** 2
+        s_u = np.sum(weights * self.fit_matrix[:, -1], axis=0, keepdims=True) ** 2
         weights = x[:, v] - t
         weights[x[:, v] < t] = 0
-        s_t = np.sum(weights * fit_matrix_addition, axis=0, keepdims=True) ** 2
+        s_t = np.sum(weights * self.fit_matrix[:, -1], axis=0, keepdims=True) ** 2
         covariance_addition[-1] += (s_u - s_t) / len(y)
         covariance_addition[-1] += 1e-6
-        self.covariance_matrix[-1, :] = covariance_addition
-        self.covariance_matrix[:, -1] = covariance_addition
+        self.covariance_matrix[-1, :] += covariance_addition
+        self.covariance_matrix[:, -1] += covariance_addition
         # Update right-hand side
         weights = (x[:, v] - t)
         weights[x[:, v] < t] = 0
         weights[x[:, v] >= u] = (u - t)
-        weights *= y - np.mean(y)
-        right_hand_side_addition = np.sum(weights * fit_matrix_addition, axis=0,
-                                          keepdims=True)
-        self.right_hand_side += right_hand_side_addition
+        self.right_hand_side += np.sum(weights * (y - np.mean(y)) * self.fit_matrix[:, -1], axis=0,
+                                       keepdims=True)
+        # Decompose the covariance addition into 2 rank-1 updates
+        temp = np.sqrt(covariance_addition[-1] ** 2 + 4 * np.sum(covariance_addition[:-1] ** 2))
+        eigenvalue1 = (covariance_addition[-1] + temp) / 2
+        eigenvalue2 = (covariance_addition[-1] - temp) / 2
+        rank1_updates = [
+            np.array([*(covariance_addition[:-1] / eigenvalue1), 1]),
+            np.array([*(covariance_addition[:-1] / eigenvalue2), 1]),
+        ]
+        rank1_updates[0] /= np.linalg.norm(rank1_updates[0])
+        rank1_updates[1] /= np.linalg.norm(rank1_updates[1])
+
+        tri = cholesky_update(tri, rank1_updates[0], eigenvalue1)
+        tri = cholesky_update(tri, rank1_updates[1], eigenvalue2)
+
+        self.coefficients = cho_solve((tri, lower), self.right_hand_side)
+
+        self.calculate_gcv(y)
+
+        return tri, lower
 
 
 def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
