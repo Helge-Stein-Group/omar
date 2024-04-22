@@ -2,7 +2,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 
-from omars.regression import Model
+from regression import Model
 
 mpl.use("Qt5Agg")
 
@@ -53,7 +53,7 @@ def inspect_fit(
 
 
 if __name__ == "__main__":
-    from omars.regression import fit
+    from regression import fit
     from tests.simulated_test import data_generation_model
 
     n_samples = 100

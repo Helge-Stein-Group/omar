@@ -6,7 +6,7 @@ from scipy.linalg import cho_factor, cho_solve
 
 
 def cholesky_update(chol, update_vector, multiplier=1.):
-    omega = update_vector
+    omega = update_vector.copy()
     b = 1
 
     new_chol = np.zeros_like(chol)
@@ -98,7 +98,7 @@ class Model:
         c_m = len(self.basis) + d * (len(self.basis) - 1)
         self.gcv = mse / len(y) / (1 - c_m / len(y)) ** 2
 
-    def fit(self, x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, bool]:
+    def fit(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
@@ -117,8 +117,7 @@ class Model:
         self.covariance_matrix += np.eye(self.covariance_matrix.shape[0]) * 1e-6
 
         self.right_hand_side = self.fit_matrix.T @ y
-        self.right_hand_side -= np.mean(y) * np.sum(self.fit_matrix, axis=0,
-                                                    keepdims=True)
+        self.right_hand_side -= np.mean(y) * np.sum(self.fit_matrix, axis=0)
 
         tri, lower = cho_factor(self.covariance_matrix, lower=True)
 
@@ -126,15 +125,13 @@ class Model:
 
         self.calculate_gcv(y)
 
-        return tri, lower
+        return tri
 
-    def fit_update(self, x: np.ndarray, y: np.ndarray, tri: np.ndarray, lower: bool, u: float,
-                   t: float, v: int) -> tuple[np.ndarray, bool]:
+    def fit_update(self, x: np.ndarray, y: np.ndarray, tri: np.ndarray, u: float, t: float, v: int) -> np.ndarray:
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
-        assert tri.shape[0] == tri.shape[1] == len(self.basis) - 1
-        assert isinstance(lower, bool)
+        assert tri.shape[0] == tri.shape[1] == len(self.basis)
         assert t <= u
 
         # Update Fit matrix
@@ -144,12 +141,12 @@ class Model:
         weights = x[:, v] - t
         weights[x[:, v] < t] = 0
         weights[x[:, v] >= u] = u - t
-        covariance_addition[:-1] += np.sum(weights * (
-                self.fit_matrix[:, :-1] - np.mean(self.fit_matrix[:, :-1], axis=0,
-                                                  keepdims=True)) * self.fit_matrix[:, -1],
-                                           axis=0, keepdims=True)
+        covariance_addition[:-1] += np.sum(weights[:, np.newaxis] * (
+                self.fit_matrix[:, :-1] - np.mean(self.fit_matrix[:, :-1], axis=0, keepdims=True)
+        ) * self.fit_matrix[:, -1:],
+                                           axis=0, keepdims=True)[0, :]
         weights **= 2
-        weights[x[:, v] >= u] *= 2 * x[:, v] - t - u
+        weights[x[:, v] >= u] *= 2 * x[x[:, v] >= u, v] - t - u
         covariance_addition[-1] += np.sum(weights * self.fit_matrix[:, -1] ** 2, axis=0,
                                           keepdims=True)
         weights = x[:, v] - u
@@ -159,9 +156,9 @@ class Model:
         weights[x[:, v] < t] = 0
         s_t = np.sum(weights * self.fit_matrix[:, -1], axis=0, keepdims=True) ** 2
         covariance_addition[-1] += (s_u - s_t) / len(y)
-        covariance_addition[-1] += 1e-6
+        covariance_addition[-1] += 5e-7
         self.covariance_matrix[-1, :] += covariance_addition
-        self.covariance_matrix[:, -1] += covariance_addition
+        self.covariance_matrix[:-1, -1] += covariance_addition[:-1]
         # Update right-hand side
         weights = (x[:, v] - t)
         weights[x[:, v] < t] = 0
@@ -182,11 +179,14 @@ class Model:
         tri = cholesky_update(tri, rank1_updates[0], eigenvalue1)
         tri = cholesky_update(tri, rank1_updates[1], eigenvalue2)
 
-        self.coefficients = cho_solve((tri, lower), self.right_hand_side)
+        try:
+            self.coefficients = cho_solve((tri, True), self.right_hand_side)
+        except ValueError as e:
+            print("Pause")
 
         self.calculate_gcv(y)
 
-        return tri, lower
+        return tri
 
 
 def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
@@ -209,16 +209,17 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
                 candidate_model = deepcopy(model)
                 unhinged_candidate = deepcopy(selected_basis)
                 unhinged_candidate.add(v, 0.0, False)
-                candidate_model.add([unhinged_candidate])  # Insert fit computation
                 hinged_candidate = deepcopy(selected_basis)
-                hinged_candidate.add(v, t, True)
-                candidate_model.add([hinged_candidate])  # Insert fit computation
-                candidate_model.fit(x, y)
-                for t in eligible_knots:
+                hinged_candidate.add(v, eligible_knots[0], True)
+                candidate_model.add([unhinged_candidate, hinged_candidate])
+                tri = candidate_model.fit(x, y)
+                u = eligible_knots[0]
+                for t in eligible_knots[1:]:
                     hinged_candidate = deepcopy(selected_basis)
                     hinged_candidate.add(v, t, True)
                     candidate_model.basis[-1] = hinged_candidate
-                    candidate_model.fit(x, y)  # Update fit computation
+                    candidate_model.fit_update(x, y, tri, u, t, v)
+                    u = t
                     if candidate_model.gcv < best_gcv:
                         best_gcv = candidate_model.gcv
                         best_candidate_model = deepcopy(candidate_model)
