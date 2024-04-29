@@ -53,7 +53,6 @@ def covariance_update_test():
     model.update_covariance_matrix(x, y, x[-1, 0], x[-2, 0], 0)
     updated_covariance = model.covariance_matrix.copy()
 
-    model.calculate_fit_matrix(x)
     model.calculate_covariance_matrix()
     full_covariance = model.covariance_matrix.copy()
 
@@ -67,7 +66,6 @@ def right_hand_side_update_test():
     model.update_right_hand_side(x, y, x[-1, 0], x[-2, 0], 0)
     updated_right_hand_side = model.right_hand_side.copy()
 
-    model.calculate_fit_matrix(x)
     model.calculate_right_hand_side(y)
     full_right_hand_side = model.right_hand_side.copy()
 
@@ -84,4 +82,4 @@ def fit_update_test():
 
 fit_matrix_update_test()
 right_hand_side_update_test()
-# covariance_update_test()
+covariance_update_test()
