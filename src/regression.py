@@ -142,6 +142,25 @@ class Model:
 
         return covariance_addition
 
+    def decompose_addition(self, covariance_addition: np.ndarray) -> tuple[list[float],
+    list[np.ndarray]]:
+        assert covariance_addition.shape == self.covariance_matrix[-1, :].shape
+
+        eigenvalue_intermediate = np.sqrt(
+            covariance_addition[-1] ** 2 + 4 * np.sum(covariance_addition[:-1] ** 2))
+        eigenvalues = [
+            (covariance_addition[-1] + eigenvalue_intermediate) / 2,
+            (covariance_addition[-1] - eigenvalue_intermediate) / 2,
+        ]
+        eigenvectors = [
+            np.array([*(covariance_addition[:-1] / eigenvalues[0]), 1]),
+            np.array([*(covariance_addition[:-1] / eigenvalues[1]), 1]),
+        ]
+        eigenvectors[0] /= np.linalg.norm(eigenvectors[0])
+        eigenvectors[1] /= np.linalg.norm(eigenvectors[1])
+
+        return eigenvalues, eigenvectors
+
     def calculate_right_hand_side(self, y: np.ndarray):
         assert y.ndim == 1
         assert y.shape[0] == self.fit_matrix.shape[0]
@@ -161,7 +180,7 @@ class Model:
         weights = (x[:, v] - t)
         weights[x[:, v] < t] = 0
         weights[x[:, v] >= u] = (u - t)
-        update = np.sum(weights * (y - np.mean(y)) * self.fit_matrix[:, -1]) # + weights?
+        update = np.sum(weights * (y - np.mean(y)))
         self.right_hand_side[-1] += update
 
     def calculate_gcv(self, y: np.ndarray, d: float = 3) -> None:
