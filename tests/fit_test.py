@@ -6,13 +6,15 @@ import regression
 
 def create_case():
     x = np.random.normal(size=(100, 3))
+    x = x[x[:, 0].argsort()]
     y = np.random.normal(size=100)
+    y = y[x[:, 0].argsort()]
     model = regression.Model()
     basis_addition = deepcopy(model.basis[0])
     basis_addition.add(0, 0.0, False)
     model.add([basis_addition])
     basis_addition = deepcopy(model.basis[0])
-    basis_addition.add(0, np.max(x[:, 0]), True)
+    basis_addition.add(0, x[-1, 0], True)
     model.add([basis_addition])
     return model, x, y
 
@@ -25,7 +27,7 @@ def update_case():
     model.calculate_right_hand_side(y)
 
     add_basis = deepcopy(model.basis[0])
-    add_basis.add(0, np.min(x[:, 0]), True)
+    add_basis.add(0, x[-2, 0], True)
     model.basis[-1] = add_basis
 
     return model, x, y
@@ -48,7 +50,7 @@ def covariance_update_test():
     model, x, y = update_case()
     former_covariance = model.covariance_matrix.copy()
 
-    model.update_covariance_matrix(x, y, np.max(x[:, 0]), min(x[:, 0]), 0)
+    model.update_covariance_matrix(x, y, x[-1, 0], x[-2, 0], 0)
     updated_covariance = model.covariance_matrix.copy()
 
     model.calculate_fit_matrix(x)
@@ -62,7 +64,7 @@ def right_hand_side_update_test():
     model, x, y = update_case()
     former_right_hand_side = model.right_hand_side.copy()
 
-    model.update_right_hand_side(x, y, np.max(x[:, 0]), min(x[:, 0]), 0)
+    model.update_right_hand_side(x, y, x[-1, 0], x[-2, 0], 0)
     updated_right_hand_side = model.right_hand_side.copy()
 
     model.calculate_fit_matrix(x)

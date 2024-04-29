@@ -15,7 +15,8 @@ def cholesky_update(chol, update_vector, multiplier=1.):
         new_chol[i, i] = np.sqrt(temp)
         omega[i + 1:] -= omega[i] / chol[i, i] * chol[i + 1:, i]
         new_chol[i + 1:, i] = new_chol[i, i] * (
-                chol[i + 1:, i] / chol[i, i] + multiplier * omega[i] * omega[i + 1:] / temp / b)
+                chol[i + 1:, i] / chol[i, i] + multiplier * omega[i] * omega[
+                                                                       i + 1:] / temp / b)
         b += multiplier * omega[i] ** 2 / chol[i, i] ** 2
     return new_chol
 
@@ -107,7 +108,8 @@ class Model:
                                    np.mean(self.fit_matrix, axis=0, keepdims=True))
         self.covariance_matrix += np.eye(self.covariance_matrix.shape[0]) * 1e-6
 
-    def update_covariance_matrix(self, x: np.ndarray, y: np.ndarray, u: float, t: float, v: int) -> np.ndarray:
+    def update_covariance_matrix(self, x: np.ndarray, y: np.ndarray, u: float, t: float,
+                                 v: int) -> np.ndarray:
         assert self.fit_matrix.shape[1] == self.covariance_matrix.shape[0]
         assert x.ndim == 2
         assert y.ndim == 1
@@ -120,8 +122,10 @@ class Model:
         weights[x[:, v] < t] = 0
         weights[x[:, v] >= u] = u - t
         covariance_addition[:-1] += np.sum(weights[:, np.newaxis] * (
-                self.fit_matrix[:, :-1] - np.mean(self.fit_matrix[:, :-1], axis=0, keepdims=True)
-        ) * self.fit_matrix[:, -1:], axis=0, keepdims=True)[0, :]  # remove index in the end and keepdims?
+                self.fit_matrix[:, :-1] - np.mean(self.fit_matrix[:, :-1], axis=0,
+                                                  keepdims=True)
+        ) * self.fit_matrix[:, -1:], axis=0, keepdims=True)[0,
+                                    :]  # remove index in the end and keepdims?
         weights **= 2
         weights[x[:, v] >= u] *= 2 * x[x[:, v] >= u, v] - t - u
         covariance_addition[-1] += np.sum(weights * self.fit_matrix[:, -1] ** 2, axis=0,
@@ -145,7 +149,8 @@ class Model:
 
         self.right_hand_side = self.fit_matrix.T @ (y - np.mean(y))
 
-    def update_right_hand_side(self, x: np.ndarray, y: np.ndarray, u: float, t: float, v: int) -> None:
+    def update_right_hand_side(self, x: np.ndarray, y: np.ndarray, u: float, t: float,
+                               v: int) -> None:
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
@@ -156,7 +161,8 @@ class Model:
         weights = (x[:, v] - t)
         weights[x[:, v] < t] = 0
         weights[x[:, v] >= u] = (u - t)
-        self.right_hand_side[-1] += np.sum(weights * (y - np.mean(y)) * self.fit_matrix[:, -1])
+        update = np.sum(weights * (y - np.mean(y)) * self.fit_matrix[:, -1]) # + weights?
+        self.right_hand_side[-1] += update
 
     def calculate_gcv(self, y: np.ndarray, d: float = 3) -> None:
         assert y.ndim == 1
@@ -191,7 +197,8 @@ class Model:
 
         return tri
 
-    def fit_update(self, x: np.ndarray, y: np.ndarray, tri: np.ndarray, u: float, t: float, v: int) -> np.ndarray:
+    def fit_update(self, x: np.ndarray, y: np.ndarray, tri: np.ndarray, u: float,
+                   t: float, v: int) -> np.ndarray:
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
@@ -207,7 +214,8 @@ class Model:
 
         self.update_right_hand_side(x, y, u, t, v)
         # Decompose the covariance addition into 2 rank-1 updates
-        temp = np.sqrt(covariance_addition[-1] ** 2 + 4 * np.sum(covariance_addition[:-1] ** 2))
+        temp = np.sqrt(
+            covariance_addition[-1] ** 2 + 4 * np.sum(covariance_addition[:-1] ** 2))
         eigenvalue1 = (covariance_addition[-1] + temp) / 2
         eigenvalue2 = (covariance_addition[-1] - temp) / 2
         rank1_updates = [
