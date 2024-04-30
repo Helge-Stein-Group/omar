@@ -94,18 +94,21 @@ class Model:
 
         self.fit_matrix = self.data_matrix(x)
 
-    def update_fit_matrix(self, indices: list[int], x: np.ndarray):
-        assert all(isinstance(i, int) for i in indices)
-        assert all(i < len(self.basis) for i in indices)
+    def update_fit_matrix(self, x: np.ndarray, u: float, t: float, v: float):
         assert x.ndim == 2
         assert x.shape[0] == self.fit_matrix.shape[0]
+        assert t <= u
+        assert v < x.shape[1]
 
-        self.fit_matrix[:, indices] = self.data_matrix(x)[:, indices]
+        upper_indices = x[:, v] >= u
+        lower_indices = (x[:, v] > t) & ~upper_indices
+        self.fit_matrix[lower_indices, -1] += x[lower_indices, v] - t
+        self.fit_matrix[upper_indices, -1] += u - t
 
     def calculate_covariance_matrix(self):
         self.covariance_matrix = self.fit_matrix.T @ self.fit_matrix
-        self.covariance_matrix -= (np.sum(self.fit_matrix.T, axis=1, keepdims=True) *
-                                   np.mean(self.fit_matrix, axis=0, keepdims=True))
+        collapsed_fit = np.sum(self.fit_matrix, axis=0)
+        self.covariance_matrix -= np.outer(collapsed_fit, collapsed_fit) / self.fit_matrix.shape[0]
         self.covariance_matrix += np.eye(self.covariance_matrix.shape[0]) * 1e-6
 
     def update_covariance_matrix(self, x: np.ndarray, y: np.ndarray, u: float, t: float,
@@ -118,26 +121,27 @@ class Model:
         assert v < x.shape[1]
 
         covariance_addition = np.zeros_like(self.covariance_matrix[-1, :])
-        weights = x[:, v] - t
-        weights[x[:, v] < t] = 0
-        weights[x[:, v] >= u] = u - t
-        covariance_addition[:-1] += np.sum(weights[:, np.newaxis] * (
-                self.fit_matrix[:, :-1] - np.mean(self.fit_matrix[:, :-1], axis=0,
-                                                  keepdims=True)
-        ) * self.fit_matrix[:, -1:], axis=0, keepdims=True)[0,
-                                    :]  # remove index in the end and keepdims?
-        weights **= 2
-        weights[x[:, v] >= u] *= 2 * x[x[:, v] >= u, v] - t - u
-        covariance_addition[-1] += np.sum(weights * self.fit_matrix[:, -1] ** 2, axis=0,
-                                          keepdims=True)
-        weights = x[:, v] - u
-        weights[x[:, v] < u] = 0
-        s_u = np.sum(weights * self.fit_matrix[:, -1], axis=0, keepdims=True) ** 2
-        weights = x[:, v] - t
-        weights[x[:, v] < t] = 0
-        s_t = np.sum(weights * self.fit_matrix[:, -1], axis=0, keepdims=True) ** 2
-        covariance_addition[-1] += (s_u - s_t) / len(y)
-        self.covariance_matrix[-1, :] += covariance_addition
+        upper_indices = x[:, v] >= u
+        lower_indices = (x[:, v] > t) & ~upper_indices
+        lower_weight = x[lower_indices, v] - t
+        upper_weight = u - t
+        left_mean = np.mean(self.fit_matrix[:, :-1], axis=0)
+        right_mean = np.mean(self.fit_matrix[:, -1])
+        weight_mean = (np.sum(lower_weight) + np.sum(upper_weight * np.sum(upper_indices))) / len(y)
+
+        # np.tensordot
+        covariance_addition[:-1] += np.sum(
+            lower_weight[..., np.newaxis] * (self.fit_matrix[lower_indices, :-1] - left_mean), axis=0)
+        covariance_addition[:-1] += np.sum(upper_weight * (self.fit_matrix[upper_indices, :-1] - left_mean), axis=0)
+
+        covariance_addition[-1] += np.sum(
+            lower_weight * (2 * self.fit_matrix[lower_indices, -1] - right_mean + lower_weight - weight_mean))
+        covariance_addition[-1] -= np.sum(self.fit_matrix[lower_indices, -1] * weight_mean)
+        covariance_addition[-1] += np.sum(
+            upper_weight * (2 * self.fit_matrix[upper_indices, -1] - right_mean + upper_weight - weight_mean))
+        covariance_addition[-1] -= np.sum(self.fit_matrix[upper_indices, -1] * weight_mean)
+
+        self.covariance_matrix[-1, :-1] += covariance_addition[:-1]
         self.covariance_matrix[:, -1] += covariance_addition
 
         return covariance_addition
@@ -177,11 +181,10 @@ class Model:
         assert v < x.shape[1]
         assert self.fit_matrix.shape[1] == self.covariance_matrix.shape[0]
 
-        weights = (x[:, v] - t)
-        weights[x[:, v] < t] = 0
-        weights[x[:, v] >= u] = (u - t)
-        update = np.sum(weights * (y - np.mean(y)))
-        self.right_hand_side[-1] += update
+        upper_indices = x[:, v] >= u
+        lower_indices = (x[:, v] > t) & ~upper_indices
+        self.right_hand_side[-1] += np.sum((x[lower_indices, v] - t) * (y[lower_indices] - np.mean(y)))
+        self.right_hand_side[-1] += np.sum((u - t) * (y[upper_indices] - np.mean(y)))
 
     def calculate_gcv(self, y: np.ndarray, d: float = 3) -> None:
         assert y.ndim == 1

@@ -37,7 +37,7 @@ def fit_matrix_update_test():
     model, x, y = update_case()
     former_fit_matrix = model.fit_matrix.copy()
 
-    model.update_fit_matrix([-1], x)
+    model.update_fit_matrix(x, x[-2, 0], x[-5, 0], 0)
     updated_fit_matrix = model.fit_matrix.copy()
 
     model.calculate_fit_matrix(x)
@@ -56,7 +56,8 @@ def covariance_update_test():
     model.calculate_fit_matrix(x)
     model.calculate_covariance_matrix()
     full_covariance = model.covariance_matrix.copy()
-
+    assert np.allclose(updated_covariance[:-1, :-1], full_covariance[:-1, :-1])
+    assert np.allclose(updated_covariance[-1, :-1], full_covariance[-1, :-1])
     assert np.allclose(updated_covariance, full_covariance)
 
 
@@ -73,6 +74,7 @@ def right_hand_side_update_test():
 
     assert np.allclose(updated_right_hand_side, full_right_hand_side)
 
+
 def decompose_test():
     model, x, y = update_case()
     former_covariance = model.covariance_matrix.copy()
@@ -86,6 +88,7 @@ def decompose_test():
 
     assert np.allclose(test_covariance, updated_covariance)
 
+
 def cholesky_update_test():
     model, x, y = create_case()
 
@@ -95,7 +98,6 @@ def cholesky_update_test():
     add_basis.add(0, x[-5, 0], True)
     model.basis[-1] = add_basis
     covariance_addition = model.update_covariance_matrix(x, y, x[-2, 0], x[-5, 0], 0)
-
 
 
 def fit_test():
@@ -117,7 +119,6 @@ def fit_update_test():
 
 fit_matrix_update_test()
 right_hand_side_update_test()
-#covariance_update_test()
-#decompose_test()
-#fit_test()
-
+covariance_update_test()
+# decompose_test()
+# fit_test()
