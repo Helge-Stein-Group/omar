@@ -5,20 +5,25 @@ import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
 
-def cholesky_update(chol, update_vector, multiplier=1.):
-    omega = update_vector.copy()
-    b = 1
+def update_cholesky(tri: np.ndarray, update_vectors: list[np.ndarray], multipliers: list[float]):
+    assert tri.shape[0] == tri.shape[1]
+    assert len(update_vectors) == len(multipliers)
 
-    new_chol = np.zeros_like(chol)
-    for i in range(chol.shape[0]):
-        temp = chol[i, i] ** 2 + multiplier / b * omega[i] ** 2
-        new_chol[i, i] = np.sqrt(temp)
-        omega[i + 1:] -= omega[i] / chol[i, i] * chol[i + 1:, i]
-        new_chol[i + 1:, i] = new_chol[i, i] * (
-                chol[i + 1:, i] / chol[i, i] + multiplier * omega[i] * omega[
-                                                                       i + 1:] / temp / b)
-        b += multiplier * omega[i] ** 2 / chol[i, i] ** 2
-    return new_chol
+    for update_vector, multiplier in zip(update_vectors, multipliers):
+        omega = update_vector.copy()
+        b = 1
+
+        new_tri = np.zeros_like(tri)
+        for i in range(tri.shape[0]):
+            temp = tri[i, i] ** 2 + multiplier / b * omega[i] ** 2
+            new_tri[i, i] = np.sqrt(temp)
+            omega[i + 1:] -= omega[i] / tri[i, i] * tri[i + 1:, i]
+            new_tri[i + 1:, i] = new_tri[i, i] * (
+                    tri[i + 1:, i] / tri[i, i] + multiplier * omega[i] * omega[
+                                                                         i + 1:] / temp / b)
+            b += multiplier * omega[i] ** 2 / tri[i, i] ** 2
+        tri = new_tri
+    return tri
 
 
 @dataclass
@@ -109,7 +114,8 @@ class Model:
         self.covariance_matrix = self.fit_matrix.T @ self.fit_matrix
         collapsed_fit = np.sum(self.fit_matrix, axis=0)
         self.covariance_matrix -= np.outer(collapsed_fit, collapsed_fit) / self.fit_matrix.shape[0]
-        self.covariance_matrix += np.eye(self.covariance_matrix.shape[0]) * 1e-6
+        self.covariance_matrix += np.diag(self.covariance_matrix) * 1e-8
+        self.covariance_matrix[0, 0] += 1e-8
 
     def update_covariance_matrix(self, x: np.ndarray, y: np.ndarray, u: float, t: float,
                                  v: int) -> np.ndarray:
@@ -134,12 +140,10 @@ class Model:
             lower_weight[..., np.newaxis] * (self.fit_matrix[lower_indices, :-1] - left_mean), axis=0)
         covariance_addition[:-1] += np.sum(upper_weight * (self.fit_matrix[upper_indices, :-1] - left_mean), axis=0)
 
-        covariance_addition[-1] += np.sum(
-            lower_weight * (2 * self.fit_matrix[lower_indices, -1] - right_mean + lower_weight - weight_mean))
-        covariance_addition[-1] -= np.sum(self.fit_matrix[lower_indices, -1] * weight_mean)
-        covariance_addition[-1] += np.sum(
-            upper_weight * (2 * self.fit_matrix[upper_indices, -1] - right_mean + upper_weight - weight_mean))
-        covariance_addition[-1] -= np.sum(self.fit_matrix[upper_indices, -1] * weight_mean)
+        for indices, weight in zip([lower_indices, upper_indices], [lower_weight, upper_weight]):
+            covariance_addition[-1] += np.sum(
+                weight * (2 * self.fit_matrix[indices, -1] - right_mean + weight - weight_mean))
+            covariance_addition[-1] -= np.sum(self.fit_matrix[indices, -1] * weight_mean)
 
         self.covariance_matrix[-1, :-1] += covariance_addition[:-1]
         self.covariance_matrix[:, -1] += covariance_addition
@@ -219,7 +223,7 @@ class Model:
 
         return tri
 
-    def fit_update(self, x: np.ndarray, y: np.ndarray, tri: np.ndarray, u: float,
+    def update_fit(self, x: np.ndarray, y: np.ndarray, tri: np.ndarray, u: float,
                    t: float, v: int) -> np.ndarray:
         assert x.ndim == 2
         assert y.ndim == 1
@@ -228,32 +232,12 @@ class Model:
         assert t <= u
 
         covariance_addition = self.update_covariance_matrix(x, y, u, t, v)
-        test1 = self.covariance_matrix
-        self.calculate_fit_matrix(x)
-        self.calculate_covariance_matrix()
-        test2 = self.covariance_matrix
-        check = np.allclose(test1, test2)
+        eigenvalues, eigenvectors = self.decompose_addition(covariance_addition)
+        tri = update_cholesky(tri, eigenvectors, eigenvalues)
 
         self.update_right_hand_side(x, y, u, t, v)
-        # Decompose the covariance addition into 2 rank-1 updates
-        temp = np.sqrt(
-            covariance_addition[-1] ** 2 + 4 * np.sum(covariance_addition[:-1] ** 2))
-        eigenvalue1 = (covariance_addition[-1] + temp) / 2
-        eigenvalue2 = (covariance_addition[-1] - temp) / 2
-        rank1_updates = [
-            np.array([*(covariance_addition[:-1] / eigenvalue1), 1]),
-            np.array([*(covariance_addition[:-1] / eigenvalue2), 1]),
-        ]
-        rank1_updates[0] /= np.linalg.norm(rank1_updates[0])
-        rank1_updates[1] /= np.linalg.norm(rank1_updates[1])
 
-        tri = cholesky_update(tri, rank1_updates[0], eigenvalue1)
-        tri = cholesky_update(tri, rank1_updates[1], eigenvalue2)
-
-        try:
-            self.coefficients = cho_solve((tri, True), self.right_hand_side)
-        except ValueError as e:
-            print("Pause")
+        self.coefficients = cho_solve((tri, True), self.right_hand_side)
 
         self.calculate_gcv(y)
 
@@ -267,7 +251,7 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
     assert isinstance(m_max, int)
 
     covariates = set(range(x.shape[1]))
-    model = Model()  # Initial fit computation
+    model = Model()
     while len(model) < m_max:
         best_gcv = np.inf
         best_candidate_model = None
@@ -289,7 +273,7 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
                     hinged_candidate = deepcopy(selected_basis)
                     hinged_candidate.add(v, t, True)
                     candidate_model.basis[-1] = hinged_candidate
-                    candidate_model.fit_update(x, y, tri, u, t, v)
+                    candidate_model.update_fit(x, y, tri, u, t, v)
                     u = t
                     if candidate_model.gcv < best_gcv:
                         best_gcv = candidate_model.gcv
@@ -329,6 +313,8 @@ def backward_pass(x: np.ndarray, y: np.ndarray, model: Model) -> Model:
 
 
 def fit(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
+    # TODO Standardise data before fitting, then fit, then transform the model respectively
+
     model = forward_pass(x, y, m_max)
     model = backward_pass(x, y, model)
 

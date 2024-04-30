@@ -19,6 +19,25 @@ def create_case():
     return model, x, y
 
 
+def fit_test():
+    model, x, y = create_case()
+
+    model.fit(x, y)
+
+    result = np.linalg.lstsq(model.fit_matrix, y, rcond=None)
+    coefficients = result[0]
+
+    residual1 = np.linalg.norm(y - model.fit_matrix @ coefficients)
+    residual2 = np.linalg.norm(y - model.fit_matrix @ model.coefficients)
+    model.calculate_gcv(y)
+    gcv2 = model.gcv
+    model.coefficients = coefficients
+    model.calculate_gcv(y)
+    gcv1 = model.gcv
+    assert np.abs(1 - residual1 / residual2) < 0.05
+    assert np.abs(1 - gcv1 / gcv2) < 0.05
+
+
 def update_case():
     model, x, y = create_case()
 
@@ -33,7 +52,7 @@ def update_case():
     return model, x, y
 
 
-def fit_matrix_update_test():
+def update_fit_matrix_test():
     model, x, y = update_case()
     former_fit_matrix = model.fit_matrix.copy()
 
@@ -46,7 +65,7 @@ def fit_matrix_update_test():
     assert np.allclose(updated_fit_matrix, full_fit_matrix)
 
 
-def covariance_update_test():
+def update_covariance_matrix_test():
     model, x, y = update_case()
     former_covariance = model.covariance_matrix.copy()
 
@@ -61,7 +80,7 @@ def covariance_update_test():
     assert np.allclose(updated_covariance, full_covariance)
 
 
-def right_hand_side_update_test():
+def update_right_hand_side_test():
     model, x, y = update_case()
     former_right_hand_side = model.right_hand_side.copy()
 
@@ -83,13 +102,13 @@ def decompose_test():
     updated_covariance = model.covariance_matrix.copy()
 
     eigenvalues, eigenvectors = model.decompose_addition(covariance_addition)
-    test_covariance = former_covariance + eigenvalues[0] * np.outer(eigenvectors[0], eigenvectors[0])
-    test_covariance += eigenvalues[1] * np.outer(eigenvectors[1], eigenvectors[1])
+    reconstructed_covariance = former_covariance + eigenvalues[0] * np.outer(eigenvectors[0], eigenvectors[0])
+    reconstructed_covariance += eigenvalues[1] * np.outer(eigenvectors[1], eigenvectors[1])
 
-    assert np.allclose(test_covariance, updated_covariance)
+    assert np.allclose(reconstructed_covariance, updated_covariance)
 
 
-def cholesky_update_test():
+def update_cholesky_test():
     model, x, y = create_case()
 
     former_cholesky = model.fit(x, y)
@@ -98,27 +117,45 @@ def cholesky_update_test():
     add_basis.add(0, x[-5, 0], True)
     model.basis[-1] = add_basis
     covariance_addition = model.update_covariance_matrix(x, y, x[-2, 0], x[-5, 0], 0)
+    eigenvalues, eigenvectors = model.decompose_addition(covariance_addition)
+    updated_cholesky = regression.update_cholesky(former_cholesky, eigenvectors, eigenvalues)
+
+    model.calculate_fit_matrix(x)
+    model.calculate_covariance_matrix()
+    model.calculate_right_hand_side(y)
+    full_cholesky = model.fit(x, y)
+    assert np.allclose(np.tril(updated_cholesky), np.tril(full_cholesky))
 
 
-def fit_test():
+def update_fit_test():
     model, x, y = create_case()
 
-    model.fit(x, y)
+    former_tri = model.fit(x, y)
+    former_coefficients = model.coefficients.copy()
 
-    result = np.linalg.lstsq(model.fit_matrix, y, rcond=None)
-    coefficients = result[0]
+    add_basis = deepcopy(model.basis[0])
+    add_basis.add(0, x[-5, 0], True)
+    model.basis[-1] = add_basis
 
-    residual1 = np.linalg.norm(y - model.fit_matrix @ coefficients)
-    residual2 = np.linalg.norm(y - model.fit_matrix @ model.coefficients)
-    assert np.allclose(residual1, residual2)
+    updated_tri = model.update_fit(x, y, former_tri, x[-2, 0], x[-5, 0], 0)
+    updated_coefficients = model.coefficients.copy()
+    updated_gcv = model.gcv
+
+    full_tri = model.fit(x, y)
+    full_coefficients = model.coefficients.copy()
+    full_gcv = model.gcv
+
+    assert np.allclose(np.tril(updated_tri), np.tril(full_tri))
+    assert np.allclose(updated_coefficients, full_coefficients)
+    assert np.allclose(updated_gcv, full_gcv)
 
 
-def fit_update_test():
-    pass
+fit_test()
 
+update_fit_matrix_test()
 
-fit_matrix_update_test()
-right_hand_side_update_test()
-covariance_update_test()
-# decompose_test()
-# fit_test()
+update_covariance_matrix_test()
+update_right_hand_side_test()
+decompose_test()
+update_cholesky_test()
+update_fit_test()
