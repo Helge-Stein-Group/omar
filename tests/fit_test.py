@@ -190,4 +190,4 @@ decompose_test()
 update_cholesky_test()
 update_covariance_matrix_twice_test()
 
-#update_fit_test()
+update_fit_test()

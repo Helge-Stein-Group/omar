@@ -186,10 +186,12 @@ class Model:
         assert y.ndim == 1
         assert isinstance(d, (int, float))
 
-        y_pred = self.fit_matrix @ self.coefficients
-        mse = np.sum((y - y_pred) ** 2)
 
-        c_m = len(self.basis) + d * (len(self.basis) - 1)
+        y_pred = self.fit_matrix @ self.coefficients
+        mse = np.sum((y - y_pred) ** 2) # rhs instead of y?
+
+        c_m = np.trace(self.fit_matrix @ np.linalg.inv(self.fit_matrix.T @ self.fit_matrix) @ self.fit_matrix.T) + 1
+        c_m += d * (len(self.basis) - 1)
         self.gcv = mse / len(y) / (1 - c_m / len(y)) ** 2
 
     def fit(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
@@ -224,7 +226,7 @@ class Model:
         assert t <= u
 
         self.update_initialisation(x, u, t, v)
-
+        self.update_fit_matrix()
         covariance_addition = self.update_covariance_matrix()
         eigenvalues, eigenvectors = self.decompose_addition(covariance_addition)
         tri = update_cholesky(tri, eigenvectors, eigenvalues)
