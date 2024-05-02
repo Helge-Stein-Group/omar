@@ -64,10 +64,10 @@ class Model:
 
     # Update parameters
     indices: np.ndarray = None
-    updates: np.ndarray = None
-    steady_mean: np.ndarray = None
-    old_mean: float = None
-    weight_mean: float = None
+    update: np.ndarray = None
+    fixed_mean: np.ndarray = None
+    candidate_mean: float = None
+    update_mean: float = None
 
     def data_matrix(self, x: np.ndarray) -> np.ndarray:
         assert x.ndim == 2
@@ -108,11 +108,11 @@ class Model:
         assert v < x.shape[1]
 
         self.indices = x[:, v] > t
-        self.updates = np.where(x[self.indices, v] >= u, u - t, x[self.indices, v] - t)
+        self.update = np.where(x[self.indices, v] >= u, u - t, x[self.indices, v] - t)
 
-        self.steady_mean = np.mean(self.fit_matrix[:, :-1], axis=0)
-        self.old_mean = np.mean(self.fit_matrix[:, -1])
-        self.weight_mean = np.sum(self.updates) / len(x)
+        self.fixed_mean = np.mean(self.fit_matrix[:, :-1], axis=0)
+        self.update_mean = np.sum(self.update) / len(x)
+        self.candidate_mean = np.mean(self.fit_matrix[:, -1]) + self.update_mean
 
     def calculate_fit_matrix(self, x: np.ndarray):
         assert x.ndim == 2
@@ -120,7 +120,7 @@ class Model:
         self.fit_matrix = self.data_matrix(x)
 
     def update_fit_matrix(self):
-        self.fit_matrix[self.indices, -1] += self.updates
+        self.fit_matrix[self.indices, -1] += self.update
 
     def calculate_covariance_matrix(self):
         self.covariance_matrix = self.fit_matrix.T @ self.fit_matrix
@@ -131,12 +131,19 @@ class Model:
 
     def update_covariance_matrix(self) -> np.ndarray:
         covariance_addition = np.zeros_like(self.covariance_matrix[-1, :])
-        covariance_addition[:-1] += np.tensordot(self.updates,
-                                                 (self.fit_matrix[self.indices, :-1] - self.steady_mean),
+        covariance_addition[:-1] += np.tensordot(self.update,
+                                                 self.fit_matrix[self.indices, :-1] - self.fixed_mean,
                                                  axes=[[0], [0]])
-        covariance_addition[-1] += np.sum(
-            self.updates * (2 * self.fit_matrix[self.indices, -1] - self.old_mean + self.updates - self.weight_mean))
-        covariance_addition[-1] -= np.sum(self.fit_matrix[self.indices, -1] * self.weight_mean)
+        covariance_addition[-1] += np.tensordot(
+            self.fit_matrix[self.indices, -1] - self.update,
+            self.update - self.update_mean,
+            axes=[[0], [0]]
+        )
+        covariance_addition[-1] += np.tensordot(
+            self.update,
+            self.fit_matrix[self.indices, -1] - self.candidate_mean,
+            axes=[[0], [0]]
+        )
 
         self.covariance_matrix[-1, :-1] += covariance_addition[:-1]
         self.covariance_matrix[:, -1] += covariance_addition
@@ -173,7 +180,7 @@ class Model:
         assert y.ndim == 1
         assert y.shape[0] == self.fit_matrix.shape[0]
 
-        self.right_hand_side[-1] += np.sum(self.updates * (y[self.indices] - np.mean(y)))
+        self.right_hand_side[-1] += np.sum(self.update * (y[self.indices] - np.mean(y)))
 
     def calculate_gcv(self, y: np.ndarray, d: float = 3) -> None:
         assert y.ndim == 1

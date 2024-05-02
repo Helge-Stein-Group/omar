@@ -71,6 +71,7 @@ def update_covariance_matrix_test():
     former_covariance = model.covariance_matrix.copy()
 
     model.update_initialisation(x, x[-2, 0], x[-5, 0], 0)
+    model.update_fit_matrix()
     model.update_covariance_matrix()
     updated_covariance = model.covariance_matrix.copy()
 
@@ -86,12 +87,13 @@ def update_covariance_matrix_twice_test():
     former_covariance = model.covariance_matrix.copy()
 
     model.update_initialisation(x, x[-2, 0], x[-5, 0], 0)
+    model.update_fit_matrix()
     model.update_covariance_matrix()
-    model.update_fit_matrix() # this becomes necessary anyway for more than 1 update
     add_basis = deepcopy(model.basis[0])
     add_basis.add(0, x[-8, 0], True)
     model.basis[-1] = add_basis
     model.update_initialisation(x, x[-5, 0], x[-8, 0], 0)
+    model.update_fit_matrix()
     model.update_covariance_matrix()
     updated_covariance = model.covariance_matrix.copy()
 
@@ -123,6 +125,7 @@ def decompose_test():
     former_covariance = model.covariance_matrix.copy()
 
     model.update_initialisation(x, x[-2, 0], x[-5, 0], 0)
+    model.update_fit_matrix()
     covariance_addition = model.update_covariance_matrix()
     updated_covariance = model.covariance_matrix.copy()
 
@@ -142,6 +145,7 @@ def update_cholesky_test():
     add_basis.add(0, x[-5, 0], True)
     model.basis[-1] = add_basis
     model.update_initialisation(x, x[-2, 0], x[-5, 0], 0)
+    model.update_fit_matrix()
     covariance_addition = model.update_covariance_matrix()
     eigenvalues, eigenvectors = model.decompose_addition(covariance_addition)
     updated_cholesky = regression.update_cholesky(former_cholesky, eigenvectors, eigenvalues)
