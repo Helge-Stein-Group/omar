@@ -62,6 +62,15 @@ class Model:
     right_hand_side: np.ndarray = None
     gcv: float = None
 
+    # Update parameters
+    lower_indices: np.ndarray = None
+    upper_indices: np.ndarray = None
+    lower_weight: np.ndarray = None
+    upper_weight: np.ndarray = None
+    steady_mean: np.ndarray = None
+    right_mean: float = None
+    weight_mean: float = None
+
     def data_matrix(self, x: np.ndarray) -> np.ndarray:
         assert x.ndim == 2
 
@@ -94,56 +103,46 @@ class Model:
         del self.basis[i]
         return self
 
-    def calculate_fit_matrix(self, x: np.ndarray):
-        assert x.ndim == 2
-
-        self.fit_matrix = self.data_matrix(x)
-
-    def update_fit_matrix(self, x: np.ndarray, u: float, t: float, v: float):
+    def update_initialisation(self, x: np.ndarray, u: float, t: float, v: int):
         assert x.ndim == 2
         assert x.shape[0] == self.fit_matrix.shape[0]
         assert t <= u
         assert v < x.shape[1]
 
-        upper_indices = x[:, v] >= u
-        lower_indices = (x[:, v] > t) & ~upper_indices
-        self.fit_matrix[lower_indices, -1] += x[lower_indices, v] - t
-        self.fit_matrix[upper_indices, -1] += u - t
+        self.upper_indices = x[:, v] >= u
+        self.lower_indices = (x[:, v] > t) & ~self.upper_indices
+        self.lower_weight = x[self.lower_indices, v] - t
+        self.upper_weight = (u - t) * np.ones(np.sum(self.upper_indices))
+        self.steady_mean = np.mean(self.fit_matrix[:, :-1], axis=0)
+        self.right_mean = np.mean(self.fit_matrix[:, -1])
+        self.weight_mean = (np.sum(self.lower_weight) + np.sum(self.upper_weight)) / len(x)
+
+    def calculate_fit_matrix(self, x: np.ndarray):
+        assert x.ndim == 2
+
+        self.fit_matrix = self.data_matrix(x)
+
+    def update_fit_matrix(self):
+        self.fit_matrix[self.lower_indices, -1] += self.lower_weight
+        self.fit_matrix[self.upper_indices, -1] += self.upper_weight
 
     def calculate_covariance_matrix(self):
         self.covariance_matrix = self.fit_matrix.T @ self.fit_matrix
         collapsed_fit = np.sum(self.fit_matrix, axis=0)
         self.covariance_matrix -= np.outer(collapsed_fit, collapsed_fit) / self.fit_matrix.shape[0]
-        self.covariance_matrix += np.diag(self.covariance_matrix) * 1e-8
-        self.covariance_matrix[0, 0] += 1e-8
+        self.covariance_matrix += np.eye(self.covariance_matrix.shape[0]) * 1e-8
+        # self.covariance_matrix[0, 0] += 1e-8
 
-    def update_covariance_matrix(self, x: np.ndarray, y: np.ndarray, u: float, t: float,
-                                 v: int) -> np.ndarray:
-        assert self.fit_matrix.shape[1] == self.covariance_matrix.shape[0]
-        assert x.ndim == 2
-        assert y.ndim == 1
-        assert x.shape[0] == y.shape[0] == self.fit_matrix.shape[0]
-        assert t <= u
-        assert v < x.shape[1]
-
+    def update_covariance_matrix(self) -> np.ndarray:
         covariance_addition = np.zeros_like(self.covariance_matrix[-1, :])
-        upper_indices = x[:, v] >= u
-        lower_indices = (x[:, v] > t) & ~upper_indices
-        lower_weight = x[lower_indices, v] - t
-        upper_weight = u - t
-        left_mean = np.mean(self.fit_matrix[:, :-1], axis=0)
-        right_mean = np.mean(self.fit_matrix[:, -1])
-        weight_mean = (np.sum(lower_weight) + np.sum(upper_weight * np.sum(upper_indices))) / len(y)
 
-        # np.tensordot
-        covariance_addition[:-1] += np.sum(
-            lower_weight[..., np.newaxis] * (self.fit_matrix[lower_indices, :-1] - left_mean), axis=0)
-        covariance_addition[:-1] += np.sum(upper_weight * (self.fit_matrix[upper_indices, :-1] - left_mean), axis=0)
-
-        for indices, weight in zip([lower_indices, upper_indices], [lower_weight, upper_weight]):
+        for indices, weight in zip([self.lower_indices, self.upper_indices], [self.lower_weight, self.upper_weight]):
+            covariance_addition[:-1] += np.tensordot(weight,
+                                                     (self.fit_matrix[indices, :-1] - self.steady_mean),
+                                                     axes=[[0], [0]])
             covariance_addition[-1] += np.sum(
-                weight * (2 * self.fit_matrix[indices, -1] - right_mean + weight - weight_mean))
-            covariance_addition[-1] -= np.sum(self.fit_matrix[indices, -1] * weight_mean)
+                weight * (2 * self.fit_matrix[indices, -1] - self.right_mean + weight - self.weight_mean))
+            covariance_addition[-1] -= np.sum(self.fit_matrix[indices, -1] * self.weight_mean)
 
         self.covariance_matrix[-1, :-1] += covariance_addition[:-1]
         self.covariance_matrix[:, -1] += covariance_addition
@@ -176,19 +175,12 @@ class Model:
 
         self.right_hand_side = self.fit_matrix.T @ (y - np.mean(y))
 
-    def update_right_hand_side(self, x: np.ndarray, y: np.ndarray, u: float, t: float,
-                               v: int) -> None:
-        assert x.ndim == 2
+    def update_right_hand_side(self, y: np.ndarray) -> None:
         assert y.ndim == 1
-        assert x.shape[0] == y.shape[0]
-        assert t <= u
-        assert v < x.shape[1]
-        assert self.fit_matrix.shape[1] == self.covariance_matrix.shape[0]
+        assert y.shape[0] == self.fit_matrix.shape[0]
 
-        upper_indices = x[:, v] >= u
-        lower_indices = (x[:, v] > t) & ~upper_indices
-        self.right_hand_side[-1] += np.sum((x[lower_indices, v] - t) * (y[lower_indices] - np.mean(y)))
-        self.right_hand_side[-1] += np.sum((u - t) * (y[upper_indices] - np.mean(y)))
+        self.right_hand_side[-1] += np.sum(self.lower_weight * (y[self.lower_indices] - np.mean(y)))
+        self.right_hand_side[-1] += np.sum(self.upper_weight * (y[self.upper_indices] - np.mean(y)))
 
     def calculate_gcv(self, y: np.ndarray, d: float = 3) -> None:
         assert y.ndim == 1
@@ -231,11 +223,13 @@ class Model:
         assert tri.shape[0] == tri.shape[1] == len(self.basis)
         assert t <= u
 
-        covariance_addition = self.update_covariance_matrix(x, y, u, t, v)
+        self.update_initialisation(x, u, t, v)
+
+        covariance_addition = self.update_covariance_matrix()
         eigenvalues, eigenvectors = self.decompose_addition(covariance_addition)
         tri = update_cholesky(tri, eigenvectors, eigenvalues)
 
-        self.update_right_hand_side(x, y, u, t, v)
+        self.update_right_hand_side(y)
 
         self.coefficients = cho_solve((tri, True), self.right_hand_side)
 

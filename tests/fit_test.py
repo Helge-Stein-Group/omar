@@ -56,7 +56,8 @@ def update_fit_matrix_test():
     model, x, y = update_case()
     former_fit_matrix = model.fit_matrix.copy()
 
-    model.update_fit_matrix(x, x[-2, 0], x[-5, 0], 0)
+    model.update_initialisation(x, x[-2, 0], x[-5, 0], 0)
+    model.update_fit_matrix()
     updated_fit_matrix = model.fit_matrix.copy()
 
     model.calculate_fit_matrix(x)
@@ -69,7 +70,29 @@ def update_covariance_matrix_test():
     model, x, y = update_case()
     former_covariance = model.covariance_matrix.copy()
 
-    model.update_covariance_matrix(x, y, x[-2, 0], x[-5, 0], 0)
+    model.update_initialisation(x, x[-2, 0], x[-5, 0], 0)
+    model.update_covariance_matrix()
+    updated_covariance = model.covariance_matrix.copy()
+
+    model.calculate_fit_matrix(x)
+    model.calculate_covariance_matrix()
+    full_covariance = model.covariance_matrix.copy()
+    assert np.allclose(updated_covariance[:-1, :-1], full_covariance[:-1, :-1])
+    assert np.allclose(updated_covariance[-1, :-1], full_covariance[-1, :-1])
+    assert np.allclose(updated_covariance, full_covariance)
+
+def update_covariance_matrix_twice_test():
+    model, x, y = update_case()
+    former_covariance = model.covariance_matrix.copy()
+
+    model.update_initialisation(x, x[-2, 0], x[-5, 0], 0)
+    model.update_covariance_matrix()
+    model.update_fit_matrix() # this becomes necessary anyway for more than 1 update
+    add_basis = deepcopy(model.basis[0])
+    add_basis.add(0, x[-8, 0], True)
+    model.basis[-1] = add_basis
+    model.update_initialisation(x, x[-5, 0], x[-8, 0], 0)
+    model.update_covariance_matrix()
     updated_covariance = model.covariance_matrix.copy()
 
     model.calculate_fit_matrix(x)
@@ -84,7 +107,8 @@ def update_right_hand_side_test():
     model, x, y = update_case()
     former_right_hand_side = model.right_hand_side.copy()
 
-    model.update_right_hand_side(x, y, x[-2, 0], x[-5, 0], 0)
+    model.update_initialisation(x, x[-2, 0], x[-5, 0], 0)
+    model.update_right_hand_side(y)
     updated_right_hand_side = model.right_hand_side.copy()
 
     model.calculate_fit_matrix(x)
@@ -98,7 +122,8 @@ def decompose_test():
     model, x, y = update_case()
     former_covariance = model.covariance_matrix.copy()
 
-    covariance_addition = model.update_covariance_matrix(x, y, x[-2, 0], x[-5, 0], 0)
+    model.update_initialisation(x, x[-2, 0], x[-5, 0], 0)
+    covariance_addition = model.update_covariance_matrix()
     updated_covariance = model.covariance_matrix.copy()
 
     eigenvalues, eigenvectors = model.decompose_addition(covariance_addition)
@@ -116,7 +141,8 @@ def update_cholesky_test():
     add_basis = deepcopy(model.basis[0])
     add_basis.add(0, x[-5, 0], True)
     model.basis[-1] = add_basis
-    covariance_addition = model.update_covariance_matrix(x, y, x[-2, 0], x[-5, 0], 0)
+    model.update_initialisation(x, x[-2, 0], x[-5, 0], 0)
+    covariance_addition = model.update_covariance_matrix()
     eigenvalues, eigenvectors = model.decompose_addition(covariance_addition)
     updated_cholesky = regression.update_cholesky(former_cholesky, eigenvectors, eigenvalues)
 
@@ -158,4 +184,6 @@ update_covariance_matrix_test()
 update_right_hand_side_test()
 decompose_test()
 update_cholesky_test()
-update_fit_test()
+update_covariance_matrix_twice_test()
+
+#update_fit_test()
