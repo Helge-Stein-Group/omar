@@ -43,6 +43,9 @@ class Basis:
                    where=self.hinge, out=result)
         return result.prod(axis=1)
 
+    def __eq__(self, other):
+        return np.all(self.v == other.v) and np.all(self.t == other.t) and np.all(self.hinge == other.hinge)
+
     def add(self, v: int, t: float, hinge: bool):
         assert isinstance(v, int)
         assert isinstance(t, float)
@@ -88,11 +91,16 @@ class Model:
 
         return Model([self.basis[i]], self.coefficients[i].reshape(1, -1))
 
-    def add(self, bases: list[Basis]):
+    def add(self, bases: list[Basis]) -> bool:
         assert all(isinstance(b, Basis) for b in bases)
+        duplicates = False
+        for basis in bases:
+            if basis in self.basis:
+                duplicates = True
+            else:
+                self.basis.append(basis)
 
-        self.basis.extend(bases)
-        return self
+        return duplicates
 
     def remove(self, i: int):
         assert isinstance(i, int)
@@ -186,12 +194,11 @@ class Model:
         assert y.ndim == 1
         assert isinstance(d, (int, float))
 
-
+        # TODO better LOF
         y_pred = self.fit_matrix @ self.coefficients
         mse = np.sum((y - y_pred) ** 2) # rhs instead of y?
 
-        c_m = np.trace(self.fit_matrix @ np.linalg.inv(self.fit_matrix.T @ self.fit_matrix) @ self.fit_matrix.T) + 1
-        c_m += d * (len(self.basis) - 1)
+        c_m = len(self.basis) + 1 + d * (len(self.basis) - 1)
         self.gcv = mse / len(y) / (1 - c_m / len(y)) ** 2
 
     def fit(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
@@ -251,23 +258,28 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
     while len(model) < m_max:
         best_gcv = np.inf
         best_candidate_model = None
+        # TODO fast mars
         for m, selected_basis in enumerate(model.basis):
             ineligible_covariates = set(selected_basis.v)
             eligible_covariates = covariates - ineligible_covariates
             for v in eligible_covariates:
-                eligible_knots = x[:, v][np.where(selected_basis(x) > 0)]
+                eligible_knots = x[:, v][np.where(selected_basis(x) > 0)] # TODO better knot selection
                 eligible_knots[::-1].sort()
                 candidate_model = deepcopy(model)
                 unhinged_candidate = deepcopy(selected_basis)
                 unhinged_candidate.add(v, 0.0, False)
                 hinged_candidate = deepcopy(selected_basis)
-                hinged_candidate.add(v, eligible_knots[0], True)
-                candidate_model.add([unhinged_candidate, hinged_candidate])
+                # We disregard the largest eligible knot since the resulting hinged basis would be 0 everywhere,
+                # as it is 0 if x is not an eligible knot due to the selected basis and 0 otherwise due to the hinge.
+                hinged_candidate.add(v, eligible_knots[1], True)
+                duplicates = candidate_model.add([unhinged_candidate, hinged_candidate])
                 tri = candidate_model.fit(x, y)
                 u = eligible_knots[0]
-                for t in eligible_knots[1:]:
+                for t in eligible_knots[2:]:
                     hinged_candidate = deepcopy(selected_basis)
                     hinged_candidate.add(v, t, True)
+                    if hinged_candidate in candidate_model.basis:
+                        continue
                     candidate_model.basis[-1] = hinged_candidate
                     candidate_model.update_fit(x, y, tri, u, t, v)
                     u = t
@@ -294,8 +306,6 @@ def backward_pass(x: np.ndarray, y: np.ndarray, model: Model) -> Model:
         best_trimmed_gcv = np.inf
         previous_model = deepcopy(best_trimmed_model)
         for i in range(len(previous_model)):
-            if i == 0:  # First basis function (constant 1) cannot be excluded
-                continue
             trimmed_model = deepcopy(previous_model).remove(i)
             trimmed_model.fit(x, y)
             if trimmed_model.gcv < best_trimmed_gcv:
