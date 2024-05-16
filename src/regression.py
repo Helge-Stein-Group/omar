@@ -306,6 +306,8 @@ def backward_pass(x: np.ndarray, y: np.ndarray, model: Model) -> Model:
         best_trimmed_gcv = np.inf
         previous_model = deepcopy(best_trimmed_model)
         for i in range(len(previous_model)):
+            if i == 0:  # First basis function (constant 1) cannot be excluded
+                continue
             trimmed_model = deepcopy(previous_model).remove(i)
             trimmed_model.fit(x, y)
             if trimmed_model.gcv < best_trimmed_gcv:
@@ -319,9 +321,24 @@ def backward_pass(x: np.ndarray, y: np.ndarray, model: Model) -> Model:
 
 
 def fit(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
-    # TODO Standardise data before fitting, then fit, then transform the model respectively
+    # Standardize the data
+    x_mean = np.mean(x, axis=0)
+    x_std = np.std(x, axis=0)
 
-    model = forward_pass(x, y, m_max)
-    model = backward_pass(x, y, model)
+    y_mean = np.mean(y)
+    y_std = np.std(y)
+
+    x_standardized = (x - x_mean) / x_std
+    y_standardized = (y - y_mean) / y_std
+
+    # Fit the model with the standardized data
+    model = forward_pass(x_standardized, y_standardized, m_max)
+    model = backward_pass(x_standardized, y_standardized, model)
+
+    # Transform the model back to the original scale
+    #for basis in model.basis[1:]:
+    #    basis.t *= x_std[basis.v]
+        #basis.t += x_mean[basis.v]
+    #model.coefficients[0] += np.mean(x)
 
     return model

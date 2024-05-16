@@ -19,7 +19,7 @@ def create_case():
     return model, x, y
 
 
-def fit_test():
+def test_fit():
     model, x, y = create_case()
 
     model.fit(x, y)
@@ -52,7 +52,7 @@ def update_case():
     return model, x, y
 
 
-def update_fit_matrix_test():
+def test_update_fit_matrix():
     model, x, y = update_case()
     former_fit_matrix = model.fit_matrix.copy()
 
@@ -66,7 +66,7 @@ def update_fit_matrix_test():
     assert np.allclose(updated_fit_matrix, full_fit_matrix)
 
 
-def update_covariance_matrix_test():
+def test_update_covariance_matrix():
     model, x, y = update_case()
     former_covariance = model.covariance_matrix.copy()
 
@@ -82,7 +82,7 @@ def update_covariance_matrix_test():
     assert np.allclose(updated_covariance[-1, :-1], full_covariance[-1, :-1])
     assert np.allclose(updated_covariance, full_covariance)
 
-def update_covariance_matrix_twice_test():
+def test_update_covariance_matrix_twice():
     model, x, y = update_case()
     former_covariance = model.covariance_matrix.copy()
 
@@ -105,7 +105,7 @@ def update_covariance_matrix_twice_test():
     assert np.allclose(updated_covariance, full_covariance)
 
 
-def update_right_hand_side_test():
+def test_update_right_hand_side():
     model, x, y = update_case()
     former_right_hand_side = model.right_hand_side.copy()
 
@@ -120,7 +120,7 @@ def update_right_hand_side_test():
     assert np.allclose(updated_right_hand_side, full_right_hand_side)
 
 
-def decompose_test():
+def test_decompose():
     model, x, y = update_case()
     former_covariance = model.covariance_matrix.copy()
 
@@ -136,7 +136,7 @@ def decompose_test():
     assert np.allclose(reconstructed_covariance, updated_covariance)
 
 
-def update_cholesky_test():
+def test_update_cholesky():
     model, x, y = create_case()
 
     former_cholesky = model.fit(x, y)
@@ -157,7 +157,7 @@ def update_cholesky_test():
     assert np.allclose(np.tril(updated_cholesky), np.tril(full_cholesky))
 
 
-def update_fit_test():
+def test_update_fit():
     model, x, y = create_case()
 
     former_tri = model.fit(x, y)
@@ -178,16 +178,3 @@ def update_fit_test():
     assert np.allclose(np.tril(updated_tri), np.tril(full_tri))
     assert np.allclose(updated_coefficients, full_coefficients)
     assert np.allclose(updated_gcv, full_gcv)
-
-
-fit_test()
-
-update_fit_matrix_test()
-
-update_covariance_matrix_test()
-update_right_hand_side_test()
-decompose_test()
-update_cholesky_test()
-update_covariance_matrix_twice_test()
-
-update_fit_test()

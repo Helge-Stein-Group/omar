@@ -10,7 +10,7 @@ def sigmoid(x: np.ndarray) -> np.ndarray:
 
 def data_generation_model(n_samples: int, dim: int) \
         -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    x = np.random.normal(size=(n_samples, dim))
+    x = np.random.normal(10, 2, size=(n_samples, dim))
     zero = np.zeros(n_samples)
     y_true = (np.maximum(zero, (x[:, 0] - 1)) +
               np.maximum(zero, (x[:, 0] - 1)) * np.maximum(0, (x[:, 1] - 0.8)))
