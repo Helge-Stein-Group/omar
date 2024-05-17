@@ -5,7 +5,8 @@ import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
 
-def update_cholesky(tri: np.ndarray, update_vectors: list[np.ndarray], multipliers: list[float]):
+def update_cholesky(tri: np.ndarray, update_vectors: list[np.ndarray],
+                    multipliers: list[float]):
     assert tri.shape[0] == tri.shape[1]
     assert len(update_vectors) == len(multipliers)
 
@@ -44,7 +45,8 @@ class Basis:
         return result.prod(axis=1)
 
     def __eq__(self, other):
-        return np.all(self.v == other.v) and np.all(self.t == other.t) and np.all(self.hinge == other.hinge)
+        return np.all(self.v == other.v) and np.all(self.t == other.t) and np.all(
+            self.hinge == other.hinge)
 
     def add(self, v: int, t: float, hinge: bool):
         assert isinstance(v, int)
@@ -77,8 +79,24 @@ class Model:
 
         return np.column_stack([basis(x) for basis in self.basis])
 
+    def __str__(self):
+        desc = "Basis functions: \n"
+        for basis in self.basis:
+            desc += f"{basis}\n"
+        desc += "Coefficients: \n"
+        for coefficient in self.coefficients:
+            desc += f"{coefficient}\n"
+        return desc
+
     def __call__(self, x: np.ndarray) -> np.ndarray:
         assert x.ndim == 2
+
+        #mean = np.mean(x, axis=0)
+        #std = np.std(x, axis=0)
+        #if np.any(std != 0) or np.any(std != 1):
+        #    print(
+        #        "Careful! Data is expected to be standardized... Standardizing the data")
+        #    x = (x - mean) / std
 
         return self.data_matrix(x) @ self.coefficients
 
@@ -133,14 +151,16 @@ class Model:
     def calculate_covariance_matrix(self):
         self.covariance_matrix = self.fit_matrix.T @ self.fit_matrix
         collapsed_fit = np.sum(self.fit_matrix, axis=0)
-        self.covariance_matrix -= np.outer(collapsed_fit, collapsed_fit) / self.fit_matrix.shape[0]
+        self.covariance_matrix -= np.outer(collapsed_fit, collapsed_fit) / \
+                                  self.fit_matrix.shape[0]
         self.covariance_matrix += np.eye(self.covariance_matrix.shape[0]) * 1e-8
         # self.covariance_matrix[0, 0] += 1e-8
 
     def update_covariance_matrix(self) -> np.ndarray:
         covariance_addition = np.zeros_like(self.covariance_matrix[-1, :])
         covariance_addition[:-1] += np.tensordot(self.update,
-                                                 self.fit_matrix[self.indices, :-1] - self.fixed_mean,
+                                                 self.fit_matrix[self.indices,
+                                                 :-1] - self.fixed_mean,
                                                  axes=[[0], [0]])
         covariance_addition[-1] += np.tensordot(
             self.fit_matrix[self.indices, -1] - self.update,
@@ -196,7 +216,7 @@ class Model:
 
         # TODO better LOF
         y_pred = self.fit_matrix @ self.coefficients
-        mse = np.sum((y - y_pred) ** 2) # rhs instead of y?
+        mse = np.sum((y - y_pred) ** 2)  # rhs instead of y?
 
         c_m = len(self.basis) + 1 + d * (len(self.basis) - 1)
         self.gcv = mse / len(y) / (1 - c_m / len(y)) ** 2
@@ -263,7 +283,8 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
             ineligible_covariates = set(selected_basis.v)
             eligible_covariates = covariates - ineligible_covariates
             for v in eligible_covariates:
-                eligible_knots = x[:, v][np.where(selected_basis(x) > 0)] # TODO better knot selection
+                eligible_knots = x[:, v][
+                    np.where(selected_basis(x) > 0)]  # TODO better knot selection
                 eligible_knots[::-1].sort()
                 candidate_model = deepcopy(model)
                 unhinged_candidate = deepcopy(selected_basis)
@@ -288,7 +309,7 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
                         best_candidate_model = deepcopy(candidate_model)
 
         model = best_candidate_model
-
+        print(f"Best model gcv {model.gcv}")
     return model
 
 
@@ -322,23 +343,19 @@ def backward_pass(x: np.ndarray, y: np.ndarray, model: Model) -> Model:
 
 def fit(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
     # Standardize the data
-    x_mean = np.mean(x, axis=0)
-    x_std = np.std(x, axis=0)
+    #x_mean = np.mean(x, axis=0)
+    #x_std = np.std(x, axis=0)
 
-    y_mean = np.mean(y)
-    y_std = np.std(y)
+    #y_mean = np.mean(y)
+    #y_std = np.std(y)
 
-    x_standardized = (x - x_mean) / x_std
-    y_standardized = (y - y_mean) / y_std
+    #x_standardized = (x - x_mean) / x_std
+    #y_standardized = (y - y_mean) / y_std
+    x_standardized = x
+    y_standardized = y
 
     # Fit the model with the standardized data
     model = forward_pass(x_standardized, y_standardized, m_max)
     model = backward_pass(x_standardized, y_standardized, model)
-
-    # Transform the model back to the original scale
-    #for basis in model.basis[1:]:
-    #    basis.t *= x_std[basis.v]
-        #basis.t += x_mean[basis.v]
-    #model.coefficients[0] += np.mean(x)
 
     return model

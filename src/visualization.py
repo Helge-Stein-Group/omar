@@ -31,7 +31,7 @@ def inspect_fit(
     x_func = np.linspace(min(data_x), max(data_x), 100)
     y_func = np.linspace(min(data_y), max(data_y), 100)
     x_func, y_func = np.meshgrid(x_func, y_func)
-    z_func = model(np.c_[x_func.ravel(), y_func.ravel()])
+    z_func = model(np.c_[x_func.ravel(), y_func.ravel()]) * np.std(y) + np.mean(y)
 
     ax.plot_surface(x_func, y_func, z_func.reshape(x_func.shape), alpha=0.5,
                     cmap="coolwarm")
@@ -54,7 +54,7 @@ def inspect_fit(
 
 if __name__ == "__main__":
     from regression import fit
-    from tests.simulated_test import data_generation_model
+    from tests.simulated_test import data_generation_model, evaluate_prediction
 
     n_samples = 100
     ndim = 2
@@ -62,6 +62,8 @@ if __name__ == "__main__":
     x, y, y_true = data_generation_model(n_samples, ndim)
     model = fit(x, y, 10)
     y_pred = model(x)
+    print(evaluate_prediction(y_pred, y_true, y))
+    y_pred = y_pred * np.std(y) + np.mean(y)
 
     print(model.basis)
     inspect_fit(x, y, model, "Full model")

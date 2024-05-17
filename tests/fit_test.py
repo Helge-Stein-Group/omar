@@ -1,5 +1,6 @@
-import numpy as np
 from copy import deepcopy
+
+import numpy as np
 
 import regression
 
@@ -7,8 +8,7 @@ import regression
 def create_case():
     x = np.random.normal(size=(100, 3))
     x = x[x[:, 0].argsort()]
-    y = np.random.normal(size=100)
-    y = y[x[:, 0].argsort()]
+    y = 2 * x[:, 0] + x[:, 1]
     model = regression.Model()
     basis_addition = deepcopy(model.basis[0])
     basis_addition.add(0, 0.0, False)
@@ -82,6 +82,7 @@ def test_update_covariance_matrix():
     assert np.allclose(updated_covariance[-1, :-1], full_covariance[-1, :-1])
     assert np.allclose(updated_covariance, full_covariance)
 
+
 def test_update_covariance_matrix_twice():
     model, x, y = update_case()
     former_covariance = model.covariance_matrix.copy()
@@ -130,8 +131,10 @@ def test_decompose():
     updated_covariance = model.covariance_matrix.copy()
 
     eigenvalues, eigenvectors = model.decompose_addition(covariance_addition)
-    reconstructed_covariance = former_covariance + eigenvalues[0] * np.outer(eigenvectors[0], eigenvectors[0])
-    reconstructed_covariance += eigenvalues[1] * np.outer(eigenvectors[1], eigenvectors[1])
+    reconstructed_covariance = former_covariance + eigenvalues[0] * np.outer(
+        eigenvectors[0], eigenvectors[0])
+    reconstructed_covariance += eigenvalues[1] * np.outer(eigenvectors[1],
+                                                          eigenvectors[1])
 
     assert np.allclose(reconstructed_covariance, updated_covariance)
 
@@ -148,7 +151,8 @@ def test_update_cholesky():
     model.update_fit_matrix()
     covariance_addition = model.update_covariance_matrix()
     eigenvalues, eigenvectors = model.decompose_addition(covariance_addition)
-    updated_cholesky = regression.update_cholesky(former_cholesky, eigenvectors, eigenvalues)
+    updated_cholesky = regression.update_cholesky(former_cholesky, eigenvectors,
+                                                  eigenvalues)
 
     model.calculate_fit_matrix(x)
     model.calculate_covariance_matrix()
