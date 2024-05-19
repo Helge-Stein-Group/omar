@@ -283,8 +283,7 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
             ineligible_covariates = set(selected_basis.v)
             eligible_covariates = covariates - ineligible_covariates
             for v in eligible_covariates:
-                eligible_knots = x[:, v][
-                    np.where(selected_basis(x) > 0)]  # TODO better knot selection
+                eligible_knots = x[np.where(selected_basis(x) > 0)[0], v]  # TODO better knot selection
                 eligible_knots[::-1].sort()
                 candidate_model = deepcopy(model)
                 unhinged_candidate = deepcopy(selected_basis)
@@ -309,7 +308,6 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
                         best_candidate_model = deepcopy(candidate_model)
 
         model = best_candidate_model
-        print(f"Best model gcv {model.gcv}")
     return model
 
 
