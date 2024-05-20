@@ -19,7 +19,7 @@ def evaluate_prediction(y_pred: np.ndarray, y_true: np.ndarray, y: np.ndarray) -
     return r2
 
 
-def omars_test(x: np.ndarray, y: np.ndarray, y_true: np.ndarray, name: str) -> tuple[
+def omars_test(x: np.ndarray, y: np.ndarray, y_true: np.ndarray) -> tuple[
     float, regression.Model]:
     model = regression.fit(x, y, 10)
     y_pred = model(x)
@@ -34,7 +34,7 @@ def test_scenario1():
     dim = 2
 
     x, y, y_true, reference_model = utils.data_generation_model(n_samples, dim)
-    r2, model = omars_test(x, y, y_true, "Scenario 1")
+    r2, model = omars_test(x, y, y_true)
 
     r2_ref = evaluate_prediction(reference_model(x), y_true, y)
     print(model)
@@ -46,7 +46,7 @@ def test_scenario2():
     dim = 20
 
     x, y, y_true, reference_model = utils.data_generation_model(n_samples, dim)
-    r2, model = omars_test(x, y, y_true, "Scenario 2")
+    r2, model = omars_test(x, y, y_true)
     r2_ref = evaluate_prediction(reference_model(x), y_true, y)
     print(model)
     assert r2 > 0.9
@@ -60,20 +60,19 @@ def test_scenario3():
     l1 = x[:, 0] + x[:, 1] + x[:, 2] + x[:, 3] + x[:, 4]
     l2 = x[:, 5] - x[:, 6] + x[:, 7] - x[:, 8] + x[:, 9]
     y = sigmoid(l1) + sigmoid(l2) + 0.12 * np.random.normal(size=n_samples)
-    r2, model = omars_test(x, y, sigmoid(l1) + sigmoid(l2), "Scenario 3")
+    r2, model = omars_test(x, y, sigmoid(l1) + sigmoid(l2))
     print(model)
     assert r2 < 0.8
 
 
 def test_speed():
     for n in range(2, 4):
-        n_samples = 10 ** n
-        dim = 4
-        x, y, y_true, reference_model = utils.data_generation_model(n_samples, dim)
-        for i in range(6):
-            regression.method = i
+        for d in range(2, 4):
+            n_samples = 10 ** n
+            dim = d
+            x, y, y_true, reference_model = utils.data_generation_model(n_samples, dim)
+
             start = datetime.now()
-            omars_test(x, y, y_true, f"Speed test (Method: {i}): {n_samples}")
+            omars_test(x, y, y_true)
             end = datetime.now()
-            print(
-                f"Speed test (Method: {i}): {n_samples} - Time elapsed: {end - start}")
+            print(f"Speed test [{n_samples}][{dim}] Time elapsed: {end - start}")
