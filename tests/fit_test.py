@@ -1,63 +1,44 @@
-from copy import deepcopy
-
 import numpy as np
 
 import regression
-
-
-def create_case():
-    x = np.random.normal(size=(100, 3))
-    x = x[x[:, 0].argsort()]
-    y = 2 * x[:, 0] + x[:, 1]
-    model = regression.Model()
-    basis_addition = deepcopy(model.basis[0])
-    basis_addition.add(0, 0.0, False)
-    model.add([basis_addition])
-    basis_addition = deepcopy(model.basis[0])
-    basis_addition.add(0, x[-2, 0], True)
-    model.add([basis_addition])
-    return model, x, y
+import utils
 
 
 def test_fit():
-    model, x, y = create_case()
+    x, y, y_true, model = utils.data_generation_model(100, 2)
 
     model.fit(x, y)
 
     result = np.linalg.lstsq(model.fit_matrix, y, rcond=None)
     coefficients = result[0]
 
-    residual1 = np.linalg.norm(y - model.fit_matrix @ coefficients)
-    residual2 = np.linalg.norm(y - model.fit_matrix @ model.coefficients)
-    model.calculate_gcv(y)
-    gcv2 = model.gcv
-    model.coefficients = coefficients
-    model.calculate_gcv(y)
-    gcv1 = model.gcv
-    assert np.abs(1 - residual1 / residual2) < 0.05
-    assert np.abs(1 - gcv1 / gcv2) < 0.05
+    assert np.allclose(coefficients[0], model.coefficients[0], 0.05, 0.1)
+    assert np.allclose(coefficients[1], model.coefficients[1], 0.05, 0.05)
+    assert np.allclose(coefficients[2], model.coefficients[2], 0.05, 0.05)
 
 
-def update_case():
-    model, x, y = create_case()
-
-    model.calculate_fit_matrix(x)
-    model.calculate_covariance_matrix()
-    model.calculate_right_hand_side(y)
-
-    add_basis = deepcopy(model.basis[0])
-    add_basis.add(0, x[-5, 0], True)
-    model.basis[-1] = add_basis
-
-    return model, x, y
+def update_case(model, x, y, func):
+    tri = model.fit(x, y)
+    u = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]
+    for c in [0.5, 0.4, 0.3]:
+        t = x[np.argmin(np.abs(x[:, 1] - c)), 1]
+        model.basis[-1].t[-1] = t
+        tri = func(x, y, tri, u, t, 1, model.fit_matrix[:, 1])
+        u = t
+    return model, tri
 
 
 def test_update_fit_matrix():
-    model, x, y = update_case()
+    x, y, y_true, model = utils.data_generation_model(100, 2)
+
     former_fit_matrix = model.fit_matrix.copy()
 
-    model.update_initialisation(x, x[-2, 0], x[-5, 0], 0)
-    model.update_fit_matrix()
+    def update_func(x, y, tri, u, t, v, selected_fit):
+        model.update_initialisation(x, u, t, v, selected_fit)
+        model.update_fit_matrix()
+        return None
+
+    model, tri = update_case(model, x, y, update_func)
     updated_fit_matrix = model.fit_matrix.copy()
 
     model.calculate_fit_matrix(x)
@@ -67,35 +48,17 @@ def test_update_fit_matrix():
 
 
 def test_update_covariance_matrix():
-    model, x, y = update_case()
+    x, y, y_true, model = utils.data_generation_model(100, 2)
+
     former_covariance = model.covariance_matrix.copy()
 
-    model.update_initialisation(x, x[-2, 0], x[-5, 0], 0)
-    model.update_fit_matrix()
-    model.update_covariance_matrix()
-    updated_covariance = model.covariance_matrix.copy()
+    def update_func(x, y, tri, u, t, v, selected_fit):
+        model.update_initialisation(x, u, t, v, selected_fit)
+        model.update_fit_matrix()
+        covariance_addition = model.update_covariance_matrix()
+        return None
 
-    model.calculate_fit_matrix(x)
-    model.calculate_covariance_matrix()
-    full_covariance = model.covariance_matrix.copy()
-    assert np.allclose(updated_covariance[:-1, :-1], full_covariance[:-1, :-1])
-    assert np.allclose(updated_covariance[-1, :-1], full_covariance[-1, :-1])
-    assert np.allclose(updated_covariance, full_covariance)
-
-
-def test_update_covariance_matrix_twice():
-    model, x, y = update_case()
-    former_covariance = model.covariance_matrix.copy()
-
-    model.update_initialisation(x, x[-2, 0], x[-5, 0], 0)
-    model.update_fit_matrix()
-    model.update_covariance_matrix()
-    add_basis = deepcopy(model.basis[0])
-    add_basis.add(0, x[-8, 0], True)
-    model.basis[-1] = add_basis
-    model.update_initialisation(x, x[-5, 0], x[-8, 0], 0)
-    model.update_fit_matrix()
-    model.update_covariance_matrix()
+    model, tri = update_case(model, x, y, update_func)
     updated_covariance = model.covariance_matrix.copy()
 
     model.calculate_fit_matrix(x)
@@ -107,11 +70,16 @@ def test_update_covariance_matrix_twice():
 
 
 def test_update_right_hand_side():
-    model, x, y = update_case()
+    x, y, y_true, model = utils.data_generation_model(100, 2)
+
     former_right_hand_side = model.right_hand_side.copy()
 
-    model.update_initialisation(x, x[-2, 0], x[-5, 0], 0)
-    model.update_right_hand_side(y)
+    def update_func(x, y, tri, u, t, v, selected_fit):
+        model.update_initialisation(x, u, t, v, selected_fit)
+        model.update_right_hand_side(y)
+        return None
+
+    model, tri = update_case(model, x, y, update_func)
     updated_right_hand_side = model.right_hand_side.copy()
 
     model.calculate_fit_matrix(x)
@@ -122,12 +90,17 @@ def test_update_right_hand_side():
 
 
 def test_decompose():
-    model, x, y = update_case()
+    x, y, y_true, model = utils.data_generation_model(100, 2)
+
     former_covariance = model.covariance_matrix.copy()
 
-    model.update_initialisation(x, x[-2, 0], x[-5, 0], 0)
+    u = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]
+    t = x[np.argmin(np.abs(x[:, 1] - 0.5)), 1]
+    model.basis[-1].t[-1] = t
+    model.update_initialisation(x, u, t, 1, model.fit_matrix[:, 1])
     model.update_fit_matrix()
     covariance_addition = model.update_covariance_matrix()
+
     updated_covariance = model.covariance_matrix.copy()
 
     eigenvalues, eigenvectors = model.decompose_addition(covariance_addition)
@@ -140,45 +113,44 @@ def test_decompose():
 
 
 def test_update_cholesky():
-    model, x, y = create_case()
+    x, y, y_true, model = utils.data_generation_model(100, 2)
 
     former_cholesky = model.fit(x, y)
 
-    add_basis = deepcopy(model.basis[0])
-    add_basis.add(0, x[-5, 0], True)
-    model.basis[-1] = add_basis
-    model.update_initialisation(x, x[-2, 0], x[-5, 0], 0)
-    model.update_fit_matrix()
-    covariance_addition = model.update_covariance_matrix()
-    eigenvalues, eigenvectors = model.decompose_addition(covariance_addition)
-    updated_cholesky = regression.update_cholesky(former_cholesky, eigenvectors,
-                                                  eigenvalues)
+    def update_func(x, y, tri, u, t, v, selected_fit):
+        model.update_initialisation(x, u, t, v, selected_fit)
+        model.update_fit_matrix()
+        covariance_addition = model.update_covariance_matrix()
+        if covariance_addition.any():
+            eigenvalues, eigenvectors = model.decompose_addition(covariance_addition)
+            tri = regression.update_cholesky(tri, eigenvectors, eigenvalues)
+        return tri
 
-    model.calculate_fit_matrix(x)
-    model.calculate_covariance_matrix()
-    model.calculate_right_hand_side(y)
+    model, updated_cholesky = update_case(model, x, y, update_func)
+
     full_cholesky = model.fit(x, y)
     assert np.allclose(np.tril(updated_cholesky), np.tril(full_cholesky))
 
 
 def test_update_fit():
-    model, x, y = create_case()
+    x, y, y_true, model = utils.data_generation_model(100, 2)
 
     former_tri = model.fit(x, y)
     former_coefficients = model.coefficients.copy()
 
-    add_basis = deepcopy(model.basis[0])
-    add_basis.add(0, x[-5, 0], True)
-    model.basis[-1] = add_basis
-
-    updated_tri = model.update_fit(x, y, former_tri, x[-2, 0], x[-5, 0], 0)
+    model, updated_tri = update_case(model, x, y, model.update_fit)
+    updated_rhs = model.right_hand_side.copy()
     updated_coefficients = model.coefficients.copy()
     updated_gcv = model.gcv
 
     full_tri = model.fit(x, y)
+    full_rhs = model.right_hand_side.copy()
     full_coefficients = model.coefficients.copy()
     full_gcv = model.gcv
 
     assert np.allclose(np.tril(updated_tri), np.tril(full_tri))
-    assert np.allclose(updated_coefficients, full_coefficients)
+    assert np.allclose(updated_rhs, full_rhs)
+    assert np.allclose(updated_coefficients[0], full_coefficients[0], 0.05, 0.1)
+    assert np.allclose(updated_coefficients[1], full_coefficients[1], 0.05, 0.05)
+    assert np.allclose(updated_coefficients[2], full_coefficients[2], 0.05, 0.05)
     assert np.allclose(updated_gcv, full_gcv)

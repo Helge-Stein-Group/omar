@@ -83,20 +83,10 @@ class Model:
         desc = "Basis functions: \n"
         for basis in self.basis:
             desc += f"{basis}\n"
-        desc += "Coefficients: \n"
-        for coefficient in self.coefficients:
-            desc += f"{coefficient}\n"
         return desc
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         assert x.ndim == 2
-
-        #mean = np.mean(x, axis=0)
-        #std = np.std(x, axis=0)
-        #if np.any(std != 0) or np.any(std != 1):
-        #    print(
-        #        "Careful! Data is expected to be standardized... Standardizing the data")
-        #    x = (x - mean) / std
 
         return self.data_matrix(x) @ self.coefficients
 
@@ -127,14 +117,16 @@ class Model:
         del self.basis[i]
         return self
 
-    def update_initialisation(self, x: np.ndarray, u: float, t: float, v: int):
+    def update_initialisation(self, x: np.ndarray, u: float, t: float, v: int, selected_fit: np.ndarray):
         assert x.ndim == 2
         assert x.shape[0] == self.fit_matrix.shape[0]
         assert t <= u
         assert v < x.shape[1]
+        assert selected_fit.shape[0] == x.shape[0]
 
         self.indices = x[:, v] > t
         self.update = np.where(x[self.indices, v] >= u, u - t, x[self.indices, v] - t)
+        self.update *= selected_fit[self.indices]
 
         self.fixed_mean = np.mean(self.fit_matrix[:, :-1], axis=0)
         self.update_mean = np.sum(self.update) / len(x)
@@ -154,7 +146,6 @@ class Model:
         self.covariance_matrix -= np.outer(collapsed_fit, collapsed_fit) / \
                                   self.fit_matrix.shape[0]
         self.covariance_matrix += np.eye(self.covariance_matrix.shape[0]) * 1e-8
-        # self.covariance_matrix[0, 0] += 1e-8
 
     def update_covariance_matrix(self) -> np.ndarray:
         covariance_addition = np.zeros_like(self.covariance_matrix[-1, :])
@@ -245,18 +236,20 @@ class Model:
         return tri
 
     def update_fit(self, x: np.ndarray, y: np.ndarray, tri: np.ndarray, u: float,
-                   t: float, v: int) -> np.ndarray:
+                   t: float, v: int, selected_fit: np.ndarray) -> np.ndarray:
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
         assert tri.shape[0] == tri.shape[1] == len(self.basis)
         assert t <= u
 
-        self.update_initialisation(x, u, t, v)
+        self.update_initialisation(x, u, t, v, selected_fit)
         self.update_fit_matrix()
         covariance_addition = self.update_covariance_matrix()
-        eigenvalues, eigenvectors = self.decompose_addition(covariance_addition)
-        tri = update_cholesky(tri, eigenvectors, eigenvalues)
+
+        if covariance_addition.any():
+            eigenvalues, eigenvectors = self.decompose_addition(covariance_addition)
+            tri = update_cholesky(tri, eigenvectors, eigenvalues)
 
         self.update_right_hand_side(y)
 
@@ -275,6 +268,7 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
 
     covariates = set(range(x.shape[1]))
     model = Model()
+    model.fit(x, y)
     while len(model) < m_max:
         best_gcv = np.inf
         best_candidate_model = None
@@ -283,25 +277,25 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
             ineligible_covariates = set(selected_basis.v)
             eligible_covariates = covariates - ineligible_covariates
             for v in eligible_covariates:
-                eligible_knots = x[np.where(selected_basis(x) > 0)[0], v]  # TODO better knot selection
+                eligible_knots = x[
+                    np.where(selected_basis(x) > 0)[0], v]  # TODO better knot selection
                 eligible_knots[::-1].sort()
                 candidate_model = deepcopy(model)
                 unhinged_candidate = deepcopy(selected_basis)
                 unhinged_candidate.add(v, 0.0, False)
                 hinged_candidate = deepcopy(selected_basis)
-                # We disregard the largest eligible knot since the resulting hinged basis would be 0 everywhere,
-                # as it is 0 if x is not an eligible knot due to the selected basis and 0 otherwise due to the hinge.
-                hinged_candidate.add(v, eligible_knots[1], True)
+                hinged_candidate.add(v, eligible_knots[0], True)
                 duplicates = candidate_model.add([unhinged_candidate, hinged_candidate])
-                tri = candidate_model.fit(x, y)
+                tri = candidate_model.fit(x, y) # TODO a lot can be reused here
                 u = eligible_knots[0]
-                for t in eligible_knots[2:]:
+
+                for i, t in enumerate(eligible_knots[1:]):
                     hinged_candidate = deepcopy(selected_basis)
                     hinged_candidate.add(v, t, True)
                     if hinged_candidate in candidate_model.basis:
                         continue
                     candidate_model.basis[-1] = hinged_candidate
-                    candidate_model.update_fit(x, y, tri, u, t, v)
+                    tri = candidate_model.update_fit(x, y, tri, u, t, v, model.fit_matrix[:, m])
                     u = t
                     if candidate_model.gcv < best_gcv:
                         best_gcv = candidate_model.gcv
@@ -340,20 +334,7 @@ def backward_pass(x: np.ndarray, y: np.ndarray, model: Model) -> Model:
 
 
 def fit(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
-    # Standardize the data
-    #x_mean = np.mean(x, axis=0)
-    #x_std = np.std(x, axis=0)
-
-    #y_mean = np.mean(y)
-    #y_std = np.std(y)
-
-    #x_standardized = (x - x_mean) / x_std
-    #y_standardized = (y - y_mean) / y_std
-    x_standardized = x
-    y_standardized = y
-
-    # Fit the model with the standardized data
-    model = forward_pass(x_standardized, y_standardized, m_max)
-    model = backward_pass(x_standardized, y_standardized, model)
+    model = forward_pass(x, y, m_max)
+    model = backward_pass(x, y, model)
 
     return model
