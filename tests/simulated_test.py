@@ -63,16 +63,3 @@ def test_scenario3():
     r2, model = omars_test(x, y, sigmoid(l1) + sigmoid(l2))
     print(model)
     assert r2 < 0.8
-
-
-def test_speed():
-    for n in range(2, 4):
-        for d in range(2, 4):
-            n_samples = 10 ** n
-            dim = d
-            x, y, y_true, reference_model = utils.data_generation_model(n_samples, dim)
-
-            start = datetime.now()
-            omars_test(x, y, y_true)
-            end = datetime.now()
-            print(f"Speed test [{n_samples}][{dim}] Time elapsed: {end - start}")

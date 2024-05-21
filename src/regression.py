@@ -4,26 +4,26 @@ from dataclasses import dataclass, field
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
+from tensorflow_probability.substrates import jax as tfp
+
 
 def update_cholesky(tri: np.ndarray, update_vectors: list[np.ndarray],
                     multipliers: list[float]):
     assert tri.shape[0] == tri.shape[1]
     assert len(update_vectors) == len(multipliers)
 
-    for update_vector, multiplier in zip(update_vectors, multipliers):
-        omega = update_vector.copy()
+    for update_vec, multiplier in zip(update_vectors, multipliers):
         b = 1
 
-        new_tri = np.zeros_like(tri)
         for i in range(tri.shape[0]):
-            temp = tri[i, i] ** 2 + multiplier / b * omega[i] ** 2
-            new_tri[i, i] = np.sqrt(temp)
-            omega[i + 1:] -= omega[i] / tri[i, i] * tri[i + 1:, i]
-            new_tri[i + 1:, i] = new_tri[i, i] * (
-                    tri[i + 1:, i] / tri[i, i] + multiplier * omega[i] * omega[
-                                                                         i + 1:] / temp / b)
-            b += multiplier * omega[i] ** 2 / tri[i, i] ** 2
-        tri = new_tri
+            temp = tri[i, i] ** 2 + multiplier / b * update_vec[i] ** 2
+            sqrt_temp = np.sqrt(temp)
+            update_vec[i + 1:] -= update_vec[i] / tri[i, i] * tri[i + 1:, i]
+            tri[i + 1:, i] = sqrt_temp * (
+                    tri[i + 1:, i] / tri[i, i] + multiplier * update_vec[i] * update_vec[
+                                                                              i + 1:] / temp / b)
+            b += multiplier * update_vec[i] ** 2 / tri[i, i] ** 2
+            tri[i, i] = sqrt_temp
     return tri
 
 
@@ -205,7 +205,6 @@ class Model:
         assert y.ndim == 1
         assert isinstance(d, (int, float))
 
-        # TODO better LOF
         y_pred = self.fit_matrix @ self.coefficients
         mse = np.sum((y - y_pred) ** 2)  # rhs instead of y?
 
@@ -260,25 +259,29 @@ class Model:
         return tri
 
 
-def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
+def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int, k: int = 15, aging_factor: float = 0.) -> Model:
     assert x.ndim == 2
     assert y.ndim == 1
     assert x.shape[0] == y.shape[0]
     assert isinstance(m_max, int)
+    assert isinstance(k, int)
+    assert isinstance(aging_factor, float)
 
     covariates = set(range(x.shape[1]))
     model = Model()
     model.fit(x, y)
+    candidate_queue = {basis_idx: 1. for basis_idx in range(len(model.basis))}
     while len(model) < m_max:
         best_gcv = np.inf
         best_candidate_model = None
         # TODO fast mars
-        for m, selected_basis in enumerate(model.basis):
+        for m in sorted(candidate_queue, key=candidate_queue.get)[:-k - 1:-1]:
+            selected_basis = model.basis[m]
             ineligible_covariates = set(selected_basis.v)
             eligible_covariates = covariates - ineligible_covariates
+            basis_gcv = np.inf
             for v in eligible_covariates:
-                eligible_knots = x[
-                    np.where(selected_basis(x) > 0)[0], v]  # TODO better knot selection
+                eligible_knots = x[np.where(selected_basis(x) > 0)[0], v]
                 eligible_knots[::-1].sort()
                 candidate_model = deepcopy(model)
                 unhinged_candidate = deepcopy(selected_basis)
@@ -286,7 +289,7 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
                 hinged_candidate = deepcopy(selected_basis)
                 hinged_candidate.add(v, eligible_knots[0], True)
                 duplicates = candidate_model.add([unhinged_candidate, hinged_candidate])
-                tri = candidate_model.fit(x, y) # TODO a lot can be reused here
+                tri = candidate_model.fit(x, y)  # TODO fit matrix only need extension not recalculation
                 u = eligible_knots[0]
 
                 for i, t in enumerate(eligible_knots[1:]):
@@ -297,11 +300,18 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
                     candidate_model.basis[-1] = hinged_candidate
                     tri = candidate_model.update_fit(x, y, tri, u, t, v, model.fit_matrix[:, m])
                     u = t
+                    if candidate_model.gcv < basis_gcv:
+                        basis_gcv = candidate_model.gcv
                     if candidate_model.gcv < best_gcv:
                         best_gcv = candidate_model.gcv
                         best_candidate_model = deepcopy(candidate_model)
-
+            candidate_queue[m] = model.gcv - basis_gcv
+        for unselected_basis in sorted(candidate_queue, key=candidate_queue.get)[k:]:
+            candidate_queue[unselected_basis] += aging_factor
         model = best_candidate_model
+        for i in range(len(model) - len(candidate_queue)):
+            candidate_queue[len(model) - 1 - i] = np.inf
+
     return model
 
 
