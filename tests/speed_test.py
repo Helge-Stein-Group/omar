@@ -1,25 +1,46 @@
-import regression
-import utils
 import platform
 import timeit
 from datetime import datetime
+
 import numpy as np
 
 n_samples = 10 ** 2
 dim = 2
 m_max = 10
 
-x, y, y_true = utils.generate_data(n_samples, dim)
 
-time = np.mean(timeit.repeat("regression.fit(x, y, m_max)", globals=globals(), repeat=10, number=1))
-#time = np.mean(timeit.repeat("regression.update_cholesky(np.triu(np.random.rand(100, 100)), [np.random.rand(100)], [2])", globals=globals(), repeat=1000, number=1))
+def speed_test(command, output_file, setup, repeat=10, number=1):
+    setup = "import utils\nimport regression\n" + setup
+    time = np.mean(
+        timeit.repeat(command, setup=setup, globals=globals(), repeat=repeat,
+                      number=number)
+    )
 
-with open("speeds.txt", "a") as result_file:
-    result_file.write("{:<30} | {:<10} | {:<10} | {:<10} | {:<10} | {}\n".format(
-        str(datetime.now()),
-        "{:.6f}".format(time),
-        str(n_samples),
-        str(dim),
-        str(m_max),
-        platform.system()
-    ))
+    with open(output_file, "a") as result_file:
+        result_file.write("{:<30} | {:<10} | {:<10} | {:<10} | {:<10} | {}\n".format(
+            str(datetime.now()),
+            "{:.6f}".format(time),
+            n_samples,
+            dim,
+            m_max,
+            platform.system()
+        ))
+
+
+def test_speed_full():
+    speed_test(
+        "regression.fit(x, y, m_max)",
+        "../results/speeds_full.txt",
+        "x, y, y_true = utils.generate_data(n_samples, dim)"
+    )
+
+
+def test_speed_update_cholesky():
+    speed_test(
+        "regression.update_cholesky(tri, vecs, vals)",
+        "../results/speeds_cholesky.txt",
+        "tri = np.triu(np.random.rand(100, 100))\n" +
+        "vecs = [np.random.rand(100)]\n" +
+        "vals = [2]",
+        repeat=100
+    )

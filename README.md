@@ -10,4 +10,6 @@ regression splines from Jerome H. Friedman.
 2. Friedman, J. (1993). Fast MARS. Stanford University Department of Statistics, Technical Report No 110. 
    https://statistics.stanford.edu/sites/default/files/LCS%20110.pdf
 3. Hastie, T., Tibshirani, R., & Friedman, J. The Elements of Statistical Learning (2nd Edition). (2009).  
-   Springer Series in Statistics
+   Springer Series in Statistic
+4. Oswin Krause. Christian Igel. A More Efficient Rank-one Covariance Matrix Update for Evolution Strategies. 
+   2015 ACM Conference. https://christian-igel.github.io/paper/AMERCMAUfES.pdf
