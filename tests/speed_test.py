@@ -47,6 +47,10 @@ def test_speed_update_cholesky():
 
 
 def test_speed_basis():
+    global n_samples
+    n_samples = 10 ** 5
+    global dim
+    dim = 10
     speed_test(
         "basis(vals)",
         "../results/speeds_basis.txt",
@@ -54,6 +58,41 @@ def test_speed_basis():
         "t = [0,0.5,-0.5,1,-1]\n" +
         "hinge = [True,False,True,False,True]\n" +
         "basis = regression.Basis(v, t, hinge)\n" +
-        "vals = np.random.rand(100000, 10)",
+        "vals = np.random.rand(n_samples, dim)",
+        repeat=100
+    )
+
+
+def test_speed_update_init():
+    global n_samples
+    n_samples = 10 ** 5
+    global dim
+    dim = 10
+    speed_test(
+        "model.update_initialisation(x, u, t, v, selected_fit)",
+        "../results/speeds_update_init.txt",
+        "x, y, y_true, model = utils.data_generation_model(n_samples, dim)\n" +
+        "u = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]\n" +
+        "t = x[np.argmin(np.abs(x[:, 1] - 0.7)), 1]\n" +
+        "v = 1\n" +
+        "selected_fit = model.fit_matrix[:, 1]",
+        repeat=100
+    )
+
+
+def test_speed_covariance_update():
+    global n_samples
+    n_samples = 10 ** 5
+    global dim
+    dim = 10
+    speed_test(
+        "model.update_covariance_matrix()",
+        "../results/speeds_covariance_update.txt",
+        "x, y, y_true, model = utils.data_generation_model(n_samples, dim)\n" +
+        "u = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]\n" +
+        "t = x[np.argmin(np.abs(x[:, 1] - 0.7)), 1]\n" +
+        "v = 1\n" +
+        "selected_fit = model.fit_matrix[:, 1]\n" +
+        "model.update_initialisation(x, u, t, v, selected_fit)",
         repeat=100
     )

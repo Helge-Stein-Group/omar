@@ -20,7 +20,8 @@ def update_cholesky(tri: np.ndarray, update_vectors: list[np.ndarray],
             update_vec[i + 1:] -= update_vec[i] * tri[i + 1:, i]
             tri[i, i] = np.sqrt(diag[i] + multiplier / b * update_vec[i] ** 2)
             tri[i + 1:, i] *= tri[i, i]
-            tri[i + 1:, i] += multiplier / b * update_vec[i] * update_vec[i + 1:] / tri[i, i]
+            tri[i + 1:, i] += multiplier / b * update_vec[i] * update_vec[i + 1:] / tri[
+                i, i]
             b += multiplier * update_vec[i] ** 2 / diag[i]
     return tri
 
@@ -34,16 +35,24 @@ class Basis:
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         assert x.ndim == 2
-
         # Initial basis function
         if len(self.v) == 0:
             return np.ones(x.shape[0])
-        return np.maximum(0., x[:, self.v] - self.t, where=self.hinge).prod(axis=1)
+        result = x[:, self.v] - self.t
+        np.maximum(np.zeros((x.shape[0], len(self.v)), dtype=float), result,
+                   where=self.hinge, out=result)
+        return result.prod(axis=1)
 
     def __eq__(self, other):
         return (np.all(self.v == other.v) and
                 np.all(self.t == other.t) and
                 np.all(self.hinge == other.hinge))
+
+    def __str__(self):
+        desc = ""
+        for vi, ti, hi in zip(self.v, self.t, self.hinge):
+            desc += f"(x[{vi} - {ti}]){u'\u208A' if hi else ''}"
+        return desc
 
     def add(self, v: int, t: float, hinge: bool):
         assert isinstance(v, int)
@@ -62,7 +71,7 @@ class Model:
     fit_matrix: np.ndarray = None
     covariance_matrix: np.ndarray = None
     right_hand_side: np.ndarray = None
-    gcv: float = None
+    lof: float = None
 
     # Update parameters
     indices: np.ndarray = None
@@ -70,6 +79,7 @@ class Model:
     fixed_mean: np.ndarray = None
     candidate_mean: float = None
     update_mean: float = None
+    y_mean: float = None
 
     def data_matrix(self, x: np.ndarray) -> np.ndarray:
         assert x.ndim == 2
@@ -96,16 +106,10 @@ class Model:
 
         return Model([self.basis[i]], self.coefficients[i].reshape(1, -1))
 
-    def add(self, bases: list[Basis]) -> bool:
+    def add(self, bases: list[Basis]):
         assert all(isinstance(b, Basis) for b in bases)
-        duplicates = False
-        for basis in bases:
-            if basis in self.basis:
-                duplicates = True
-            else:
-                self.basis.append(basis)
 
-        return duplicates
+        self.basis.extend(bases)
 
     def remove(self, i: int):
         assert isinstance(i, int)
@@ -113,6 +117,21 @@ class Model:
 
         del self.basis[i]
         return self
+
+    def prepare_update(self, collapsed_fit: np.ndarray):
+        assert collapsed_fit.shape[0] == self.fit_matrix.shape[1]
+
+        self.fixed_mean = collapsed_fit[:-1] / self.fit_matrix.shape[0]
+        self.candidate_mean = collapsed_fit[-1] / self.fit_matrix.shape[0]
+
+    def extend_prepare_update(self, collapsed_fit: np.ndarray, i: int):
+        assert i < len(self.basis)
+        assert collapsed_fit.shape[0] == i
+
+        self.fixed_mean = np.append(self.fixed_mean, self.candidate_mean)
+        self.fixed_mean = np.append(self.fixed_mean,
+                                    collapsed_fit[:-1] / self.fit_matrix.shape[0])
+        self.candidate_mean = collapsed_fit[-1] / self.fit_matrix.shape[0]
 
     def update_initialisation(self, x: np.ndarray, u: float, t: float, v: int,
                               selected_fit: np.ndarray):
@@ -126,14 +145,20 @@ class Model:
         self.update = np.where(x[self.indices, v] >= u, u - t, x[self.indices, v] - t)
         self.update *= selected_fit[self.indices]
 
-        self.fixed_mean = np.mean(self.fit_matrix[:, :-1], axis=0)
         self.update_mean = np.sum(self.update) / len(x)
-        self.candidate_mean = np.mean(self.fit_matrix[:, -1]) + self.update_mean
+        self.candidate_mean += self.update_mean
 
     def calculate_fit_matrix(self, x: np.ndarray):
         assert x.ndim == 2
 
         self.fit_matrix = self.data_matrix(x)
+
+    def extend_fit_matrix(self, x: np.ndarray, i: int):
+        assert x.ndim == 2
+        assert i < len(self.basis)
+
+        self.fit_matrix = np.column_stack(
+            (self.fit_matrix, *[basis(x) for basis in self.basis[-i:]]))
 
     def update_fit_matrix(self):
         self.fit_matrix[self.indices, -1] += self.update
@@ -141,9 +166,28 @@ class Model:
     def calculate_covariance_matrix(self):
         self.covariance_matrix = self.fit_matrix.T @ self.fit_matrix
         collapsed_fit = np.sum(self.fit_matrix, axis=0)
+        self.prepare_update(collapsed_fit)
         self.covariance_matrix -= np.outer(collapsed_fit, collapsed_fit) / \
                                   self.fit_matrix.shape[0]
         self.covariance_matrix += np.eye(self.covariance_matrix.shape[0]) * 1e-8
+
+    def extend_covariance_matrix(self, i: int):
+        assert i < len(self.basis)
+
+        covariance_extension = self.fit_matrix.T @ self.fit_matrix[:, -i:]
+        collapsed_fit = np.sum(self.fit_matrix[:, -i:], axis=0)
+        self.extend_prepare_update(collapsed_fit, i)
+        full_fit = np.append(self.fixed_mean, self.candidate_mean) * \
+                   self.fit_matrix.shape[0]
+        covariance_extension -= np.outer(full_fit, collapsed_fit) / \
+                                self.fit_matrix.shape[0]
+
+        self.covariance_matrix = np.column_stack((self.covariance_matrix,
+                                                  covariance_extension[:-i]))
+        self.covariance_matrix = np.row_stack((self.covariance_matrix,
+                                               covariance_extension.T))
+        for j in range(1, i + 1):
+            self.covariance_matrix[-j, -j] += 1e-8
 
     def update_covariance_matrix(self) -> np.ndarray:
         covariance_addition = np.zeros_like(self.covariance_matrix[-1, :])
@@ -191,15 +235,26 @@ class Model:
         assert y.shape[0] == self.fit_matrix.shape[0]
         assert self.fit_matrix.shape[1] == self.covariance_matrix.shape[0]
 
-        self.right_hand_side = self.fit_matrix.T @ (y - np.mean(y))
+        self.y_mean = np.mean(y)
+        self.right_hand_side = self.fit_matrix.T @ (y - self.y_mean)
+
+    def extend_right_hand_side(self, y: np.ndarray, i: int):
+        assert y.ndim == 1
+        assert y.shape[0] == self.fit_matrix.shape[0]
+        assert self.fit_matrix.shape[1] == self.covariance_matrix.shape[0]
+        assert i < len(self.basis)
+
+        self.right_hand_side = np.append(self.right_hand_side,
+                                         self.fit_matrix[:, -i:].T @ (y - self.y_mean))
 
     def update_right_hand_side(self, y: np.ndarray) -> None:
         assert y.ndim == 1
         assert y.shape[0] == self.fit_matrix.shape[0]
 
-        self.right_hand_side[-1] += np.sum(self.update * (y[self.indices] - np.mean(y)))
+        self.right_hand_side[-1] += np.sum(
+            self.update * (y[self.indices] - self.y_mean))
 
-    def calculate_gcv(self, y: np.ndarray, d: float = 3) -> None:
+    def generalised_cross_validation(self, y: np.ndarray, d: float = 3) -> None:
         assert y.ndim == 1
         assert isinstance(d, (int, float))
 
@@ -207,7 +262,7 @@ class Model:
         mse = np.sum((y - y_pred) ** 2)  # rhs instead of y?
 
         c_m = len(self.basis) + 1 + d * (len(self.basis) - 1)
-        self.gcv = mse / len(y) / (1 - c_m / len(y)) ** 2
+        self.lof = mse / len(y) / (1 - c_m / len(y)) ** 2
 
     def fit(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
         assert x.ndim == 2
@@ -228,9 +283,27 @@ class Model:
 
         self.coefficients = cho_solve((tri, lower), self.right_hand_side)
 
-        self.calculate_gcv(y)
+        self.generalised_cross_validation(y)
 
-        return tri
+        return np.tril(tri)
+
+    def extend_fit(self, x: np.ndarray, y: np.ndarray, i: int):
+        assert x.ndim == 2
+        assert y.ndim == 1
+        assert x.shape[0] == y.shape[0]
+        assert i < len(self.basis)
+
+        self.extend_fit_matrix(x, i)
+        self.extend_covariance_matrix(i)
+        self.extend_right_hand_side(y, i)
+
+        tri, lower = cho_factor(self.covariance_matrix, lower=True)
+
+        self.coefficients = cho_solve((tri, lower), self.right_hand_side)
+
+        self.generalised_cross_validation(y)
+
+        return np.tril(tri)
 
     def update_fit(self, x: np.ndarray, y: np.ndarray, tri: np.ndarray, u: float,
                    t: float, v: int, selected_fit: np.ndarray) -> np.ndarray:
@@ -252,7 +325,26 @@ class Model:
 
         self.coefficients = cho_solve((tri, True), self.right_hand_side)
 
-        self.calculate_gcv(y)
+        self.generalised_cross_validation(y)
+
+        return tri
+
+    def shrink_fit(self, x: np.ndarray, y: np.ndarray, i: int) -> np.ndarray:
+        assert x.ndim == 2
+        assert y.ndim == 1
+        assert x.shape[0] == y.shape[0]
+        assert i < len(self.basis)
+
+        self.fit_matrix = np.delete(self.fit_matrix, i, axis=1)
+        self.covariance_matrix = np.delete(self.covariance_matrix, i, axis=0)
+        self.covariance_matrix = np.delete(self.covariance_matrix, i, axis=1)
+        self.right_hand_side = np.delete(self.right_hand_side, i)
+
+        tri, lower = cho_factor(self.covariance_matrix, lower=True)
+
+        self.coefficients = cho_solve((tri, True), self.right_hand_side)
+
+        self.generalised_cross_validation(y)
 
         return tri
 
@@ -271,13 +363,12 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int, k: int = 5,
     model.fit(x, y)
     candidate_queue = {basis_idx: 1. for basis_idx in range(len(model.basis))}
     while len(model) < m_max:
-        best_gcv = np.inf
+        best_lof = np.inf
         best_candidate_model = None
         for m in sorted(candidate_queue, key=candidate_queue.get)[:-k - 1:-1]:
             selected_basis = model.basis[m]
-            ineligible_covariates = set(selected_basis.v)
-            eligible_covariates = covariates - ineligible_covariates
-            basis_gcv = np.inf
+            eligible_covariates = covariates - set(selected_basis.v)
+            basis_lof = np.inf
             for v in eligible_covariates:
                 eligible_knots = x[np.where(selected_basis(x) > 0)[0], v]
                 eligible_knots[::-1].sort()
@@ -286,31 +377,28 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int, k: int = 5,
                 unhinged_candidate.add(v, 0.0, False)
                 hinged_candidate = deepcopy(selected_basis)
                 hinged_candidate.add(v, eligible_knots[0], True)
-                duplicates = candidate_model.add([unhinged_candidate, hinged_candidate])
-                tri = candidate_model.fit(x,
-                                          y)  # TODO fit matrix only need extension not recalculation
+                candidate_model.add([unhinged_candidate, hinged_candidate])
+                tri = candidate_model.extend_fit(x, y, 2)
                 u = eligible_knots[0]
 
                 for i, t in enumerate(eligible_knots[1:]):
                     hinged_candidate = deepcopy(selected_basis)
                     hinged_candidate.add(v, t, True)
-                    if hinged_candidate in candidate_model.basis:
-                        continue
                     candidate_model.basis[-1] = hinged_candidate
                     tri = candidate_model.update_fit(x, y, tri, u, t, v,
                                                      model.fit_matrix[:, m])
                     u = t
-                    if candidate_model.gcv < basis_gcv:
-                        basis_gcv = candidate_model.gcv
-                    if candidate_model.gcv < best_gcv:
-                        best_gcv = candidate_model.gcv
+                    if candidate_model.lof < basis_lof:
+                        basis_lof = candidate_model.lof
+                    if candidate_model.lof < best_lof:
+                        best_lof = candidate_model.lof
                         best_candidate_model = deepcopy(candidate_model)
-            candidate_queue[m] = model.gcv - basis_gcv
+            candidate_queue[m] = model.lof - basis_lof
         for unselected_basis in sorted(candidate_queue, key=candidate_queue.get)[k:]:
             candidate_queue[unselected_basis] += aging_factor
         model = best_candidate_model
         for i in range(len(model) - len(candidate_queue)):
-            candidate_queue[len(model) - 1 - i] = np.inf
+            candidate_queue[len(model) - 1 - i] = 0
 
     return model
 
@@ -323,21 +411,21 @@ def backward_pass(x: np.ndarray, y: np.ndarray, model: Model) -> Model:
 
     best_model = model
     best_trimmed_model = deepcopy(model)
-    best_gcv = model.gcv
+    best_lof = model.lof
 
     while len(best_trimmed_model) > 1:
-        best_trimmed_gcv = np.inf
+        best_trimmed_lof = np.inf
         previous_model = deepcopy(best_trimmed_model)
         for i in range(len(previous_model)):
             if i == 0:  # First basis function (constant 1) cannot be excluded
                 continue
             trimmed_model = deepcopy(previous_model).remove(i)
-            trimmed_model.fit(x, y)
-            if trimmed_model.gcv < best_trimmed_gcv:
-                best_trimmed_gcv = trimmed_model.gcv
+            trimmed_model.shrink_fit(x, y, i)
+            if trimmed_model.lof < best_trimmed_lof:
+                best_trimmed_lof = trimmed_model.lof
                 best_trimmed_model = trimmed_model
-            if trimmed_model.gcv < best_gcv:
-                best_gcv = trimmed_model.gcv
+            if trimmed_model.lof < best_lof:
+                best_lof = trimmed_model.lof
                 best_model = trimmed_model
 
     return best_model
