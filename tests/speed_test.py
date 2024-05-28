@@ -44,3 +44,16 @@ def test_speed_update_cholesky():
         "vals = [2]",
         repeat=100
     )
+
+
+def test_speed_basis():
+    speed_test(
+        "basis(vals)",
+        "../results/speeds_basis.txt",
+        "v = [0,1,2,3,4]\n" +
+        "t = [0,0.5,-0.5,1,-1]\n" +
+        "hinge = [True,False,True,False,True]\n" +
+        "basis = regression.Basis(v, t, hinge)\n" +
+        "vals = np.random.rand(100000, 10)",
+        repeat=100
+    )

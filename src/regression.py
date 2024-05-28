@@ -35,16 +35,15 @@ class Basis:
     def __call__(self, x: np.ndarray) -> np.ndarray:
         assert x.ndim == 2
 
+        # Initial basis function
         if len(self.v) == 0:
             return np.ones(x.shape[0])
-        result = x[:, self.v] - self.t
-        np.maximum(np.zeros((x.shape[0], len(self.v)), dtype=float), result,
-                   where=self.hinge, out=result)
-        return result.prod(axis=1)
+        return np.maximum(0., x[:, self.v] - self.t, where=self.hinge).prod(axis=1)
 
     def __eq__(self, other):
-        return np.all(self.v == other.v) and np.all(self.t == other.t) and np.all(
-            self.hinge == other.hinge)
+        return (np.all(self.v == other.v) and
+                np.all(self.t == other.t) and
+                np.all(self.hinge == other.hinge))
 
     def add(self, v: int, t: float, hinge: bool):
         assert isinstance(v, int)
