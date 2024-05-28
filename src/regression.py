@@ -333,7 +333,7 @@ class Model:
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
-        assert i < len(self.basis)
+        assert i < self.fit_matrix.shape[1]
 
         self.fit_matrix = np.delete(self.fit_matrix, i, axis=1)
         self.covariance_matrix = np.delete(self.covariance_matrix, i, axis=0)
