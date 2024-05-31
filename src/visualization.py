@@ -2,7 +2,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 
-from regression import Model
+from regression import OMARS
 
 mpl.use("Qt5Agg")
 
@@ -10,14 +10,14 @@ mpl.use("Qt5Agg")
 def inspect_fit(
         x: np.ndarray,
         y: np.ndarray,
-        model: Model,
+        model: OMARS,
         title: str,
 ) -> None:
     assert x.ndim == 2
     assert y.ndim == 1
     assert x.shape[0] == y.shape[0]
     assert x.shape[1] == 2
-    assert isinstance(model, Model)
+    assert isinstance(model, OMARS)
     assert isinstance(title, str)
 
     fig = plt.figure()

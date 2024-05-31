@@ -64,32 +64,50 @@ class Basis:
         self.hinge.append(hinge)
 
 
-@dataclass
-class Model:
-    basis: list[Basis] = field(default_factory=lambda: [Basis()])
-    coefficients: np.ndarray = None
-    fit_matrix: np.ndarray = None
-    covariance_matrix: np.ndarray = None
-    right_hand_side: np.ndarray = None
-    lof: float = None
+class OMARS:
+    def __init__(self,
+                 max_nbases: int = 10,
+                 max_ncandidates: int = 5,
+                 aging_factor: float = 0.,
+                 smoothness: float = 3):
+        self.max_nbases = max_nbases
+        self.max_ncandidates = max_ncandidates
+        self.aging_factor = aging_factor
+        self.smoothness = smoothness
 
-    # Update parameters
-    indices: np.ndarray = None
-    update: np.ndarray = None
-    fixed_mean: np.ndarray = None
-    candidate_mean: float = None
-    update_mean: float = None
-    y_mean: float = None
+        # Bases
+        self.nbases = 1
+        self.covariates = np.zeros((self.max_nbases, self.max_nbases), dtype=int)
+        self.nodes = np.zeros((self.max_nbases, self.max_nbases), dtype=float)
+        self.hinges = np.zeros((self.max_nbases, self.max_nbases), dtype=bool)
+        self.where = np.zeros((self.max_nbases, self.max_nbases), dtype=bool)
+
+        self.coefficients = np.array([], dtype=float)
+        self.fit_matrix = np.array([[]], dtype=float)
+        self.covariance_matrix = np.array([[]], dtype=float)
+        self.right_hand_side = np.array([], dtype=float)
+
+        self.lof = float()
+
+        self.indices = np.array([], dtype=bool)
+        self.update = np.array([], dtype=float)
+        self.fixed_mean = np.array([], dtype=float)
+        self.candidate_mean = float()
+        self.update_mean = float()
+        self.y_mean = float()
 
     def data_matrix(self, x: np.ndarray) -> np.ndarray:
         assert x.ndim == 2
 
-        return np.column_stack([basis(x) for basis in self.basis])
+        result = -self.nodes + x[:, self.covariates]
+        np.maximum(np.zeros_like(result), result, where=self.hinges, out=result)
+
+        return result.prod(axis=1, where=self.where)[:, :self.nbases]
 
     def __str__(self):
         desc = "Basis functions: \n"
-        for basis in self.basis:
-            desc += f"{basis}\n"
+        for cov, node, hinge in zip(self.covariates, self.nodes, self.hinges):
+            desc += f"(x[{cov} - {node}]){u'\u208A' if hinge else ''}\n"
         return desc
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
@@ -98,24 +116,51 @@ class Model:
         return self.data_matrix(x) @ self.coefficients
 
     def __len__(self):
-        return len(self.basis)
+        return self.nbases
 
     def __getitem__(self, i: int):
         assert isinstance(i, int)
-        assert i < len(self.basis)
+        assert i < self.nbases
 
-        return Model([self.basis[i]], self.coefficients[i].reshape(1, -1))
+        sub_model = OMARS()
+        sub_model.nbases = 2
+        sub_model.covariates = self.covariates[i]
+        sub_model.nodes = self.nodes[i]
+        sub_model.hinges = self.hinges[i]
+        sub_model.where = self.where[i]
+        sub_model.coefficients = self.coefficients[i]
+        return sub_model
 
-    def add(self, bases: list[Basis]):
-        assert all(isinstance(b, Basis) for b in bases)
+    def add_basis(self,
+                  covariates: np.ndarray,
+                  nodes: np.ndarray,
+                  hinges: np.ndarray,
+                  where: np.ndarray):
+        assert covariates.ndim == nodes.ndim == hinges.ndim == where.ndim == 2
+        assert (covariates.shape[0] == nodes.shape[0]
+                == hinges.shape[0] == where.shape[0] == self.max_nbases)
+        assert covariates.shape[1] == nodes.shape[1] == hinges.shape[1] == where.shape[1]
+        assert covariates.dtype == int
+        assert nodes.dtype == float
+        assert hinges.dtype == bool
+        assert where.dtype == bool
 
-        self.basis.extend(bases)
+        addition_slice = slice(self.nbases, self.nbases + covariates.shape[1])
+        self.covariates[:, addition_slice] = covariates
+        self.nodes[:, addition_slice] = nodes
+        self.hinges[:, addition_slice] = hinges
+        self.where[:, addition_slice] = where
 
-    def remove(self, i: int):
-        assert isinstance(i, int)
-        assert i < len(self.basis)
 
-        del self.basis[i]
+    def remove(self, sl: slice):
+        assert isinstance(sl, slice)
+
+        del self.basis[sl]
+        self.fit_matrix = np.delete(self.fit_matrix, sl, axis=1)
+        self.covariance_matrix = np.delete(self.covariance_matrix, sl, axis=0)
+        self.covariance_matrix = np.delete(self.covariance_matrix, sl, axis=1)
+        self.right_hand_side = np.delete(self.right_hand_side, sl)
+
         return self
 
     def prepare_update(self, collapsed_fit: np.ndarray):
@@ -350,7 +395,7 @@ class Model:
 
 
 def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int, k: int = 5,
-                 aging_factor: float = 0.) -> Model:
+                 aging_factor: float = 0.) -> OMARS:
     assert x.ndim == 2
     assert y.ndim == 1
     assert x.shape[0] == y.shape[0]
@@ -359,25 +404,26 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int, k: int = 5,
     assert isinstance(aging_factor, float)
 
     covariates = set(range(x.shape[1]))
-    model = Model()
-    model.fit(x, y)
-    candidate_queue = {basis_idx: 1. for basis_idx in range(len(model.basis))}
-    while len(model) < m_max:
+    best_model = OMARS()
+    best_model.fit(x, y)  # initial independent of everything
+    candidate_queue = {basis_idx: 1. for basis_idx in range(len(best_model.basis))}
+    while len(best_model) < m_max:
         best_lof = np.inf
         best_candidate_model = None
         for m in sorted(candidate_queue, key=candidate_queue.get)[:-k - 1:-1]:
-            selected_basis = model.basis[m]
+            selected_basis = best_model.basis[m]
             eligible_covariates = covariates - set(selected_basis.v)
             basis_lof = np.inf
             for v in eligible_covariates:
                 eligible_knots = x[np.where(selected_basis(x) > 0)[0], v]
                 eligible_knots[::-1].sort()
-                candidate_model = deepcopy(model)
+                candidate_model = best_model
                 unhinged_candidate = deepcopy(selected_basis)
                 unhinged_candidate.add(v, 0.0, False)
                 hinged_candidate = deepcopy(selected_basis)
                 hinged_candidate.add(v, eligible_knots[0], True)
                 candidate_model.add([unhinged_candidate, hinged_candidate])
+                # Expects: Fit Mat/Cov Mat/RHS of smaller model
                 tri = candidate_model.extend_fit(x, y, 2)
                 u = eligible_knots[0]
 
@@ -385,29 +431,32 @@ def forward_pass(x: np.ndarray, y: np.ndarray, m_max: int, k: int = 5,
                     hinged_candidate = deepcopy(selected_basis)
                     hinged_candidate.add(v, t, True)
                     candidate_model.basis[-1] = hinged_candidate
+                    # Expects: Fit Mat/Cov Mat/RHS of same size model, with same v and u > t
                     tri = candidate_model.update_fit(x, y, tri, u, t, v,
-                                                     model.fit_matrix[:, m])
+                                                     best_model.fit_matrix[:, m])
                     u = t
                     if candidate_model.lof < basis_lof:
                         basis_lof = candidate_model.lof
                     if candidate_model.lof < best_lof:
                         best_lof = candidate_model.lof
                         best_candidate_model = deepcopy(candidate_model)
-            candidate_queue[m] = model.lof - basis_lof
+                best_model.remove(-1)
+                best_model.remove(-1)
+            candidate_queue[m] = best_model.lof - basis_lof
         for unselected_basis in sorted(candidate_queue, key=candidate_queue.get)[k:]:
             candidate_queue[unselected_basis] += aging_factor
-        model = best_candidate_model
-        for i in range(len(model) - len(candidate_queue)):
-            candidate_queue[len(model) - 1 - i] = 0
+        best_model = best_candidate_model
+        for i in range(len(best_model) - len(candidate_queue)):
+            candidate_queue[len(best_model) - 1 - i] = 0
 
-    return model
+    return best_model
 
 
-def backward_pass(x: np.ndarray, y: np.ndarray, model: Model) -> Model:
+def backward_pass(x: np.ndarray, y: np.ndarray, model: OMARS) -> OMARS:
     assert x.ndim == 2
     assert y.ndim == 1
     assert x.shape[0] == y.shape[0]
-    assert isinstance(model, Model)
+    assert isinstance(model, OMARS)
 
     best_model = model
     best_trimmed_model = deepcopy(model)
@@ -431,7 +480,7 @@ def backward_pass(x: np.ndarray, y: np.ndarray, model: Model) -> Model:
     return best_model
 
 
-def fit(x: np.ndarray, y: np.ndarray, m_max: int) -> Model:
+def fit(x: np.ndarray, y: np.ndarray, m_max: int) -> OMARS:
     model = forward_pass(x, y, m_max)
     model = backward_pass(x, y, model)
 

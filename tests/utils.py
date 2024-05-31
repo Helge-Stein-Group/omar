@@ -13,10 +13,10 @@ def generate_data(n_samples: int, dim: int) -> tuple[np.ndarray, np.ndarray, np.
 
 
 def data_generation_model(n_samples: int, dim: int) \
-        -> tuple[np.ndarray, np.ndarray, np.ndarray, regression.Model]:
+        -> tuple[np.ndarray, np.ndarray, np.ndarray, regression.OMARS]:
     x, y, y_true = generate_data(n_samples, dim)
 
-    reference_model = regression.Model()
+    reference_model = regression.OMARS()
     x1 = x[np.argmin(np.abs(x[:, 0] - 1)), 0]
     x08 = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]
     reference_model.basis = [

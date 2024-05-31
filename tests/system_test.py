@@ -18,7 +18,7 @@ def evaluate_prediction(y_pred: np.ndarray, y_true: np.ndarray, y: np.ndarray) -
 
 
 def omars_test(x: np.ndarray, y: np.ndarray, y_true: np.ndarray) -> tuple[
-    float, regression.Model]:
+    float, regression.OMARS]:
     model = regression.fit(x, y, 10)
     y_pred = model(x)
 
