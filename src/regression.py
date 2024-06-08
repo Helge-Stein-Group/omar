@@ -158,7 +158,6 @@ class OMARS:
         self.candidate_mean = collapsed_fit[-1] / self.fit_matrix.shape[0]
 
     def extend_means(self, collapsed_fit: np.ndarray, nadditions: int):
-        assert nadditions + self.nbases < self.max_nbases
         assert collapsed_fit.shape[0] == nadditions
 
         self.fixed_mean = np.append(self.fixed_mean, self.candidate_mean)

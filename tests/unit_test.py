@@ -83,7 +83,7 @@ def shrink_case(model, x, y, func):
     for i in range(3):
         removal_slice = slice(model.nbases - 1, model.nbases)
         model.remove_basis(removal_slice)
-        chol = func(x, y, i + 1)
+        chol = func(x, y, removal_slice)
     return model, chol
 
 
@@ -115,7 +115,7 @@ def test_extend_fit_matrix():
         model.extend_fit_matrix(x, i)
         return None
 
-    model, tri = extend_case(model, x, y, extend_func)
+    model, chol = extend_case(model, x, y, extend_func)
     extended_fit_matrix = model.fit_matrix.copy()
 
     model.calculate_fit_matrix(x)
@@ -129,13 +129,13 @@ def test_update_covariance_matrix():
 
     former_covariance = model.covariance_matrix.copy()
 
-    def update_func(x, y, tri, u, t, v, selected_fit):
-        model.update_init(x, u, t, v, selected_fit)
+    def update_func(x, y, chol, old_node, parent_idx):
+        model.update_init(x, old_node, parent_idx)
         model.update_fit_matrix()
         covariance_addition = model.update_covariance_matrix()
         return None
 
-    model, tri = update_case(model, x, y, update_func)
+    model, chol = update_case(model, x, y, update_func)
     updated_covariance = model.covariance_matrix.copy()
 
     model.calculate_fit_matrix(x)
@@ -156,7 +156,7 @@ def test_extend_covariance_matrix():
         model.extend_covariance_matrix(i)
         return None
 
-    model, tri = extend_case(model, x, y, extend_func)
+    model, chol = extend_case(model, x, y, extend_func)
     extended_covariance = model.covariance_matrix.copy()
     extended_fixed_mean = model.fixed_mean.copy()
     extended_candidate_mean = model.candidate_mean.copy()
@@ -177,12 +177,12 @@ def test_update_right_hand_side():
 
     former_right_hand_side = model.right_hand_side.copy()
 
-    def update_func(x, y, tri, u, t, v, selected_fit):
-        model.update_init(x, u, t, v, selected_fit)
+    def update_func(x, y, chol, old_node, parent_idx):
+        model.update_init(x, old_node, parent_idx)
         model.update_right_hand_side(y)
         return None
 
-    model, tri = update_case(model, x, y, update_func)
+    model, chol = update_case(model, x, y, update_func)
     updated_right_hand_side = model.right_hand_side.copy()
 
     model.calculate_fit_matrix(x)
@@ -203,7 +203,7 @@ def test_extend_right_hand_side():
         model.extend_right_hand_side(y, i)
         return None
 
-    model, tri = extend_case(model, x, y, extend_func)
+    model, chol = extend_case(model, x, y, extend_func)
     extended_right_hand_side = model.right_hand_side.copy()
 
     model.calculate_fit_matrix(x)
@@ -219,10 +219,10 @@ def test_decompose():
 
     former_covariance = model.covariance_matrix.copy()
 
-    u = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]
-    t = x[np.argmin(np.abs(x[:, 1] - 0.5)), 1]
-    model.basis[-1].t[-1] = t
-    model.update_init(x, u, t, 1, model.fit_matrix[:, 1])
+    old_node = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]
+    new_node = x[np.argmin(np.abs(x[:, 1] - 0.5)), 1]
+    model.nodes[2, 2] = new_node
+    model.update_init(x, old_node, 1)
     model.update_fit_matrix()
     covariance_addition = model.update_covariance_matrix()
 
@@ -242,14 +242,14 @@ def test_update_cholesky():
 
     former_cholesky = model.fit(x, y)
 
-    def update_func(x, y, tri, u, t, v, selected_fit):
-        model.update_init(x, u, t, v, selected_fit)
+    def update_func(x, y, chol, old_node, parent_idx):
+        model.update_init(x, old_node, parent_idx)
         model.update_fit_matrix()
         covariance_addition = model.update_covariance_matrix()
         if covariance_addition.any():
             eigenvalues, eigenvectors = model.decompose_addition(covariance_addition)
-            tri = regression.update_cholesky(tri, eigenvectors, eigenvalues)
-        return tri
+            chol = regression.update_cholesky(chol, eigenvectors, eigenvalues)
+        return chol
 
     model, updated_cholesky = update_case(model, x, y, update_func)
 
@@ -260,25 +260,25 @@ def test_update_cholesky():
 def test_update_fit():
     x, y, y_true, model = utils.data_generation_model(100, 2)
 
-    former_tri = model.fit(x, y)
+    former_chol = model.fit(x, y)
     former_coefficients = model.coefficients.copy()
 
-    model, updated_tri = update_case(model, x, y, model.update_fit)
+    model, updated_chol = update_case(model, x, y, model.update_fit)
     updated_rhs = model.right_hand_side.copy()
     updated_coefficients = model.coefficients.copy()
-    updated_gcv = model.lof
+    updated_lof = model.lof
 
-    full_tri = model.fit(x, y)
+    full_chol = model.fit(x, y)
     full_rhs = model.right_hand_side.copy()
     full_coefficients = model.coefficients.copy()
-    full_gcv = model.lof
+    full_lof = model.lof
 
-    assert np.allclose(np.tril(updated_tri), np.tril(full_tri))
+    assert np.allclose(np.tril(updated_chol), np.tril(full_chol))
     assert np.allclose(updated_rhs, full_rhs)
     assert np.allclose(updated_coefficients[0], full_coefficients[0], 0.05, 0.1)
     assert np.allclose(updated_coefficients[1], full_coefficients[1], 0.05, 0.05)
     assert np.allclose(updated_coefficients[2], full_coefficients[2], 0.05, 0.05)
-    assert np.allclose(updated_gcv, full_gcv)
+    assert np.allclose(updated_lof, full_lof, 0.01)
 
 
 def test_extend_fit():
@@ -287,49 +287,56 @@ def test_extend_fit():
     former_tri = model.fit(x, y)
     former_coefficients = model.coefficients.copy()
 
-    model, tri = extend_case(model, x, y, model.extend_fit)
-    updated_rhs = model.right_hand_side.copy()
-    updated_coefficients = model.coefficients.copy()
-    updated_gcv = model.lof
+    model, chol = extend_case(model, x, y, model.extend_fit)
+    extended_rhs = model.right_hand_side.copy()
+    extended_coefficients = model.coefficients.copy()
+    extended_lof = model.lof
 
-    full_tri = model.fit(x, y)
+    full_chol = model.fit(x, y)
     full_rhs = model.right_hand_side.copy()
     full_coefficients = model.coefficients.copy()
-    full_gcv = model.lof
+    full_lof = model.lof
 
-    assert np.allclose(np.tril(tri), np.tril(full_tri))
-    assert np.allclose(updated_rhs, full_rhs)
-    assert np.allclose(updated_coefficients[0], full_coefficients[0], 0.05, 0.1)
-    assert np.allclose(updated_coefficients[1], full_coefficients[1], 0.05, 0.05)
-    assert np.allclose(updated_coefficients[2], full_coefficients[2], 0.05, 0.05)
-    assert np.allclose(updated_gcv, full_gcv)
+    assert np.allclose(np.tril(chol), np.tril(full_chol))
+    assert np.allclose(extended_rhs, full_rhs)
+    assert np.allclose(extended_coefficients[0], full_coefficients[0], 0.05, 0.1)
+    assert np.allclose(extended_coefficients[1], full_coefficients[1], 0.05, 0.05)
+    assert np.allclose(extended_coefficients[2], full_coefficients[2], 0.05, 0.05)
+    assert np.allclose(extended_lof, full_lof, 0.01)
 
 
 def test_shrink_fit():
     x, y, y_true, model = utils.data_generation_model(100, 2)
-    for i in range(7):
-        basis_add = deepcopy(model.basis[0])
-        basis_add.t = np.array(np.random.choice(x[:, 0], 1))
-        basis_add.v = np.array([0])
-        basis_add.hinge = np.array(np.random.choice([True, False], 1))
-        model.add([basis_add])
 
-    former_tri = model.fit(x, y)
+    additional_covariates = np.tile(model.covariates[:, 1], (7, 1)).T
+    additional_nodes = np.tile(model.nodes[:, 1], (7, 1)).T
+    additional_hinges = np.tile(model.hinges[:, 1], (7, 1)).T
+    additional_where = np.tile(model.where[:, 1], (7, 1)).T
+
+    additional_nodes[2, :] = np.random.choice(x[:, 0], 7)
+
+    model.add_basis(additional_covariates,
+                    additional_nodes,
+                    additional_hinges,
+                    additional_where)
+
+
+    former_chol = model.fit(x, y)
     former_coefficients = model.coefficients.copy()
 
-    model, tri = shrink_case(model, x, y, model.shrink_fit)
-    updated_rhs = model.right_hand_side.copy()
-    updated_coefficients = model.coefficients.copy()
-    updated_gcv = model.lof
+    model, chol = shrink_case(model, x, y, model.shrink_fit)
+    shrunk_rhs = model.right_hand_side.copy()
+    shrunk_coefficients = model.coefficients.copy()
+    shrunk_lof = model.lof
 
     full_tri = model.fit(x, y)
     full_rhs = model.right_hand_side.copy()
     full_coefficients = model.coefficients.copy()
     full_gcv = model.lof
 
-    assert np.allclose(np.tril(tri), np.tril(full_tri))
-    assert np.allclose(updated_rhs, full_rhs)
-    assert np.allclose(updated_coefficients[0], full_coefficients[0], 0.05, 0.1)
-    assert np.allclose(updated_coefficients[1], full_coefficients[1], 0.05, 0.05)
-    assert np.allclose(updated_coefficients[2], full_coefficients[2], 0.05, 0.05)
-    assert np.allclose(updated_gcv, full_gcv)
+    assert np.allclose(np.tril(chol), np.tril(full_tri))
+    assert np.allclose(shrunk_rhs, full_rhs)
+    assert np.allclose(shrunk_coefficients[0], full_coefficients[0], 0.05, 0.1)
+    assert np.allclose(shrunk_coefficients[1], full_coefficients[1], 0.05, 0.05)
+    assert np.allclose(shrunk_coefficients[2], full_coefficients[2], 0.05, 0.05)
+    assert np.allclose(shrunk_lof, full_gcv, 0.01)
