@@ -6,6 +6,20 @@ import regression
 import utils
 
 
+def test_data_matrix():
+    x, y, y_true, model = utils.data_generation_model(100, 2)
+
+    x1 = x[np.argmin(np.abs(x[:, 0] - 1)), 0]
+    x08 = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]
+    ref_data_matrix = np.column_stack([
+        np.ones(x.shape[0], dtype=float),
+        np.maximum(0, x[:, 0] - x1),
+        np.maximum(0, x[:, 0] - x1) * np.maximum(0, x[:, 1] - x08),
+    ])
+
+    assert np.allclose(ref_data_matrix, model.fit_matrix)
+
+
 def test_fit():
     x, y, y_true, model = utils.data_generation_model(100, 2)
 
@@ -30,35 +44,42 @@ def update_case(model, x, y, func):
             model.hinges[:, model.nbases - 1],
             model.where[:, model.nbases - 1],
         )
-        chol = func(x, y, chol, old_node)
+        chol = func(x, y, chol, old_node, 1)
         old_node = new_node
     return model, chol
 
 
 def extend_case(model, x, y, func):
-    chol = model.fit(x, y)
     for c in [0.5, 0.4, 0.3]:
         new_node = x[np.argmin(np.abs(x[:, 1] - c)), 1]
-        basis_add1 = deepcopy(model.basis[0])
-        basis_add1.t = np.array([0])
-        basis_add1.v = np.array([0])
-        basis_add1.hinge = np.array([False])
-        basis_add2 = deepcopy(model.basis[0])
-        basis_add2.t = np.array([new_node])
-        basis_add2.v = np.array([0])
-        basis_add2.hinge = np.array([True])
-        model.add([basis_add1, basis_add2])
+
+        additional_covariates = np.tile(model.covariates[:, model.nbases - 1], (2, 1)).T
+        additional_nodes = np.tile(model.nodes[:, model.nbases - 1], (2, 1)).T
+        additional_hinges = np.tile(model.hinges[:, model.nbases - 1], (2, 1)).T
+        additional_where = np.tile(model.where[:, model.nbases - 1], (2, 1)).T
+
+        parent_depth = np.sum(model.where[:, model.nbases - 1])
+
+        additional_covariates[parent_depth, 0] = 1
+        additional_nodes[parent_depth, 0] = 0.0
+        additional_hinges[parent_depth, 0] = False
+        additional_where[parent_depth, 0] = True
+
+        additional_covariates[parent_depth, 1] = 1
+        additional_nodes[parent_depth, 1] = new_node
+        additional_hinges[parent_depth, 1] = True
+        additional_where[parent_depth, 1] = True
         chol = func(x, y, 2)
 
     return model, chol
 
 
 def shrink_case(model, x, y, func):
-    tri = model.fit(x, y)
     for i in range(3):
-        model.remove(i + 1)
-        tri = func(x, y, i + 1)
-    return model, tri
+        removal_slice = slice(model.nbases - 1, model.nbases)
+        model.remove_basis(removal_slice)
+        chol = func(x, y, i + 1)
+    return model, chol
 
 
 def test_update_fit_matrix():
@@ -66,12 +87,12 @@ def test_update_fit_matrix():
 
     former_fit_matrix = model.fit_matrix.copy()
 
-    def update_func(x, y, tri, u, t, v, selected_fit):
-        model.update_init(x, u, t, v, selected_fit)
+    def update_func(x, y, chol, old_node, parent_idx):
+        model.update_init(x, old_node, parent_idx)
         model.update_fit_matrix()
         return None
 
-    model, tri = update_case(model, x, y, update_func)
+    model, chol = update_case(model, x, y, update_func)
     updated_fit_matrix = model.fit_matrix.copy()
 
     model.calculate_fit_matrix(x)

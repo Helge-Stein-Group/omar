@@ -50,7 +50,6 @@ class OMARS:
         self.nodes = np.zeros((self.max_nbases, self.max_nbases), dtype=float)
         self.hinges = np.zeros((self.max_nbases, self.max_nbases), dtype=bool)
         self.where = np.zeros((self.max_nbases, self.max_nbases), dtype=bool)
-        self.where[0, 0] = True  # Initial basis function
 
         self.coefficients = np.array([], dtype=float)
         self.fit_matrix = np.array([[]], dtype=float)
@@ -73,7 +72,7 @@ class OMARS:
         result = -self.nodes[:, basis_slice] + x[:, self.covariates[:, basis_slice]]
         np.maximum(np.zeros_like(result), result, where=self.hinges[:, basis_slice], out=result)
 
-        return result.prod(axis=1, where=self.where[:, basis_slice])[:, :self.nbases]
+        return result.prod(axis=1, where=self.where[:, basis_slice])
 
     def __str__(self) -> str:
         desc = "Basis functions: \n"
@@ -167,10 +166,11 @@ class OMARS:
                                     collapsed_fit[:-1] / self.fit_matrix.shape[0])
         self.candidate_mean = collapsed_fit[-1] / self.fit_matrix.shape[0]
 
-    def update_init(self, x: np.ndarray, old_node: float):
+    def update_init(self, x: np.ndarray, old_node: float, parent_idx: int):
         assert x.ndim == 2
         assert x.shape[0] == self.fit_matrix.shape[0]
         assert isinstance(old_node, float)
+        assert isinstance(parent_idx, int)
 
         prod_idx = np.sum(self.where[:, self.nbases - 1])
         new_node = self.nodes[prod_idx, self.nbases - 1]
@@ -180,7 +180,7 @@ class OMARS:
         self.update = np.where(x[self.indices, covariate] >= old_node,
                                old_node - new_node,
                                x[self.indices, covariate] - new_node)
-        self.update *= self.fit_matrix[self.indices, -1]
+        self.update *= self.fit_matrix[self.indices, parent_idx]
 
         self.update_mean = np.sum(self.update) / len(x)
         self.candidate_mean += self.update_mean
@@ -344,15 +344,17 @@ class OMARS:
 
         return np.tril(chol)
 
-    def update_fit(self, x: np.ndarray, y: np.ndarray, chol: np.ndarray, old_node: float) -> np.ndarray:
+    def update_fit(self, x: np.ndarray, y: np.ndarray, chol: np.ndarray, old_node: float,
+                   parent_idx: int) -> np.ndarray:
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
         assert chol.shape[0] == chol.shape[1] == self.nbases
         assert self.nodes[np.sum(self.where[:, self.nbases - 1]), self.nbases - 1] <= old_node
+        assert parent_idx < self.nbases
 
         # Expects: Fit Mat/Cov Mat/RHS of same size model, with same v and u > t
-        self.update_init(x, old_node)
+        self.update_init(x, old_node, parent_idx)
         self.update_fit_matrix()
         covariance_addition = self.update_covariance_matrix()
 
@@ -441,7 +443,7 @@ class OMARS:
                             additional_hinges[:, 1],
                             additional_where[:, 1]
                         )
-                        chol = self.update_fit(x, y, chol, old_node)
+                        chol = self.update_fit(x, y, chol, old_node, parent_idx)
                         old_node = new_node
                         if self.lof < basis_lof:
                             basis_lof = self.lof
