@@ -9,8 +9,6 @@ import utils
 def test_fit():
     x, y, y_true, model = utils.data_generation_model(100, 2)
 
-    model.fit(x, y)
-
     result = np.linalg.lstsq(model.fit_matrix, y, rcond=None)
     coefficients = result[0]
 
@@ -20,32 +18,39 @@ def test_fit():
 
 
 def update_case(model, x, y, func):
-    tri = model.fit(x, y)
-    u = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]
+    chol = model.fit(x, y)
+    old_node = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]
     for c in [0.5, 0.4, 0.3]:
-        t = x[np.argmin(np.abs(x[:, 1] - c)), 1]
-        model.basis[-1].t[-1] = t
-        tri = func(x, y, tri, u, t, 1, model.fit_matrix[:, 1])
-        u = t
-    return model, tri
+        new_node = x[np.argmin(np.abs(x[:, 1] - c)), 1]
+        nodes = model.nodes[:, model.nbases - 1]
+        nodes[np.sum(model.where[:, model.nbases - 1])] = new_node
+        model.update_basis(
+            model.covariates[:, model.nbases - 1],
+            nodes,
+            model.hinges[:, model.nbases - 1],
+            model.where[:, model.nbases - 1],
+        )
+        chol = func(x, y, chol, old_node)
+        old_node = new_node
+    return model, chol
 
 
 def extend_case(model, x, y, func):
-    tri = model.fit(x, y)
+    chol = model.fit(x, y)
     for c in [0.5, 0.4, 0.3]:
-        t = x[np.argmin(np.abs(x[:, 1] - c)), 1]
+        new_node = x[np.argmin(np.abs(x[:, 1] - c)), 1]
         basis_add1 = deepcopy(model.basis[0])
         basis_add1.t = np.array([0])
         basis_add1.v = np.array([0])
         basis_add1.hinge = np.array([False])
         basis_add2 = deepcopy(model.basis[0])
-        basis_add2.t = np.array([t])
+        basis_add2.t = np.array([new_node])
         basis_add2.v = np.array([0])
         basis_add2.hinge = np.array([True])
         model.add([basis_add1, basis_add2])
-        tri = func(x, y, 2)
+        chol = func(x, y, 2)
 
-    return model, tri
+    return model, chol
 
 
 def shrink_case(model, x, y, func):
@@ -62,7 +67,7 @@ def test_update_fit_matrix():
     former_fit_matrix = model.fit_matrix.copy()
 
     def update_func(x, y, tri, u, t, v, selected_fit):
-        model.update_initialisation(x, u, t, v, selected_fit)
+        model.update_init(x, u, t, v, selected_fit)
         model.update_fit_matrix()
         return None
 
@@ -99,7 +104,7 @@ def test_update_covariance_matrix():
     former_covariance = model.covariance_matrix.copy()
 
     def update_func(x, y, tri, u, t, v, selected_fit):
-        model.update_initialisation(x, u, t, v, selected_fit)
+        model.update_init(x, u, t, v, selected_fit)
         model.update_fit_matrix()
         covariance_addition = model.update_covariance_matrix()
         return None
@@ -147,7 +152,7 @@ def test_update_right_hand_side():
     former_right_hand_side = model.right_hand_side.copy()
 
     def update_func(x, y, tri, u, t, v, selected_fit):
-        model.update_initialisation(x, u, t, v, selected_fit)
+        model.update_init(x, u, t, v, selected_fit)
         model.update_right_hand_side(y)
         return None
 
@@ -191,7 +196,7 @@ def test_decompose():
     u = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]
     t = x[np.argmin(np.abs(x[:, 1] - 0.5)), 1]
     model.basis[-1].t[-1] = t
-    model.update_initialisation(x, u, t, 1, model.fit_matrix[:, 1])
+    model.update_init(x, u, t, 1, model.fit_matrix[:, 1])
     model.update_fit_matrix()
     covariance_addition = model.update_covariance_matrix()
 
@@ -212,7 +217,7 @@ def test_update_cholesky():
     former_cholesky = model.fit(x, y)
 
     def update_func(x, y, tri, u, t, v, selected_fit):
-        model.update_initialisation(x, u, t, v, selected_fit)
+        model.update_init(x, u, t, v, selected_fit)
         model.update_fit_matrix()
         covariance_addition = model.update_covariance_matrix()
         if covariance_addition.any():
