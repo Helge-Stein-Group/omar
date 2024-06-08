@@ -69,6 +69,11 @@ def extend_case(model, x, y, func):
         additional_nodes[parent_depth, 1] = new_node
         additional_hinges[parent_depth, 1] = True
         additional_where[parent_depth, 1] = True
+
+        model.add_basis(additional_covariates,
+                        additional_nodes,
+                        additional_hinges,
+                        additional_where)
         chol = func(x, y, 2)
 
     return model, chol
