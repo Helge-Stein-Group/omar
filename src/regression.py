@@ -70,8 +70,7 @@ class OMARS:
         assert isinstance(basis_slice, slice)
 
         result = -self.nodes[:, basis_slice] + x[:, self.covariates[:, basis_slice]]
-        np.maximum(np.zeros_like(result), result, where=self.hinges[:, basis_slice],
-                   out=result)
+        np.maximum(0, result, where=self.hinges[:, basis_slice], out=result)
 
         return result.prod(axis=1, where=self.where[:, basis_slice])
 
@@ -418,7 +417,7 @@ class OMARS:
 
         return chol
 
-    def forward_pass(self, x: np.ndarray, y: np.ndarray):
+    def expand_bases(self, x: np.ndarray, y: np.ndarray):
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
@@ -498,7 +497,7 @@ class OMARS:
                 for i in range(2):
                     candidate_queue[len(candidate_queue)] = 0
 
-    def backward_pass(self, x, y):
+    def prune_bases(self, x, y):
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
@@ -554,5 +553,5 @@ class OMARS:
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
 
-        self.forward_pass(x, y)
-        self.backward_pass(x, y)
+        self.expand_bases(x, y)
+        self.prune_bases(x, y)

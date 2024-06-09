@@ -27,11 +27,12 @@ def speed_test(command, output_file, setup, repeat=10, number=1):
         ))
 
 
-def test_speed_full():
+def test_speed_find_bases():
     speed_test(
-        "regression.fit(x, y, m_max)",
+        "model.find_bases(x, y)",
         "../results/speeds_full.txt",
-        "x, y, y_true = utils.generate_data(n_samples, dim)"
+        "x, y, y_true = utils.generate_data(n_samples, dim)\n" +
+        "model = regression.OMARS()",
     )
 
 
@@ -52,13 +53,9 @@ def test_speed_basis():
     global dim
     dim = 10
     speed_test(
-        "basis(vals)",
+        "model(x)",
         "../results/speeds_basis.txt",
-        "v = [0,1,2,3,4]\n" +
-        "t = [0,0.5,-0.5,1,-1]\n" +
-        "hinge = [True,False,True,False,True]\n" +
-        "basis = regression.Basis(v, t, hinge)\n" +
-        "vals = np.random.rand(n_samples, dim)",
+        f"x, y, y_true, model = utils.data_generation_model({n_samples}, {dim})",
         repeat=100
     )
 
@@ -69,13 +66,12 @@ def test_speed_update_init():
     global dim
     dim = 10
     speed_test(
-        "model.update_initialisation(x, u, t, v, selected_fit)",
+        "model.update_init(x, old_node, parent_idx)",
         "../results/speeds_update_init.txt",
         "x, y, y_true, model = utils.data_generation_model(n_samples, dim)\n" +
-        "u = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]\n" +
-        "t = x[np.argmin(np.abs(x[:, 1] - 0.7)), 1]\n" +
-        "v = 1\n" +
-        "selected_fit = model.fit_matrix[:, 1]",
+        "old_node = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]\n" +
+        "model.nodes[2,2] = x[np.argmin(np.abs(x[:, 1] - 0.6)), 1]\n" +
+        "parent_idx = 1",
         repeat=100
     )
 
@@ -89,10 +85,9 @@ def test_speed_covariance_update():
         "model.update_covariance_matrix()",
         "../results/speeds_covariance_update.txt",
         "x, y, y_true, model = utils.data_generation_model(n_samples, dim)\n" +
-        "u = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]\n" +
-        "t = x[np.argmin(np.abs(x[:, 1] - 0.7)), 1]\n" +
-        "v = 1\n" +
-        "selected_fit = model.fit_matrix[:, 1]\n" +
-        "model.update_initialisation(x, u, t, v, selected_fit)",
+        "old_node = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]\n" +
+        "model.nodes[2,2] = x[np.argmin(np.abs(x[:, 1] - 0.6)), 1]\n" +
+        "parent_idx = 1\n" +
+        "model.update_init(x, old_node, parent_idx)",
         repeat=100
     )

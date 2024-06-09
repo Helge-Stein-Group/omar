@@ -341,11 +341,11 @@ def test_shrink_fit():
     assert np.allclose(shrunk_lof, full_gcv, 0.01)
 
 
-def test_forward_pass():
+def test_expand_bases():
     x, y, y_true, ref_model = utils.data_generation_model(100, 2)
 
     model = regression.OMARS()
-    model.forward_pass(x, y_true)
+    model.expand_bases(x, y_true)
 
     expected_node_1 = x[np.argmin(np.abs(x[:, 0] - 1)), 0]
     expected_node_2 = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]
@@ -381,11 +381,11 @@ def test_forward_pass():
     assert match2
 
 
-def test_backward_pass():
+def test_prune_bases():
     x, y, y_true, ref_model = utils.data_generation_model(100, 2)
 
     test_model = deepcopy(ref_model)
-    test_model.backward_pass(x, y_true)
+    test_model.prune_bases(x, y_true)
 
     print(test_model)
     assert ref_model == test_model
