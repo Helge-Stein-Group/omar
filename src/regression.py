@@ -35,7 +35,7 @@ def update_cholesky(chol: np.ndarray,
 
 class OMARS:
     def __init__(self,
-                 max_nbases: int = 10,
+                 max_nbases: int = 11,
                  max_ncandidates: int = 5,
                  aging_factor: float = 0.,
                  smoothness: float = 3):
@@ -70,7 +70,8 @@ class OMARS:
         assert isinstance(basis_slice, slice)
 
         result = -self.nodes[:, basis_slice] + x[:, self.covariates[:, basis_slice]]
-        np.maximum(np.zeros_like(result), result, where=self.hinges[:, basis_slice], out=result)
+        np.maximum(np.zeros_like(result), result, where=self.hinges[:, basis_slice],
+                   out=result)
 
         return result.prod(axis=1, where=self.where[:, basis_slice])
 
@@ -107,6 +108,16 @@ class OMARS:
         sub_model.coefficients = self.coefficients[i]
         return sub_model
 
+    def __eq__(self, other):
+        self_idx = [slice(None), slice(self.nbases)]
+        other_idx = [slice(None), slice(other.nbases)]
+
+        return self.nbases == other.nbases and \
+            np.array_equal(self.covariates[*self_idx], other.covariates[*other_idx]) and \
+            np.array_equal(self.nodes[*self_idx], other.nodes[*other_idx]) and \
+            np.array_equal(self.hinges[*self_idx], other.hinges[*other_idx]) and \
+            np.array_equal(self.where[*self_idx], other.where[*other_idx])
+
     def add_basis(self,
                   covariates: np.ndarray,
                   nodes: np.ndarray,
@@ -115,7 +126,8 @@ class OMARS:
         assert covariates.ndim == nodes.ndim == hinges.ndim == where.ndim == 2
         assert (covariates.shape[0] == nodes.shape[0]
                 == hinges.shape[0] == where.shape[0] == self.max_nbases)
-        assert covariates.shape[1] == nodes.shape[1] == hinges.shape[1] == where.shape[1]
+        assert covariates.shape[1] == nodes.shape[1] == hinges.shape[1] == where.shape[
+            1]
         assert covariates.dtype == int
         assert nodes.dtype == float
         assert hinges.dtype == bool
@@ -165,6 +177,15 @@ class OMARS:
                                     collapsed_fit[:-1] / self.fit_matrix.shape[0])
         self.candidate_mean = collapsed_fit[-1] / self.fit_matrix.shape[0]
 
+    def shrink_means(self, removal_slice: slice):
+        assert isinstance(removal_slice, slice)
+
+        joint_mean = np.append(self.fixed_mean, self.candidate_mean)
+        reduced_mean = np.delete(joint_mean, removal_slice)
+
+        self.fixed_mean = reduced_mean[:-1]
+        self.candidate_mean = reduced_mean[-1]
+
     def update_init(self, x: np.ndarray, old_node: float, parent_idx: int):
         assert x.ndim == 2
         assert x.shape[0] == self.fit_matrix.shape[0]
@@ -193,10 +214,11 @@ class OMARS:
         assert x.ndim == 2
         assert isinstance(nadditions, int)
 
-        self.fit_matrix = np.column_stack((self.fit_matrix, self.data_matrix(x,
-                                                                             slice(self.nbases - nadditions,
-
-                                                                                   self.nbases))))
+        ext_slice = slice(self.nbases - nadditions, self.nbases)
+        self.fit_matrix = np.column_stack((
+            self.fit_matrix,
+            self.data_matrix(x, ext_slice)
+        ))
 
     def update_fit_matrix(self):
         self.fit_matrix[self.indices, -1] += self.update
@@ -286,10 +308,11 @@ class OMARS:
         assert y.ndim == 1
         assert y.shape[0] == self.fit_matrix.shape[0]
         assert self.fit_matrix.shape[1] == self.covariance_matrix.shape[0]
-        assert isinstance(nadditions, int)
+        assert nadditions < self.nbases
 
         self.right_hand_side = np.append(self.right_hand_side,
-                                         self.fit_matrix[:, -nadditions:].T @ (y - self.y_mean))
+                                         self.fit_matrix[:, -nadditions:].T @ (
+                                                 y - self.y_mean))
 
     def update_right_hand_side(self, y: np.ndarray) -> None:
         assert y.ndim == 1
@@ -343,13 +366,15 @@ class OMARS:
 
         return np.tril(chol)
 
-    def update_fit(self, x: np.ndarray, y: np.ndarray, chol: np.ndarray, old_node: float,
+    def update_fit(self, x: np.ndarray, y: np.ndarray, chol: np.ndarray,
+                   old_node: float,
                    parent_idx: int) -> np.ndarray:
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
         assert chol.shape[0] == chol.shape[1] == self.nbases
-        assert self.nodes[np.sum(self.where[:, self.nbases - 1]), self.nbases - 1] <= old_node
+        assert self.nodes[
+                   np.sum(self.where[:, self.nbases - 1]), self.nbases - 1] <= old_node
         assert parent_idx < self.nbases
 
         # Expects: Fit Mat/Cov Mat/RHS of same size model, with same v and u > t
@@ -369,24 +394,29 @@ class OMARS:
 
         return chol
 
-    def shrink_fit(self, x: np.ndarray, y: np.ndarray, removal_slice: slice) -> np.ndarray:
+    def shrink_fit(self, x: np.ndarray, y: np.ndarray,
+                   removal_slice: slice) -> np.ndarray:
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
         assert isinstance(removal_slice, slice)
 
         self.fit_matrix = np.delete(self.fit_matrix, removal_slice, axis=1)
-        self.covariance_matrix = np.delete(self.covariance_matrix, removal_slice, axis=0)
-        self.covariance_matrix = np.delete(self.covariance_matrix, removal_slice, axis=1)
+        self.covariance_matrix = np.delete(self.covariance_matrix, removal_slice,
+                                           axis=0)
+        self.covariance_matrix = np.delete(self.covariance_matrix, removal_slice,
+                                           axis=1)
+        self.shrink_means(removal_slice)
+
         self.right_hand_side = np.delete(self.right_hand_side, removal_slice)
 
-        tri, lower = cho_factor(self.covariance_matrix, lower=True)
+        chol, lower = cho_factor(self.covariance_matrix, lower=True)
 
-        self.coefficients = cho_solve((tri, True), self.right_hand_side)
+        self.coefficients = cho_solve((chol, True), self.right_hand_side)
 
         self.generalised_cross_validation(y)
 
-        return tri
+        return chol
 
     def forward_pass(self, x: np.ndarray, y: np.ndarray):
         assert x.ndim == 2
@@ -395,34 +425,36 @@ class OMARS:
 
         covariates = set(range(x.shape[1]))
         self.fit(x, y)
-        candidate_queue = {0: 1.}
-        while self.nbases < self.max_nbases:
+        candidate_queue = {i: 1. for i in range(self.nbases)}
+        for _ in range((self.max_nbases - self.nbases) // 2):
             best_lof = np.inf
             best_covariate = None
             best_node = None
             best_hinge = None
             best_where = None
-            for parent_idx in sorted(candidate_queue, key=candidate_queue.get)[:-self.max_ncandidates - 1:-1]:
-                eligible_covariates = covariates - set(self.covariates[:, parent_idx])
+            for parent_idx in sorted(candidate_queue, key=candidate_queue.get)[
+                              :-self.max_ncandidates - 1:-1]:
+                eligible_covariates = covariates - set(
+                    self.covariates[self.where[:, parent_idx], parent_idx])
                 basis_lof = np.inf
                 parent_depth = np.sum(self.where[:, parent_idx])
                 for cov in eligible_covariates:
-                    eligible_knots = x[np.where(self.fit_matrix[:, parent_idx] > 0)[0], cov]
+                    eligible_knots = x[
+                        np.where(self.fit_matrix[:, parent_idx] > 0)[0], cov]
                     eligible_knots[::-1].sort()
-                    additional_covariates = np.tile(self.covariates[:, parent_idx], (2, 1)).T
-                    additional_nodes = np.tile(self.nodes[:, parent_idx], (2, 1)).T
+                    additional_covariates = np.tile(self.covariates[:, parent_idx],
+                                                    (2, 1)).T
+                    additional_nodes = np.tile(self.nodes[:, parent_idx],
+                                               (2, 1)).T  # not copied, issue?
                     additional_hinges = np.tile(self.hinges[:, parent_idx], (2, 1)).T
                     additional_where = np.tile(self.where[:, parent_idx], (2, 1)).T
 
-                    additional_covariates[parent_depth, 0] = cov
-                    additional_nodes[parent_depth, 0] = 0.0
-                    additional_hinges[parent_depth, 0] = False
-                    additional_where[parent_depth, 0] = True
-
-                    additional_covariates[parent_depth, 1] = cov
-                    additional_nodes[parent_depth, 1] = eligible_knots[0]
-                    additional_hinges[parent_depth, 1] = True
-                    additional_where[parent_depth, 1] = True
+                    additional_covariates[parent_depth + 1, :] = cov
+                    additional_nodes[parent_depth + 1, 0] = 0.0
+                    additional_nodes[parent_depth + 1, 1] = eligible_knots[0]
+                    additional_hinges[parent_depth + 1, 0] = False
+                    additional_hinges[parent_depth + 1, 1] = True
+                    additional_where[parent_depth + 1, :] = True
 
                     self.add_basis(
                         additional_covariates,
@@ -435,7 +467,7 @@ class OMARS:
 
                     for new_node in eligible_knots[1:]:
                         updated_nodes = additional_nodes[:, 1]
-                        updated_nodes[parent_depth] = new_node
+                        updated_nodes[parent_depth + 1] = new_node
                         self.update_basis(
                             additional_covariates[:, 1],
                             updated_nodes,
@@ -457,58 +489,64 @@ class OMARS:
                     self.remove_basis(removal_slice)
                     self.shrink_fit(x, y, removal_slice)
                 candidate_queue[parent_idx] = best_lof - basis_lof
-            for unselected_idx in sorted(candidate_queue, key=candidate_queue.get)[self.max_ncandidates:]:
+            for unselected_idx in sorted(candidate_queue, key=candidate_queue.get)[
+                                  self.max_ncandidates:]:
                 candidate_queue[unselected_idx] += self.aging_factor
-            self.add_basis(best_covariate, best_node, best_hinge, best_where)
-            self.extend_fit(x, y, 2)
-            for i in range(2):
-                candidate_queue[len(candidate_queue)] = 0
+            if best_covariate is not None:
+                self.add_basis(best_covariate, best_node, best_hinge, best_where)
+                self.extend_fit(x, y, 2)
+                for i in range(2):
+                    candidate_queue[len(candidate_queue)] = 0
 
     def backward_pass(self, x, y):
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
 
-        best_covariates = self.covariates.copy()
-        best_nodes = self.nodes.copy()
-        best_hinges = self.hinges.copy()
-        best_where = self.where.copy()
-        best_nbases = self.nbases
-
-        best_trimmed_where = None
+        best_model = self.__dict__.copy()
+        best_model_where = self.where.copy()
+        # where is not copied which is an issue, basically all of them are not copied
+        best_trimmed_model = self.__dict__.copy()
+        best_trimmed_model_where = self.where.copy()
 
         best_lof = self.lof
 
         while len(self) > 1:
             best_trimmed_lof = np.inf
 
+            previous_model = self.__dict__.copy()
             previous_where = self.where.copy()
+            previous_fit = self.fit_matrix.copy()
+            previous_covariance = self.covariance_matrix.copy()
+            previous_right_hand_side = self.right_hand_side.copy()
+            previous_fixed_mean = self.fixed_mean.copy()
+            previous_candidate_mean = self.candidate_mean
 
-            for basis_idx in range(self.nbases):
-                if basis_idx == 0:
-                    continue
+            # First basis function (constant 1) cannot be excluded
+            for basis_idx in range(1, self.nbases):
                 self.remove_basis(slice(basis_idx, basis_idx + 1))
                 self.shrink_fit(x, y, slice(basis_idx, basis_idx + 1))
                 if self.lof < best_trimmed_lof:
                     best_trimmed_lof = self.lof
-                    best_trimmed_where = self.where.copy()
+                    best_trimmed_model = self.__dict__.copy()
+                    best_trimmed_model_where = self.where.copy()
                 if self.lof < best_lof:
                     best_lof = self.lof
-                    best_covariates = self.covariates.copy()
-                    best_nodes = self.nodes.copy()
-                    best_hinges = self.hinges.copy()
-                    best_where = self.where.copy()
-                    best_nbases = self.nbases
+                    best_model = self.__dict__.copy()
+                    best_model_where = self.where.copy()
+                self.__dict__.update(previous_model)
                 self.where = previous_where.copy()
-                self.nbases += 1
-            self.where = best_trimmed_where.copy()
-            self.nbases -= 1
+                self.fit_matrix = previous_fit.copy()
+                self.covariance_matrix = previous_covariance.copy()
+                self.right_hand_side = previous_right_hand_side.copy()
+                self.fixed_mean = previous_fixed_mean.copy()
+                self.candidate_mean = previous_candidate_mean
 
-        self.covariates = best_covariates
-        self.nodes = best_nodes
-        self.hinges = best_hinges
-        self.where = best_where
-        self.nbases = best_nbases
+            self.__dict__.update(best_trimmed_model)
+            self.where = best_trimmed_model_where
+            self.fit(x, y)
+        self.__dict__.update(best_model)
+        self.where = best_model_where
         self.fit(x, y)
 
     def find_bases(self, x: np.ndarray, y: np.ndarray):

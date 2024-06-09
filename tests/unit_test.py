@@ -320,7 +320,6 @@ def test_shrink_fit():
                     additional_hinges,
                     additional_where)
 
-
     former_chol = model.fit(x, y)
     former_coefficients = model.coefficients.copy()
 
@@ -340,3 +339,53 @@ def test_shrink_fit():
     assert np.allclose(shrunk_coefficients[1], full_coefficients[1], 0.05, 0.05)
     assert np.allclose(shrunk_coefficients[2], full_coefficients[2], 0.05, 0.05)
     assert np.allclose(shrunk_lof, full_gcv, 0.01)
+
+
+def test_forward_pass():
+    x, y, y_true, ref_model = utils.data_generation_model(100, 2)
+
+    model = regression.OMARS()
+    model.forward_pass(x, y_true)
+
+    expected_node_1 = x[np.argmin(np.abs(x[:, 0] - 1)), 0]
+    expected_node_2 = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]
+
+    potential_bases_1 = np.where(
+        np.sum(np.isin(model.nodes, expected_node_1), axis=0) > 0)[0]
+    potential_bases_2 = np.where(
+        np.sum(np.isin(model.nodes, expected_node_2), axis=0) > 0)[0]
+
+    potential_bases_12 = np.intersect1d(potential_bases_1, potential_bases_2)
+
+    match1 = False
+    match2 = False
+
+    for pidx in potential_bases_1:
+        if (np.allclose(model.nodes[:, pidx], ref_model.nodes[:, 1]) and
+                np.allclose(model.covariates[:, pidx], ref_model.covariates[:, 1]) and
+                np.allclose(model.hinges[:, pidx], ref_model.hinges[:, 1]) and
+                np.allclose(model.where[:, pidx], ref_model.where[:, 1])):
+            match1 = True
+
+    for pidx in potential_bases_12:
+        if (np.allclose(model.nodes[:, pidx], ref_model.nodes[:, 2]) and
+                np.allclose(model.covariates[:, pidx], ref_model.covariates[:, 2]) and
+                np.allclose(model.hinges[:, pidx], ref_model.hinges[:, 2]) and
+                np.allclose(model.where[:, pidx], ref_model.where[:, 2])):
+            match2 = True
+
+    print("Expected node 1: ", expected_node_1)
+    print("Expected node 2: ", expected_node_2)
+    print(model)
+    assert match1
+    assert match2
+
+
+def test_backward_pass():
+    x, y, y_true, ref_model = utils.data_generation_model(100, 2)
+
+    test_model = deepcopy(ref_model)
+    test_model.backward_pass(x, y_true)
+
+    print(test_model)
+    assert ref_model == test_model
