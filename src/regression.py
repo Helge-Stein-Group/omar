@@ -107,7 +107,7 @@ class OMARS:
         sub_model.coefficients = self.coefficients[i]
         return sub_model
 
-    def __eq__(self, other):
+    def __eq__(self, other: OMARS) -> bool:
         self_idx = [slice(None), slice(self.nbases)]
         other_idx = [slice(None), slice(other.nbases)]
 
@@ -162,13 +162,13 @@ class OMARS:
         self.where[:, removal_slice] = False
         self.nbases -= removal_slice.stop - removal_slice.start
 
-    def calculate_means(self, collapsed_fit: np.ndarray):
+    def calculate_means(self, collapsed_fit: np.ndarray) -> None:
         assert collapsed_fit.shape[0] == self.fit_matrix.shape[1]
 
         self.fixed_mean = collapsed_fit[:-1] / self.fit_matrix.shape[0]
         self.candidate_mean = collapsed_fit[-1] / self.fit_matrix.shape[0]
 
-    def extend_means(self, collapsed_fit: np.ndarray, nadditions: int):
+    def extend_means(self, collapsed_fit: np.ndarray, nadditions: int) -> None:
         assert collapsed_fit.shape[0] == nadditions
 
         self.fixed_mean = np.append(self.fixed_mean, self.candidate_mean)
@@ -176,7 +176,7 @@ class OMARS:
                                     collapsed_fit[:-1] / self.fit_matrix.shape[0])
         self.candidate_mean = collapsed_fit[-1] / self.fit_matrix.shape[0]
 
-    def shrink_means(self, removal_slice: slice):
+    def shrink_means(self, removal_slice: slice) -> None:
         assert isinstance(removal_slice, slice)
 
         joint_mean = np.append(self.fixed_mean, self.candidate_mean)
@@ -185,7 +185,7 @@ class OMARS:
         self.fixed_mean = reduced_mean[:-1]
         self.candidate_mean = reduced_mean[-1]
 
-    def update_init(self, x: np.ndarray, old_node: float, parent_idx: int):
+    def update_init(self, x: np.ndarray, old_node: float, parent_idx: int) -> None:
         assert x.ndim == 2
         assert x.shape[0] == self.fit_matrix.shape[0]
         assert isinstance(old_node, float)
@@ -204,12 +204,12 @@ class OMARS:
         self.update_mean = np.sum(self.update) / len(x)
         self.candidate_mean += self.update_mean
 
-    def calculate_fit_matrix(self, x: np.ndarray):
+    def calculate_fit_matrix(self, x: np.ndarray) -> None:
         assert x.ndim == 2
 
         self.fit_matrix = self.data_matrix(x, slice(self.nbases))
 
-    def extend_fit_matrix(self, x: np.ndarray, nadditions: int):
+    def extend_fit_matrix(self, x: np.ndarray, nadditions: int) -> None:
         assert x.ndim == 2
         assert isinstance(nadditions, int)
 
@@ -219,10 +219,10 @@ class OMARS:
             self.data_matrix(x, ext_slice)
         ))
 
-    def update_fit_matrix(self):
+    def update_fit_matrix(self) -> None:
         self.fit_matrix[self.indices, -1] += self.update
 
-    def calculate_covariance_matrix(self):
+    def calculate_covariance_matrix(self) -> None:
         self.covariance_matrix = self.fit_matrix.T @ self.fit_matrix
         collapsed_fit = np.sum(self.fit_matrix, axis=0)
         self.calculate_means(collapsed_fit)
@@ -236,7 +236,7 @@ class OMARS:
         '''
         self.covariance_matrix += np.eye(self.covariance_matrix.shape[0]) * 1e-8
 
-    def extend_covariance_matrix(self, nadditions: int):
+    def extend_covariance_matrix(self, nadditions: int) -> None:
         assert isinstance(nadditions, int)
 
         covariance_extension = self.fit_matrix.T @ self.fit_matrix[:, -nadditions:]
@@ -295,7 +295,7 @@ class OMARS:
 
         return eigenvalues, eigenvectors
 
-    def calculate_right_hand_side(self, y: np.ndarray):
+    def calculate_right_hand_side(self, y: np.ndarray) -> None:
         assert y.ndim == 1
         assert y.shape[0] == self.fit_matrix.shape[0]
         assert self.fit_matrix.shape[1] == self.covariance_matrix.shape[0]
@@ -303,7 +303,7 @@ class OMARS:
         self.y_mean = np.mean(y)
         self.right_hand_side = self.fit_matrix.T @ (y - self.y_mean)
 
-    def extend_right_hand_side(self, y: np.ndarray, nadditions: int):
+    def extend_right_hand_side(self, y: np.ndarray, nadditions: int) -> None:
         assert y.ndim == 1
         assert y.shape[0] == self.fit_matrix.shape[0]
         assert self.fit_matrix.shape[1] == self.covariance_matrix.shape[0]
@@ -417,7 +417,7 @@ class OMARS:
 
         return chol
 
-    def expand_bases(self, x: np.ndarray, y: np.ndarray):
+    def expand_bases(self, x: np.ndarray, y: np.ndarray) -> None:
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
@@ -497,7 +497,7 @@ class OMARS:
                 for i in range(2):
                     candidate_queue[len(candidate_queue)] = 0
 
-    def prune_bases(self, x, y):
+    def prune_bases(self, x: np.ndarray, y: np.ndarray) -> None:
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
@@ -548,7 +548,7 @@ class OMARS:
         self.where = best_model_where
         self.fit(x, y)
 
-    def find_bases(self, x: np.ndarray, y: np.ndarray):
+    def find_bases(self, x: np.ndarray, y: np.ndarray) -> None:
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
