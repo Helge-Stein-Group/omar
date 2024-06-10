@@ -9,7 +9,7 @@ dim = 2
 m_max = 10
 
 
-def speed_test(command, output_file, setup, repeat=10, number=1):
+def speed_test(command: str, output_file: str, setup: str, repeat: int = 10, number: int = 1) -> None:
     setup = "import utils\nimport regression\n" + setup
     time = np.mean(
         timeit.repeat(command, setup=setup, globals=globals(), repeat=repeat,
@@ -27,7 +27,7 @@ def speed_test(command, output_file, setup, repeat=10, number=1):
         ))
 
 
-def test_speed_find_bases():
+def test_speed_find_bases() -> None:
     speed_test(
         "model.find_bases(x, y)",
         "../results/speeds_full.txt",
@@ -36,7 +36,7 @@ def test_speed_find_bases():
     )
 
 
-def test_speed_update_cholesky():
+def test_speed_update_cholesky() -> None:
     speed_test(
         "regression.update_cholesky(tri, vecs, vals)",
         "../results/speeds_cholesky.txt",
@@ -47,7 +47,7 @@ def test_speed_update_cholesky():
     )
 
 
-def test_speed_basis():
+def test_speed_basis() -> None:
     global n_samples
     n_samples = 10 ** 5
     global dim
@@ -60,7 +60,7 @@ def test_speed_basis():
     )
 
 
-def test_speed_update_init():
+def test_speed_update_init() -> None:
     global n_samples
     n_samples = 10 ** 5
     global dim
@@ -76,7 +76,7 @@ def test_speed_update_init():
     )
 
 
-def test_speed_covariance_update():
+def test_speed_covariance_update() -> None:
     global n_samples
     n_samples = 10 ** 5
     global dim

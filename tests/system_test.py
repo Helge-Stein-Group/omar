@@ -29,7 +29,7 @@ def omars_test(x: np.ndarray, y: np.ndarray, y_true: np.ndarray) -> tuple[
     return r2, model
 
 
-def test_scenario1():
+def test_scenario1() -> None:
     n_samples = 100
     dim = 2
 
@@ -43,7 +43,7 @@ def test_scenario1():
     assert r2 > 0.9
 
 
-def test_scenario2():
+def test_scenario2() -> None:
     n_samples = 100
     dim = 20
 
@@ -57,7 +57,7 @@ def test_scenario2():
     assert r2 > 0.9
 
 
-def test_scenario3():
+def test_scenario3() -> None:
     n_samples = 100
     dim = 10
 

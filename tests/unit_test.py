@@ -6,7 +6,7 @@ import regression
 import utils
 
 
-def test_data_matrix():
+def test_data_matrix() -> None:
     x, y, y_true, model = utils.data_generation_model(100, 2)
 
     x1 = x[np.argmin(np.abs(x[:, 0] - 1)), 0]
@@ -20,7 +20,7 @@ def test_data_matrix():
     assert np.allclose(ref_data_matrix, model.fit_matrix)
 
 
-def test_fit():
+def test_fit() -> None:
     x, y, y_true, model = utils.data_generation_model(100, 2)
 
     result = np.linalg.lstsq(model.fit_matrix, y, rcond=None)
@@ -31,7 +31,8 @@ def test_fit():
     assert np.allclose(coefficients[2], model.coefficients[2], 0.05, 0.05)
 
 
-def update_case(model, x, y, func):
+def update_case(model: regression.OMARS, x: np.ndarray, y: np.ndarray, func: callable) -> tuple[
+    regression.OMARS, np.ndarray]:
     chol = model.fit(x, y)
     old_node = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]
     for c in [0.5, 0.4, 0.3]:
@@ -49,7 +50,8 @@ def update_case(model, x, y, func):
     return model, chol
 
 
-def extend_case(model, x, y, func):
+def extend_case(model: regression.OMARS, x: np.ndarray, y: np.ndarray, func: callable) -> tuple[
+    regression.OMARS, np.ndarray]:
     for c in [0.5, 0.4, 0.3]:
         new_node = x[np.argmin(np.abs(x[:, 1] - c)), 1]
 
@@ -79,7 +81,8 @@ def extend_case(model, x, y, func):
     return model, chol
 
 
-def shrink_case(model, x, y, func):
+def shrink_case(model: regression.OMARS, x: np.ndarray, y: np.ndarray, func: callable) -> tuple[
+    regression.OMARS, np.ndarray]:
     for i in range(3):
         removal_slice = slice(model.nbases - 1, model.nbases)
         model.remove_basis(removal_slice)
@@ -87,7 +90,7 @@ def shrink_case(model, x, y, func):
     return model, chol
 
 
-def test_update_fit_matrix():
+def test_update_fit_matrix() -> None:
     x, y, y_true, model = utils.data_generation_model(100, 2)
 
     former_fit_matrix = model.fit_matrix.copy()
@@ -106,7 +109,7 @@ def test_update_fit_matrix():
     assert np.allclose(updated_fit_matrix, full_fit_matrix)
 
 
-def test_extend_fit_matrix():
+def test_extend_fit_matrix() -> None:
     x, y, y_true, model = utils.data_generation_model(100, 2)
 
     former_fit_matrix = model.fit_matrix.copy()
@@ -124,7 +127,7 @@ def test_extend_fit_matrix():
     assert np.allclose(extended_fit_matrix, full_fit_matrix)
 
 
-def test_update_covariance_matrix():
+def test_update_covariance_matrix() -> None:
     x, y, y_true, model = utils.data_generation_model(100, 2)
 
     former_covariance = model.covariance_matrix.copy()
@@ -146,7 +149,7 @@ def test_update_covariance_matrix():
     assert np.allclose(updated_covariance, full_covariance)
 
 
-def test_extend_covariance_matrix():
+def test_extend_covariance_matrix() -> None:
     x, y, y_true, model = utils.data_generation_model(100, 2)
 
     former_covariance = model.covariance_matrix.copy()
@@ -172,7 +175,7 @@ def test_extend_covariance_matrix():
     assert np.allclose(extended_candidate_mean, full_candidate_mean)
 
 
-def test_update_right_hand_side():
+def test_update_right_hand_side() -> None:
     x, y, y_true, model = utils.data_generation_model(100, 2)
 
     former_right_hand_side = model.right_hand_side.copy()
@@ -192,7 +195,7 @@ def test_update_right_hand_side():
     assert np.allclose(updated_right_hand_side, full_right_hand_side)
 
 
-def test_extend_right_hand_side():
+def test_extend_right_hand_side() -> None:
     x, y, y_true, model = utils.data_generation_model(100, 2)
 
     former_right_hand_side = model.right_hand_side.copy()
@@ -214,7 +217,7 @@ def test_extend_right_hand_side():
     assert np.allclose(extended_right_hand_side, full_right_hand_side)
 
 
-def test_decompose():
+def test_decompose() -> None:
     x, y, y_true, model = utils.data_generation_model(100, 2)
 
     former_covariance = model.covariance_matrix.copy()
@@ -237,7 +240,7 @@ def test_decompose():
     assert np.allclose(reconstructed_covariance, updated_covariance)
 
 
-def test_update_cholesky():
+def test_update_cholesky() -> None:
     x, y, y_true, model = utils.data_generation_model(100, 2)
 
     former_cholesky = model.fit(x, y)
@@ -257,7 +260,7 @@ def test_update_cholesky():
     assert np.allclose(np.tril(updated_cholesky), np.tril(full_cholesky))
 
 
-def test_update_fit():
+def test_update_fit() -> None:
     x, y, y_true, model = utils.data_generation_model(100, 2)
 
     former_chol = model.fit(x, y)
@@ -281,7 +284,7 @@ def test_update_fit():
     assert np.allclose(updated_lof, full_lof, 0.01)
 
 
-def test_extend_fit():
+def test_extend_fit() -> None:
     x, y, y_true, model = utils.data_generation_model(100, 2)
 
     former_tri = model.fit(x, y)
@@ -305,7 +308,7 @@ def test_extend_fit():
     assert np.allclose(extended_lof, full_lof, 0.01)
 
 
-def test_shrink_fit():
+def test_shrink_fit() -> None:
     x, y, y_true, model = utils.data_generation_model(100, 2)
 
     additional_covariates = np.tile(model.covariates[:, 1], (7, 1)).T
@@ -341,7 +344,7 @@ def test_shrink_fit():
     assert np.allclose(shrunk_lof, full_gcv, 0.01)
 
 
-def test_expand_bases():
+def test_expand_bases() -> None:
     x, y, y_true, ref_model = utils.data_generation_model(100, 2)
 
     model = regression.OMARS()
@@ -381,7 +384,7 @@ def test_expand_bases():
     assert match2
 
 
-def test_prune_bases():
+def test_prune_bases() -> None:
     x, y, y_true, ref_model = utils.data_generation_model(100, 2)
 
     test_model = deepcopy(ref_model)
