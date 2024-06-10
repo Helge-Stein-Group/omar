@@ -10,9 +10,9 @@ def update_cholesky(chol: np.ndarray,
     """
     Update the Cholesky decomposition by rank-1 matrices.
     Args:
-        chol: Cholesky decomposition of the original matrix.
-        update_vectors: List of update vectors.
-        multipliers: List of multipliers.
+        chol: Cholesky decomposition of the original matrix. [nbases x nbases]
+        update_vectors: List of update vectors. List of [nbases x 1].
+        multipliers: List of multipliers. List of [1]
 
     Returns:
         Updated Cholesky decomposition.
@@ -126,7 +126,7 @@ class OMARS:
         for the data points.
 
         Args:
-            x: Data points.
+            x: Data points. [n x d]
             basis_slice: Slice of the basis functions to be evaluated.
 
         Returns:
@@ -163,7 +163,7 @@ class OMARS:
         Predict the target values for the given data points.
 
         Args:
-            x: Data points.
+            x: Data points. [n x d]
 
         Returns:
             Predicted target values.
@@ -231,10 +231,10 @@ class OMARS:
         Add a basis functions to the model.
 
         Args:
-            covariates: Covariates of the basis functions. (On which dimension the basis functions are applied)
-            nodes: Nodes of the basis functions.
-            hinges: Hinges of the basis functions.
-            where: Which parts of the aforementioned arrays are used. (Basically determines the product length of the basis)
+            covariates: Covariates of the basis functions. (On which dimension the basis functions are applied). [maxnbases x nadditions]
+            nodes: Nodes of the basis functions. [maxnbases x nadditions]
+            hinges: Hinges of the basis functions. [maxnbases x nadditions]
+            where: Which parts of the aforementioned arrays are used. (Basically determines the product length of the basis) [maxnbases x nadditions]
         """
         assert covariates.ndim == nodes.ndim == hinges.ndim == where.ndim == 2
         assert (covariates.shape[0] == nodes.shape[0]
@@ -262,10 +262,10 @@ class OMARS:
         Update the latest basis function.
 
         Args:
-            covariates: Covariates of the basis functions. (On which dimension the basis functions are applied)
-            nodes: Nodes of the basis functions.
-            hinges: Hinges of the basis functions.
-            where: Which parts of the aforementioned arrays are used. (Basically determines the product length of the basis)
+            covariates: Covariates of the basis functions. (On which dimension the basis functions are applied) [maxnbases x 1]
+            nodes: Nodes of the basis functions. [maxnbases x 1]
+            hinges: Hinges of the basis functions. [maxnbases x 1]
+            where: Which parts of the aforementioned arrays are used. (Basically determines the product length of the basis) [maxnbases x 1]
         """
         assert covariates.ndim == nodes.ndim == hinges.ndim == where.ndim == 1
         assert covariates.shape == nodes.shape == hinges.shape == where.shape
@@ -300,7 +300,7 @@ class OMARS:
         Calculate and store the means of the fixed and candidate basis functions.
 
         Args:
-            collapsed_fit: Sum of the fit matrix.
+            collapsed_fit: Sum of the fit matrix. [nbases]
         """
         assert collapsed_fit.shape[0] == self.fit_matrix.shape[1]
 
@@ -312,7 +312,7 @@ class OMARS:
         Extend the means of the fixed and candidate basis functions by accounting for newly added bases.
 
         Args:
-            collapsed_fit: Sum of the fit matrix.
+            collapsed_fit: Sum of the fit matrix. [nadditions]
             nadditions: Number of newly added bases.
         """
 
@@ -344,7 +344,7 @@ class OMARS:
         the cholesky decomposition and therefore a faster least-squares fit.
 
         Args:
-            x: Data points.
+            x: Data points. [n x d]
             old_node: Previous node of the basis function.
             parent_idx: Index of the parent basis function.
         """
@@ -371,7 +371,7 @@ class OMARS:
         Calculate the data matrix for the given data.
 
         Args:
-            x: Data points.
+            x: Data points. [n x d]
         """
         assert x.ndim == 2
 
@@ -382,7 +382,7 @@ class OMARS:
         Extend the data matrix by evaluating the newly added basis functions for the data points.
 
         Args:
-            x: Data points.
+            x: Data points. [n x d]
             nadditions: Number of newly added basis functions.
         """
         assert x.ndim == 2
@@ -474,7 +474,7 @@ class OMARS:
         into eigenvalues and eigenvectors to perform 2 rank-1 updates.
 
         Args:
-            covariance_addition: Addition to the covariance matrix. (the same vector is applied to the row and column)
+            covariance_addition: Addition to the covariance matrix. (the same vector is applied to the row and column) [nbases]
 
         Returns:
             Eigenvalues and eigenvectors of the addition.
@@ -501,7 +501,7 @@ class OMARS:
         Calculate the right hand side of the least-squares problem.
 
         Args:
-            y: Target values.
+            y: Target values. [n]
         """
         assert y.ndim == 1
         assert y.shape[0] == self.fit_matrix.shape[0]
@@ -515,7 +515,7 @@ class OMARS:
         Extend the right hand side of the least-squares problem by accounting for the newly added basis functions.
 
         Args:
-            y: Target values.
+            y: Target values. [n]
             nadditions: Number of newly added basis functions.
         """
         assert y.ndim == 1
@@ -532,7 +532,7 @@ class OMARS:
         Update the right hand side accoring to the basis update.
 
         Args:
-            y: Target values.
+            y: Target values. [n]
         """
         assert y.ndim == 1
         assert y.shape[0] == self.fit_matrix.shape[0]
@@ -545,7 +545,7 @@ class OMARS:
         Calculate the generalised cross validation criterion, the lack of fit criterion.
 
         Args:
-            y: Target values.
+            y: Target values. [n]
         """
         assert y.ndim == 1
 
@@ -560,11 +560,11 @@ class OMARS:
         Calculate the least-squares fit of the current model from scratch.
 
         Args:
-            x: Data points.
-            y: Target values.
+            x: Data points. [n x d]
+            y: Target values. [n]
 
         Returns:
-            Cholesky decomposition of the covariance matrix. (for reusal)
+            Cholesky decomposition of the covariance matrix. (for reusal) [nbases x nbases]
         """
         assert x.ndim == 2
         assert y.ndim == 1
@@ -588,12 +588,12 @@ class OMARS:
         smaller model.
 
         Args:
-            x: Data points.
-            y: Target values.
+            x: Data points. [n x d]
+            y: Target values. [n]
             nadditions: Number of newly added basis functions.
 
         Returns:
-            Cholesky decomposition of the covariance matrix. (for reusal)
+            Cholesky decomposition of the covariance matrix. (for reusal) [nbases x nbases]
         """
         assert x.ndim == 2
         assert y.ndim == 1
@@ -621,14 +621,14 @@ class OMARS:
         than the old node.
 
         Args:
-            x: Data points.
-            y: Target values.
-            chol: Cholesky decomposition of the covariance matrix.
+            x: Data points. [n x d]
+            y: Target values. [n]
+            chol: Cholesky decomposition of the covariance matrix. [nbases x nbases]
             old_node: Previous node of the basis function.
             parent_idx: Index of the parent basis function.
 
         Returns:
-            Cholesky decomposition of the covariance matrix. (for reusal)
+            Cholesky decomposition of the covariance matrix. (for reusal) [nbases x nbases]
         """
         assert x.ndim == 2
         assert y.ndim == 1
@@ -662,12 +662,12 @@ class OMARS:
         larger model.
 
         Args:
-            x: Data points.
-            y: Target values.
+            x: Data points. [n x d]
+            y: Target values.  [n]
             removal_slice: Slice of the basis functions to be removed.
 
         Returns:
-            Cholesky decomposition of the covariance matrix. (for reusal)
+            Cholesky decomposition of the covariance matrix. (for reusal) [nbases x nbases]
         """
         assert x.ndim == 2
         assert y.ndim == 1
@@ -698,8 +698,8 @@ class OMARS:
         the adaptions in the Fast Mars paper.
 
         Args:
-            x: Data points.
-            y: Target values.
+            x: Data points. [n x d]
+            y: Target values. [n]
         """
         assert x.ndim == 2
         assert y.ndim == 1
@@ -786,8 +786,8 @@ class OMARS:
         that increases the lack of fit criterion the least. Equivalent to the backward pass in the Mars paper.
 
         Args:
-            x: Data points.
-            y: Target values.
+            x: Data points. [n x d]
+            y: Target values. [n]
         """
         assert x.ndim == 2
         assert y.ndim == 1
@@ -844,8 +844,8 @@ class OMARS:
         Find the best fitting basis functions for the given data.
 
         Args:
-            x: Data points.
-            y: Target values.
+            x: Data points. [n x d]
+            y: Target values. [n]
         """
         assert x.ndim == 2
         assert y.ndim == 1

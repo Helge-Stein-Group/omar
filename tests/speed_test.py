@@ -91,3 +91,14 @@ def test_speed_covariance_update() -> None:
         "model.update_init(x, old_node, parent_idx)",
         repeat=100
     )
+
+
+def test_speed_decompose_addition() -> None:
+    speed_test(
+        "model.decompose_addition(vec)",
+        "../results/speeds_decompose_addition.txt",
+        "x, y, y_true, model = utils.data_generation_model(n_samples, dim)\n" +
+        "model.covariance_matrix = np.zeros((10, 10))\n" +
+        "vec = np.arange(10)",
+        repeat=100
+    )
