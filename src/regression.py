@@ -7,6 +7,21 @@ from scipy.linalg import cho_factor, cho_solve
 def update_cholesky(chol: np.ndarray,
                     update_vectors: list[np.ndarray],
                     multipliers: list[float]) -> np.ndarray:
+    """
+    Update the Cholesky decomposition by rank-1 matrices.
+    Args:
+        chol: Cholesky decomposition of the original matrix.
+        update_vectors: List of update vectors.
+        multipliers: List of multipliers.
+
+    Returns:
+        Updated Cholesky decomposition.
+
+    Notes: Algortihm according to [1] Oswin Krause. Christian Igel. A More Efficient Rank-one Covariance Matrix Update
+    for Evolution Strategies. 2015 ACM Conference. https://christian-igel.github.io/paper/AMERCMAUfES.pdf.
+    Adapted for computation speed and parallelization.
+    """
+
     assert chol.shape[0] == chol.shape[1]
     assert chol.shape[0] == len(update_vectors[0])
     assert len(update_vectors) == len(multipliers)
@@ -34,11 +49,50 @@ def update_cholesky(chol: np.ndarray,
 
 
 class OMARS:
+    """
+    Open Multivariate Adaptive Regression Splines (OMARS) model.
+    Can be used to determine multilinear relations in data by finding a best fit of a sum of basis functions.
+    Based on:
+    - Friedman, J. (1991). Multivariate adaptive regression splines.
+      The annals of statistics, 19(1), 1–67. http://www.jstor.org/stable/10.2307/2241837
+    - Friedman, J. (1993). Fast MARS.
+      Stanford University Department of Statistics,
+      Technical Report No 110. https://statistics.stanford.edu/sites/default/files/LCS%20110.pdf
+
+    To determine the bases use the find_bases method. The fitted model can than be used to predict new data by calling
+    the model with the data as argument.
+    """
     def __init__(self,
                  max_nbases: int = 11,
                  max_ncandidates: int = 5,
                  aging_factor: float = 0.,
                  smoothness: float = 3):
+        """
+        Initialize the OMARS model.
+        Args:
+            max_nbases: Maximum number of basis functions.
+            max_ncandidates: Maximum number of recalculations per iteration. (See Fast Mars paper)
+            aging_factor: Determines how fast unused parent basis funtions need recalculation. (See Fast Mars paper)
+            smoothness: Cost for each basis function optimization, used to determine the lack of fit criterion.
+
+        Other attributes:
+            nbases: Number of basis functions.
+            covariates: Covariates of the basis functions.
+            nodes: Nodes of the basis functions.
+            hinges: Hinges of the basis functions.
+            where: Which parts of the aforementioned arrays are used. (Basically determines the product length of the basis)
+            coefficients: Coefficients for the superposition of bases.
+            fit_matrix: Data matrix of the fitted data. (Evaluation of basis functions for the data points)
+            covariance_matrix: Covariance matrix of the fitted data.
+            right_hand_side: Right hand side of the fitted data.
+            lof: Lack of fit criterion.
+            indices: Indices of the data points that need to be recalculated.
+            update: Update of the fit matrix.
+            fixed_mean: Mean of the unchanging bases in this iteration.
+            candidate_mean: Mean of the changing basis in this iteration.
+            update_mean: Mean of update attribute.
+            y_mean: Mean of the target values.
+        """
         self.max_nbases = max_nbases
         self.max_ncandidates = max_ncandidates
         self.aging_factor = aging_factor
@@ -66,6 +120,17 @@ class OMARS:
         self.y_mean = float()
 
     def data_matrix(self, x: np.ndarray, basis_slice: slice) -> np.ndarray:
+        """
+        Calculate the data matrix for the given data and basis functions, which is the evaluation of the basis functions
+        for the data points.
+
+        Args:
+            x: Data points.
+            basis_slice: Slice of the basis functions to be evaluated.
+
+        Returns:
+            Data matrix.
+        """
         assert x.ndim == 2
         assert isinstance(basis_slice, slice)
 
@@ -75,6 +140,12 @@ class OMARS:
         return result.prod(axis=1, where=self.where[:, basis_slice])
 
     def __str__(self) -> str:
+        """
+        Describes the basis functions of the model.
+
+        Returns:
+            Description of the basis functions.
+        """
         desc = "Basis functions: \n"
         for basis_idx in range(self.nbases):
             for func_idx in range(self.max_nbases):
@@ -87,14 +158,38 @@ class OMARS:
         return desc
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
+        """
+        Predict the target values for the given data points.
+
+        Args:
+            x: Data points.
+
+        Returns:
+            Predicted target values.
+        """
         assert x.ndim == 2
 
         return self.data_matrix(x, slice(self.nbases)) @ self.coefficients
 
     def __len__(self) -> int:
+        """
+        Number of basis functions.
+
+        Returns:
+            Number of basis functions.
+        """
         return self.nbases
 
     def __getitem__(self, i: int) -> Self:
+        """
+        Return a submodel with only the i-th basis function.
+
+        Args:
+            i: Index of the basis function.
+
+        Returns:
+            Submodel with only the i-th basis function.
+        """
         assert isinstance(i, int)
         assert i < self.nbases
 
@@ -107,7 +202,16 @@ class OMARS:
         sub_model.coefficients = self.coefficients[i]
         return sub_model
 
-    def __eq__(self, other: OMARS) -> bool:
+    def __eq__(self, other: Self) -> bool:
+        """
+        Check if two models are equal. Equality is defined by equal bases.
+
+        Args:
+            other: Other model.
+
+        Returns:
+            True if the models are equal, False otherwise.
+        """
         self_idx = [slice(None), slice(self.nbases)]
         other_idx = [slice(None), slice(other.nbases)]
 
@@ -122,6 +226,15 @@ class OMARS:
                   nodes: np.ndarray,
                   hinges: np.ndarray,
                   where: np.ndarray) -> None:
+        """
+        Add a basis functions to the model.
+
+        Args:
+            covariates: Covariates of the basis functions. (On which dimension the basis functions are applied)
+            nodes: Nodes of the basis functions.
+            hinges: Hinges of the basis functions.
+            where: Which parts of the aforementioned arrays are used. (Basically determines the product length of the basis)
+        """
         assert covariates.ndim == nodes.ndim == hinges.ndim == where.ndim == 2
         assert (covariates.shape[0] == nodes.shape[0]
                 == hinges.shape[0] == where.shape[0] == self.max_nbases)
@@ -144,6 +257,15 @@ class OMARS:
                      nodes: np.ndarray,
                      hinges: np.ndarray,
                      where: np.ndarray) -> None:
+        """
+        Update the latest basis function.
+
+        Args:
+            covariates: Covariates of the basis functions. (On which dimension the basis functions are applied)
+            nodes: Nodes of the basis functions.
+            hinges: Hinges of the basis functions.
+            where: Which parts of the aforementioned arrays are used. (Basically determines the product length of the basis)
+        """
         assert covariates.ndim == nodes.ndim == hinges.ndim == where.ndim == 1
         assert covariates.shape == nodes.shape == hinges.shape == where.shape
         assert covariates.dtype == int
@@ -157,18 +279,42 @@ class OMARS:
         self.where[:, self.nbases - 1] = where
 
     def remove_basis(self, removal_slice: slice) -> None:
+        """
+        Remove basis functions from the model.
+
+        Args:
+            removal_slice: Slice of the basis functions to be removed.
+
+        Notes:
+            Only the where attributes is turned off, the other attributes (e.g. covariates) are deliberately not
+            deleted to avoid recalculation in the expansion step.
+        """
         assert isinstance(removal_slice, slice)
 
         self.where[:, removal_slice] = False
         self.nbases -= removal_slice.stop - removal_slice.start
 
     def calculate_means(self, collapsed_fit: np.ndarray) -> None:
+        """
+        Calculate and store the means of the fixed and candidate basis functions.
+
+        Args:
+            collapsed_fit: Sum of the fit matrix.
+        """
         assert collapsed_fit.shape[0] == self.fit_matrix.shape[1]
 
         self.fixed_mean = collapsed_fit[:-1] / self.fit_matrix.shape[0]
         self.candidate_mean = collapsed_fit[-1] / self.fit_matrix.shape[0]
 
     def extend_means(self, collapsed_fit: np.ndarray, nadditions: int) -> None:
+        """
+        Extend the means of the fixed and candidate basis functions by accounting for newly added bases.
+
+        Args:
+            collapsed_fit: Sum of the fit matrix.
+            nadditions: Number of newly added bases.
+        """
+
         assert collapsed_fit.shape[0] == nadditions
 
         self.fixed_mean = np.append(self.fixed_mean, self.candidate_mean)
@@ -177,6 +323,12 @@ class OMARS:
         self.candidate_mean = collapsed_fit[-1] / self.fit_matrix.shape[0]
 
     def shrink_means(self, removal_slice: slice) -> None:
+        """
+        Shrink the means of the fixed and candidate basis functions accounting for removed bases.
+
+        Args:
+            removal_slice: Slice of the basis functions to be removed.
+        """
         assert isinstance(removal_slice, slice)
 
         joint_mean = np.append(self.fixed_mean, self.candidate_mean)
@@ -186,6 +338,15 @@ class OMARS:
         self.candidate_mean = reduced_mean[-1]
 
     def update_init(self, x: np.ndarray, old_node: float, parent_idx: int) -> None:
+        """
+        Initialize the update of the fit by precomputing the necessary update values, that allow for a fast update of
+        the cholesky decomposition and therefore a faster least-squares fit.
+
+        Args:
+            x: Data points.
+            old_node: Previous node of the basis function.
+            parent_idx: Index of the parent basis function.
+        """
         assert x.ndim == 2
         assert x.shape[0] == self.fit_matrix.shape[0]
         assert isinstance(old_node, float)
@@ -205,11 +366,24 @@ class OMARS:
         self.candidate_mean += self.update_mean
 
     def calculate_fit_matrix(self, x: np.ndarray) -> None:
+        """
+        Calculate the data matrix for the given data.
+
+        Args:
+            x: Data points.
+        """
         assert x.ndim == 2
 
         self.fit_matrix = self.data_matrix(x, slice(self.nbases))
 
     def extend_fit_matrix(self, x: np.ndarray, nadditions: int) -> None:
+        """
+        Extend the data matrix by evaluating the newly added basis functions for the data points.
+
+        Args:
+            x: Data points.
+            nadditions: Number of newly added basis functions.
+        """
         assert x.ndim == 2
         assert isinstance(nadditions, int)
 
@@ -220,9 +394,15 @@ class OMARS:
         ))
 
     def update_fit_matrix(self) -> None:
+        """
+        Update the data matrix by adding the update attribute to the last column.
+        """
         self.fit_matrix[self.indices, -1] += self.update
 
     def calculate_covariance_matrix(self) -> None:
+        """
+        Calculate the covariance matrix of the data matrix, which is the chosen formulation of the least-squares problem.
+        """
         self.covariance_matrix = self.fit_matrix.T @ self.fit_matrix
         collapsed_fit = np.sum(self.fit_matrix, axis=0)
         self.calculate_means(collapsed_fit)
@@ -237,6 +417,13 @@ class OMARS:
         self.covariance_matrix += np.eye(self.covariance_matrix.shape[0]) * 1e-8
 
     def extend_covariance_matrix(self, nadditions: int) -> None:
+        """
+        Extend the covariance matrix by accounting for the newly added basis functions, expects and
+        extended fit matrix.
+
+        Args:
+            nadditions: Number of newly added basis functions.
+        """
         assert isinstance(nadditions, int)
 
         covariance_extension = self.fit_matrix.T @ self.fit_matrix[:, -nadditions:]
@@ -255,6 +442,9 @@ class OMARS:
             self.covariance_matrix[-j, -j] += 1e-8
 
     def update_covariance_matrix(self) -> np.ndarray:
+        """
+        Update the covariance matrix. Expects update initialisation and an updated fit matrix.
+        """
         covariance_addition = np.zeros_like(self.covariance_matrix[-1, :])
         covariance_addition[:-1] += np.tensordot(self.update,
                                                  self.fit_matrix[self.indices,
@@ -278,6 +468,16 @@ class OMARS:
 
     def decompose_addition(self, covariance_addition: np.ndarray) -> tuple[list[float],
     list[np.ndarray]]:
+        """
+        Decompose the addition to the covariance matrix, which is by adding to the last row and column of the matrix,
+        into eigenvalues and eigenvectors to perform 2 rank-1 updates.
+
+        Args:
+            covariance_addition: Addition to the covariance matrix. (the same vector is applied to the row and column)
+
+        Returns:
+            Eigenvalues and eigenvectors of the addition.
+        """
         assert covariance_addition.shape == self.covariance_matrix[-1, :].shape
 
         eigenvalue_intermediate = np.sqrt(
@@ -296,6 +496,12 @@ class OMARS:
         return eigenvalues, eigenvectors
 
     def calculate_right_hand_side(self, y: np.ndarray) -> None:
+        """
+        Calculate the right hand side of the least-squares problem.
+
+        Args:
+            y: Target values.
+        """
         assert y.ndim == 1
         assert y.shape[0] == self.fit_matrix.shape[0]
         assert self.fit_matrix.shape[1] == self.covariance_matrix.shape[0]
@@ -304,6 +510,13 @@ class OMARS:
         self.right_hand_side = self.fit_matrix.T @ (y - self.y_mean)
 
     def extend_right_hand_side(self, y: np.ndarray, nadditions: int) -> None:
+        """
+        Extend the right hand side of the least-squares problem by accounting for the newly added basis functions.
+
+        Args:
+            y: Target values.
+            nadditions: Number of newly added basis functions.
+        """
         assert y.ndim == 1
         assert y.shape[0] == self.fit_matrix.shape[0]
         assert self.fit_matrix.shape[1] == self.covariance_matrix.shape[0]
@@ -314,6 +527,12 @@ class OMARS:
                                                  y - self.y_mean))
 
     def update_right_hand_side(self, y: np.ndarray) -> None:
+        """
+        Update the right hand side accoring to the basis update.
+
+        Args:
+            y: Target values.
+        """
         assert y.ndim == 1
         assert y.shape[0] == self.fit_matrix.shape[0]
 
@@ -321,6 +540,12 @@ class OMARS:
             self.update * (y[self.indices] - self.y_mean))
 
     def generalised_cross_validation(self, y: np.ndarray) -> None:
+        """
+        Calculate the generalised cross validation criterion, the lack of fit criterion.
+
+        Args:
+            y: Target values.
+        """
         assert y.ndim == 1
 
         y_pred = self.fit_matrix @ self.coefficients
@@ -330,6 +555,16 @@ class OMARS:
         self.lof = mse / len(y) / (1 - c_m / len(y)) ** 2
 
     def fit(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+        """
+        Calculate the least-squares fit of the current model from scratch.
+
+        Args:
+            x: Data points.
+            y: Target values.
+
+        Returns:
+            Cholesky decomposition of the covariance matrix. (for reusal)
+        """
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
@@ -347,12 +582,23 @@ class OMARS:
         return np.tril(chol)
 
     def extend_fit(self, x: np.ndarray, y: np.ndarray, nadditions: int):
+        """
+        Extend the least-squares fit. Expects the correct fit matrix, covariance matrix and right hand side of the
+        smaller model.
+
+        Args:
+            x: Data points.
+            y: Target values.
+            nadditions: Number of newly added basis functions.
+
+        Returns:
+            Cholesky decomposition of the covariance matrix. (for reusal)
+        """
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
         assert isinstance(nadditions, int)
 
-        # Expects: Fit Mat/Cov Mat/RHS of smaller model
         self.extend_fit_matrix(x, nadditions)
         self.extend_covariance_matrix(nadditions)
         self.extend_right_hand_side(y, nadditions)
@@ -368,6 +614,21 @@ class OMARS:
     def update_fit(self, x: np.ndarray, y: np.ndarray, chol: np.ndarray,
                    old_node: float,
                    parent_idx: int) -> np.ndarray:
+        """
+        Update the least-squares fit. Expects the correct fit matrix, covariance matrix and right hand side of the
+        previous model. The only change in the bases occured in the node of the last basis function, which is smaller
+        than the old node.
+
+        Args:
+            x: Data points.
+            y: Target values.
+            chol: Cholesky decomposition of the covariance matrix.
+            old_node: Previous node of the basis function.
+            parent_idx: Index of the parent basis function.
+
+        Returns:
+            Cholesky decomposition of the covariance matrix. (for reusal)
+        """
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
@@ -395,6 +656,18 @@ class OMARS:
 
     def shrink_fit(self, x: np.ndarray, y: np.ndarray,
                    removal_slice: slice) -> np.ndarray:
+        """
+        Shrink the least-squares fit. Expects the correct fit matrix, covariance matrix and right hand side of the
+        larger model.
+
+        Args:
+            x: Data points.
+            y: Target values.
+            removal_slice: Slice of the basis functions to be removed.
+
+        Returns:
+            Cholesky decomposition of the covariance matrix. (for reusal)
+        """
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
@@ -418,6 +691,15 @@ class OMARS:
         return chol
 
     def expand_bases(self, x: np.ndarray, y: np.ndarray) -> None:
+        """
+        Expand the bases to the maximum allowed number of basis functions. By iteratively adding the basis
+        that reduces the lack of fit criterion the most. Equivalent to the forward pass in the Mars paper, including
+        the adaptions in the Fast Mars paper.
+
+        Args:
+            x: Data points.
+            y: Target values.
+        """
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
@@ -498,6 +780,14 @@ class OMARS:
                     candidate_queue[len(candidate_queue)] = 0
 
     def prune_bases(self, x: np.ndarray, y: np.ndarray) -> None:
+        """
+        Prune the bases to the best fitting subset of the basis functions. By iteratively removing the basis
+        that increases the lack of fit criterion the least. Equivalent to the backward pass in the Mars paper.
+
+        Args:
+            x: Data points.
+            y: Target values.
+        """
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
@@ -549,6 +839,13 @@ class OMARS:
         self.fit(x, y)
 
     def find_bases(self, x: np.ndarray, y: np.ndarray) -> None:
+        """
+        Find the best fitting basis functions for the given data.
+
+        Args:
+            x: Data points.
+            y: Target values.
+        """
         assert x.ndim == 2
         assert y.ndim == 1
         assert x.shape[0] == y.shape[0]
