@@ -62,6 +62,7 @@ class OMARS:
     To determine the bases use the find_bases method. The fitted model can than be used to predict new data by calling
     the model with the data as argument.
     """
+
     def __init__(self,
                  max_nbases: int = 11,
                  max_ncandidates: int = 5,
@@ -195,11 +196,11 @@ class OMARS:
 
         sub_model = OMARS()
         sub_model.nbases = 1
-        sub_model.covariates = self.covariates[:, i]
-        sub_model.nodes = self.nodes[:, i]
-        sub_model.hinges = self.hinges[:, i]
-        sub_model.where = self.where[:, i]
-        sub_model.coefficients = self.coefficients[i]
+        sub_model.covariates = self.covariates[:, i:i + 1]
+        sub_model.nodes = self.nodes[:, i:i + 1]
+        sub_model.hinges = self.hinges[:, i:i + 1]
+        sub_model.where = self.where[:, i:i + 1]
+        sub_model.coefficients = self.coefficients[i:i + 1]
         return sub_model
 
     def __eq__(self, other: Self) -> bool:
