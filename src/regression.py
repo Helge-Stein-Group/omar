@@ -529,7 +529,7 @@ class OMARS:
 
     def update_right_hand_side(self, y: np.ndarray) -> None:
         """
-        Update the right hand side accoring to the basis update.
+        Update the right hand side according to the basis update.
 
         Args:
             y: Target values. [n]
@@ -617,7 +617,7 @@ class OMARS:
                    parent_idx: int) -> np.ndarray:
         """
         Update the least-squares fit. Expects the correct fit matrix, covariance matrix and right hand side of the
-        previous model. The only change in the bases occured in the node of the last basis function, which is smaller
+        previous model. The only change in the bases occurred in the node of the last basis function, which is smaller
         than the old node.
 
         Args:
