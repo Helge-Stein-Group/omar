@@ -154,7 +154,7 @@ class OMARS:
                     cov = self.covariates[func_idx, basis_idx]
                     node = self.nodes[func_idx, basis_idx]
                     hinge = self.hinges[func_idx, basis_idx]
-                    desc += f"(x[{cov} - {node}]){u'\u208A' if hinge else ''}"
+                    desc += f"(x[{cov}] - {node}){u'\u208A' if hinge else ''}"
             desc += "\n"
         return desc
 

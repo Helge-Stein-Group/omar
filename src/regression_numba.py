@@ -96,7 +96,7 @@ def add_bases(nbases,
     Returns:
         New number of basis functions.
     """
-    addition_slice = slice(nbases, nbases + covariates.shape[1])
+    addition_slice = slice(nbases, nbases + new_covariates.shape[1])
     covariates[:, addition_slice] = new_covariates
     nodes[:, addition_slice] = new_nodes
     hinges[:, addition_slice] = new_hinges
@@ -294,7 +294,7 @@ def calculate_fit_matrix(x: np.ndarray,
     Returns:
         Fit matrix. [n x nbases]
     """
-    fit_matrix = data_matrix(x, slice(nbases), nodes, covariates, hinges, where)
+    fit_matrix = data_matrix(x, slice(nbases), covariates, nodes, hinges, where)
 
     return fit_matrix
 
@@ -326,7 +326,7 @@ def extend_fit_matrix(x: np.ndarray,
     ext_slice = slice(nbases - nadditions, nbases)
     fit_matrix = np.column_stack((
         fit_matrix,
-        data_matrix(x, ext_slice, nodes, covariates, hinges, where)
+        data_matrix(x, ext_slice, covariates, nodes, hinges, where)
     ))
     return fit_matrix
 
@@ -1021,7 +1021,7 @@ def prune_bases(x: np.ndarray,
                 right_hand_side: np.ndarray,
                 fixed_mean: np.ndarray,
                 candidate_mean: float,
-                smoothness: int):
+                smoothness: int) -> tuple[int, np.ndarray, np.ndarray]:
     """
     Prune the bases to the best fitting subset of the basis functions.
     By iteratively removing the basis that increases the lack of fit criterion the least.
@@ -1045,22 +1045,13 @@ def prune_bases(x: np.ndarray,
 
     Returns:
         Number of basis functions.
-        Covariates of the basis. [max_nbases x max_nbases]
-        Nodes of the basis. [max_nbases x max_nbases]
-        Hinges of the basis. [max_nbases x max_nbases]
         Signals product length of basis. [max_nbases x max_nbases]
         Coefficients of the basis. [nbases]
     """
     best_nbases = nbases
-    best_nodes = nodes.copy()
-    best_covariates = covariates.copy()
-    best_hinges = hinges.copy()
     best_where = where.copy()
 
     best_trimmed_nbases = nbases
-    best_trimmed_nodes = nodes.copy()
-    best_trimmed_covariates = covariates.copy()
-    best_trimmed_hinges = hinges.copy()
     best_trimmed_where = where.copy()
 
     best_lof = lof
@@ -1069,9 +1060,6 @@ def prune_bases(x: np.ndarray,
         best_trimmed_lof = np.inf
 
         previous_nbases = nbases
-        previous_nodes = nodes.copy()
-        previous_covariates = covariates.copy()
-        previous_hinges = hinges.copy()
         previous_where = where.copy()
         previous_fit = fit_matrix.copy()
         previous_covariance = covariance_matrix.copy()
@@ -1090,22 +1078,13 @@ def prune_bases(x: np.ndarray,
             if lof < best_trimmed_lof:
                 best_trimmed_lof = lof
                 best_trimmed_nbases = nbases
-                best_trimmed_nodes = nodes.copy()
-                best_trimmed_covariates = covariates.copy()
-                best_trimmed_hinges = hinges.copy()
                 best_trimmed_where = where.copy()
             if lof < best_lof:
                 best_lof = lof
                 best_nbases = nbases
-                best_nodes = nodes.copy()
-                best_covariates = covariates.copy()
-                best_hinges = hinges.copy()
                 best_where = where.copy()
             nbases = previous_nbases
-            nodes = previous_nodes.copy()
-            covariates = previous_covariates.copy()
-            hinges = previous_hinges.copy()
-            previous_where = previous_where.copy()
+            where = previous_where.copy()
             fit_matrix = previous_fit.copy()
             covariance_matrix = previous_covariance.copy()
             right_hand_side = previous_right_hand_side.copy()
@@ -1113,28 +1092,22 @@ def prune_bases(x: np.ndarray,
             candidate_mean = previous_candidate_mean
 
         nbases = best_trimmed_nbases
-        nodes = best_trimmed_nodes.copy()
-        covariates = best_trimmed_covariates.copy()
-        hinges = best_trimmed_hinges.copy()
         where = best_trimmed_where.copy()
-        chol, coefficients, fit_matrix, fixed_mean, candidate_mean, y_mean, covariance_matrix, right_hand_side, lof = fit(
+        lof, coefficients, fit_matrix, covariance_matrix, chol, right_hand_side, fixed_mean, candidate_mean, y_mean = fit(
             x,
             y,
             nbases,
-            nodes,
             covariates,
+            nodes,
             hinges,
             where,
             smoothness)
     nbases = best_nbases
-    nodes = best_nodes.copy()
-    covariates = best_covariates.copy()
-    hinges = best_hinges.copy()
     where = best_where.copy()
     (lof, coefficients, fit_matrix, covariance_matrix, chol, right_hand_side,
      fixed_mean, candidate_mean, y_mean) = fit(x, y, nbases, covariates, nodes, hinges,
                                                where, smoothness)
-    return nbases, covariates, nodes, hinges, where, coefficients
+    return nbases, where, coefficients
 
 
 def find_bases(x: np.ndarray,
@@ -1180,7 +1153,7 @@ def find_bases(x: np.ndarray,
      fixed_mean,
      candidate_mean) = expand_bases(x, y, max_nbases, smoothness, max_ncandidates,
                                     aging_factor)
-    nbases, covariates, nodes, hinges, where, coefficients = prune_bases(
+    nbases, where, coefficients = prune_bases(
         x, y, nbases, covariates, nodes, hinges, where, lof, fit_matrix,
         covariance_matrix, right_hand_side, fixed_mean, candidate_mean, smoothness)
 
@@ -1245,13 +1218,13 @@ class OMARS:
             Description of the basis.
         """
         desc = "basis: \n"
-        for basis_idx in range(self.nbases):
+        for basis_idx in range(self.covariates.shape[1]):
             for func_idx in range(self.covariates.shape[0]):
                 if self.where[func_idx, basis_idx]:
                     cov = self.covariates[func_idx, basis_idx]
                     node = self.nodes[func_idx, basis_idx]
                     hinge = self.hinges[func_idx, basis_idx]
-                    desc += f"(x[{cov} - {node}]){u'\u208A' if hinge else ''}"
+                    desc += f"(x[{cov}] - {node}){u'\u208A' if hinge else ''}"
             desc += "\n"
         return desc
 
