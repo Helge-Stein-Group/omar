@@ -1295,3 +1295,13 @@ class OMARS:
             np.array_equal(self.nodes[*self_idx], other.nodes[*other_idx]) and \
             np.array_equal(self.hinges[*self_idx], other.hinges[*other_idx]) and \
             np.array_equal(self.where[*self_idx], other.where[*other_idx])
+
+
+if __name__ == "__main__":
+    import tests.utils as utils
+
+    x, y, y_true = utils.generate_data(100, 2)
+
+    model = OMARS(*find_bases(x, y))
+
+    print(model)
