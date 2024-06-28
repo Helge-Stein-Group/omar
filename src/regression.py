@@ -451,16 +451,8 @@ class OMARS:
                                                  self.fit_matrix[self.indices,
                                                  :-1] - self.fixed_mean,
                                                  axes=[[0], [0]])
-        covariance_addition[-1] += np.tensordot(
-            self.fit_matrix[self.indices, -1] - self.update,
-            self.update - self.update_mean,
-            axes=[[0], [0]]
-        )
-        covariance_addition[-1] += np.tensordot(
-            self.update,
-            self.fit_matrix[self.indices, -1] - self.candidate_mean,
-            axes=[[0], [0]]
-        )
+        covariance_addition[-1] += (self.fit_matrix[self.indices, -1] - self.update) @ (self.update - self.update_mean)
+        covariance_addition[-1] += self.update @ (self.fit_matrix[self.indices, -1] - self.candidate_mean)
 
         self.covariance_matrix[-1, :-1] += covariance_addition[:-1]
         self.covariance_matrix[:, -1] += covariance_addition
@@ -707,15 +699,14 @@ class OMARS:
 
         covariates = set(range(x.shape[1]))
         self.fit(x, y)
-        candidate_queue = {i: 1. for i in range(self.nbases)}
+        candidate_queue = [0.] * self.nbases
         for _ in range((self.max_nbases - self.nbases) // 2):
             best_lof = np.inf
             best_covariate = None
             best_node = None
             best_hinge = None
             best_where = None
-            for parent_idx in sorted(candidate_queue, key=candidate_queue.get)[
-                              :-self.max_ncandidates - 1:-1]:
+            for parent_idx in np.argsort(candidate_queue)[:-self.max_ncandidates - 1:-1]:
                 eligible_covariates = covariates - set(
                     self.covariates[self.where[:, parent_idx], parent_idx])
                 basis_lof = np.inf
@@ -771,14 +762,12 @@ class OMARS:
                     self.remove_basis(removal_slice)
                     self.shrink_fit(x, y, removal_slice)
                 candidate_queue[parent_idx] = best_lof - basis_lof
-            for unselected_idx in sorted(candidate_queue, key=candidate_queue.get)[
-                                  self.max_ncandidates:]:
+            for unselected_idx in np.argsort(candidate_queue)[self.max_ncandidates:]:
                 candidate_queue[unselected_idx] += self.aging_factor
             if best_covariate is not None:
                 self.add_basis(best_covariate, best_node, best_hinge, best_where)
                 self.extend_fit(x, y, 2)
-                for i in range(2):
-                    candidate_queue[len(candidate_queue)] = 0
+                candidate_queue.extend([0, 0])
 
     def prune_bases(self, x: np.ndarray, y: np.ndarray) -> None:
         """

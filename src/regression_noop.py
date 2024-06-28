@@ -206,7 +206,7 @@ def shrink_means(fixed_mean: np.ndarray,
                  candidate_mean: float,
                  removal_slice: slice) -> tuple[np.ndarray, float]:
     """
-    Shrink the means of the fixed and candidate basis 
+    Shrink the means of the fixed and candidate basis
     accounting for removed bases.
 
     Args:
@@ -237,8 +237,8 @@ def update_init(
         fit_matrix: np.ndarray,
         candidate_mean: float) -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
     """
-    Initialize the update of the fit by precomputing the necessary update values, 
-    that allow for a fast update of the cholesky decomposition and therefore a 
+    Initialize the update of the fit by precomputing the necessary update values,
+    that allow for a fast update of the cholesky decomposition and therefore a
     faster least-squares fit.
 
     Args:
@@ -437,21 +437,11 @@ def update_covariance_matrix(covariance_matrix: np.ndarray,
     Returns:
         Covariance addition: Vector that was used to update the covariance matrix.
     """
-    covariance_addition = np.zeros_like(covariance_matrix[-1, :])
-    covariance_addition[:-1] += np.tensordot(update,
-                                             fit_matrix[indices,
-                                             :-1] - fixed_mean,
-                                             axes=[[0], [0]])
-    covariance_addition[-1] += np.tensordot(
-        fit_matrix[indices, -1] - update,
-        update - update_mean,
-        axes=[[0], [0]]
-    )
-    covariance_addition[-1] += np.tensordot(
-        update,
-        fit_matrix[indices, -1] - candidate_mean,
-        axes=[[0], [0]]
-    )
+    covariance_addition = np.zeros(covariance_matrix.shape[0], dtype=float)
+    covariance_addition[:-1] += np.sum(update[np.newaxis, ...] @ (fit_matrix[indices, :-1] - fixed_mean), axis=0)
+
+    covariance_addition[-1] += (fit_matrix[indices, -1] - update) @ (update - update_mean)
+    covariance_addition[-1] += update @ (fit_matrix[indices, -1] - candidate_mean)
 
     covariance_matrix[-1, :-1] += covariance_addition[:-1]
     covariance_matrix[:, -1] += covariance_addition
@@ -1295,13 +1285,3 @@ class OMARS:
             np.array_equal(self.nodes[*self_idx], other.nodes[*other_idx]) and \
             np.array_equal(self.hinges[*self_idx], other.hinges[*other_idx]) and \
             np.array_equal(self.where[*self_idx], other.where[*other_idx])
-
-
-if __name__ == "__main__":
-    import tests.utils as utils
-
-    x, y, y_true = utils.generate_data(100, 2)
-
-    model = OMARS(*find_bases(x, y))
-
-    print(model)
