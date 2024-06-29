@@ -351,7 +351,7 @@ class OMARS:
         assert x.ndim == 2
         assert x.shape[0] == self.fit_matrix.shape[0]
         assert isinstance(old_node, float)
-        assert isinstance(parent_idx, int)
+        assert isinstance(parent_idx, int) or isinstance(parent_idx, np.int64)
 
         prod_idx = np.sum(self.where[:, self.nbases - 1])
         new_node = self.nodes[prod_idx, self.nbases - 1]

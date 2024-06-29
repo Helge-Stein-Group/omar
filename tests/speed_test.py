@@ -1,104 +1,123 @@
-import platform
-import timeit
-from datetime import datetime
-
-import numpy as np
-
-n_samples = 10 ** 2
-dim = 2
-m_max = 10
-
-
-def speed_test(command: str, output_file: str, setup: str, repeat: int = 10, number: int = 1) -> None:
-    setup = "import utils\nimport regression\n" + setup
-    time = np.mean(
-        timeit.repeat(command, setup=setup, globals=globals(), repeat=repeat,
-                      number=number)
-    )
-
-    with open(output_file, "a") as result_file:
-        result_file.write("{:<30} | {:<10} | {:<10} | {:<10} | {:<10} | {}\n".format(
-            str(datetime.now()),
-            "{:.6f}".format(time),
-            n_samples,
-            dim,
-            m_max,
-            platform.system()
-        ))
+from utils import speed_test, monitor_scaling_laws
 
 
 def test_speed_find_bases() -> None:
     speed_test(
-        "model.find_bases(x, y)",
-        "../results/speeds_full.txt",
+        "import utils\n" +
+        "import regression\n" +
         "x, y, y_true = utils.generate_data(n_samples, dim)\n" +
         "model = regression.OMARS()",
+        "model.find_bases(x, y)",
+        "oop",
+        "../results/speeds_find_bases.txt",
+        repeat=100,
+        number=1,
+        n_samples=100,
+        dim=2,
+        m_max=10
+    )
+
+
+def test_monitor_scaling_laws() -> None:
+    monitor_scaling_laws(
+        "import utils\nimport regression\n" +
+        "x, y, y_true = utils.generate_data(n_samples, dim)\n" +
+        "model = regression.OMARS()",
+        "model.find_bases(x, y)",
+        "oop_scaling_laws.png"
     )
 
 
 def test_speed_update_cholesky() -> None:
     speed_test(
-        "regression.update_cholesky(tri, vecs, vals)",
-        "../results/speeds_cholesky.txt",
+        "import utils\n" +
+        "import regression\n" +
+        "import numpy as np\n" +
         "tri = np.triu(np.random.rand(100, 100))\n" +
         "vecs = [np.random.rand(100)]\n" +
         "vals = [2]",
-        repeat=100
+        "regression.update_cholesky(tri, vecs, vals)",
+        "oop",
+        "../results/speeds_update_cholesky.txt",
+        repeat=100,
+        number=1,
+        n_samples=100,
+        dim=2,
+        m_max=10
     )
 
 
-def test_speed_basis() -> None:
-    global n_samples
-    n_samples = 10 ** 5
-    global dim
-    dim = 10
+def test_speed_data_matrix() -> None:
     speed_test(
-        "model(x)",
-        "../results/speeds_basis.txt",
-        f"x, y, y_true, model = utils.data_generation_model({n_samples}, {dim})",
-        repeat=100
+        "import utils\n" +
+        "import regression\n" +
+        "x, y, y_true, model = utils.data_generation_model(n_samples, dim)",
+        "model.data_matrix(x, slice(model.nbases))",
+        "oop",
+        "../results/speeds_data_matrix.txt",
+        repeat=100,
+        number=1,
+        n_samples=10 ** 5,
+        dim=10,
+        m_max=10
     )
 
 
 def test_speed_update_init() -> None:
-    global n_samples
-    n_samples = 10 ** 5
-    global dim
-    dim = 10
     speed_test(
-        "model.update_init(x, old_node, parent_idx)",
-        "../results/speeds_update_init.txt",
+        "import utils\n" +
+        "import regression\n" +
+        "import numpy as np\n" +
         "x, y, y_true, model = utils.data_generation_model(n_samples, dim)\n" +
         "old_node = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]\n" +
         "model.nodes[2,2] = x[np.argmin(np.abs(x[:, 1] - 0.6)), 1]\n" +
         "parent_idx = 1",
-        repeat=100
+        "model.update_init(x, old_node, parent_idx)",
+        "oop",
+        "../results/speeds_update_init.txt",
+        repeat=100,
+        number=1,
+        n_samples=10 ** 5,
+        dim=10,
+        m_max=10
     )
 
 
 def test_speed_covariance_update() -> None:
-    global n_samples
-    n_samples = 10 ** 5
-    global dim
-    dim = 10
     speed_test(
-        "model.update_covariance_matrix()",
-        "../results/speeds_covariance_update.txt",
+        "import utils\n" +
+        "import regression\n" +
+        "import numpy as np\n" +
         "x, y, y_true, model = utils.data_generation_model(n_samples, dim)\n" +
         "old_node = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]\n" +
         "model.nodes[2,2] = x[np.argmin(np.abs(x[:, 1] - 0.6)), 1]\n" +
         "parent_idx = 1\n" +
         "model.update_init(x, old_node, parent_idx)",
-        repeat=100
+        "model.update_covariance_matrix()",
+        "oop",
+        "../results/speeds_update_covariance_matrix.txt",
+        repeat=100,
+        number=1,
+        n_samples=10 ** 5,
+        dim=10,
+        m_max=10
     )
 
 
 def test_speed_decompose_addition() -> None:
     speed_test(
-        "model.decompose_addition(vec)",
-        "../results/speeds_decompose_addition.txt",
+        "import utils\n" +
+        "import regression\n" +
+        "import numpy as np\n" +
         "x, y, y_true, model = utils.data_generation_model(n_samples, dim)\n" +
         "model.covariance_matrix = np.zeros((10, 10))\n" +
         "vec = np.arange(10)",
-        repeat=100
+        "model.decompose_addition(vec)",
+        "oop",
+        "../results/speeds_decompose_addition.txt",
+        repeat=100,
+        number=1,
+        n_samples=10 ** 5,
+        dim=10,
+        m_max=10
     )

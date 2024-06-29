@@ -4,7 +4,7 @@ import numpy as np
 from numba import njit, prange
 
 
-@njit(cache=True, error_model="numpy", fastmath=True, parallel=True)
+@njit(cache=True, error_model="numpy", fastmath=True, parallel=False)
 def data_matrix(x: np.ndarray,
                 basis_start: int,
                 basis_end: int,
@@ -472,7 +472,7 @@ def update_covariance_matrix(covariance_matrix: np.ndarray,
     return covariance_addition
 
 
-@njit(cache=True, error_model="numpy", fastmath=True, parallel=False)
+@njit(cache=True, error_model="numpy", fastmath=True, parallel=False) # Detrimental?
 def decompose_addition(covariance_addition: np.ndarray) \
         -> tuple[list[float], list[np.ndarray]]:
     """
