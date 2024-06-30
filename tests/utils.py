@@ -152,6 +152,4 @@ def monitor_scaling_laws(setup: str, cmd: str, filename: str) -> None:
     ax[2].set_ylabel("Time (s)")
     ax[2].legend()
 
-    plt.show()
     plt.savefig("../results/" + filename)
-    plt.close()

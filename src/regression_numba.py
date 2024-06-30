@@ -31,7 +31,7 @@ def data_matrix(x: np.ndarray,
     n_samples = x.shape[0]
     n_basis = basis_end - basis_start
     result = np.ones((n_samples, n_basis))
-    for i in prange(n_basis):
+    for i in range(n_basis):
         basis_idx = i + basis_start
         for func_idx in range(where.shape[0]):
             if where[func_idx, basis_idx]:
