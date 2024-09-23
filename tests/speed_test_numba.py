@@ -6,7 +6,7 @@ def test_speed_find_bases() -> None:
         "import utils\n" +
         "import regression_numba\n" +
         "x, y, y_true = utils.generate_data(n_samples, dim)",
-        "nbases, covariates, nodes, hinges, where, coefficients = regression_numba.find_bases(x, y)",
+        "nbases, covariates, nodes, hinges, where, coefficients, y_mean = regression_numba.find_bases(x, y)",
         "numba",
         "../results/speeds_find_bases.txt",
         repeat=100,

@@ -9,48 +9,56 @@ import utils
 def test_data_matrix() -> None:
     x, y, y_true, model = utils.data_generation_model(100, 2)
 
-    x1 = x[np.argmin(np.abs(x[:, 0] - 1)), 0]
-    x08 = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]
+    x1 = model.nodes[1, 1]
+    x08 = model.nodes[2, 2]
     ref_data_matrix = np.column_stack([
-        np.ones(x.shape[0], dtype=float),
         np.maximum(0, x[:, 0] - x1),
         np.maximum(0, x[:, 0] - x1) * np.maximum(0, x[:, 1] - x08),
     ])
+    ref_basis_mean = ref_data_matrix.mean(axis=0)
+    ref_data_matrix -= ref_basis_mean
 
+    assert np.allclose(ref_basis_mean, model.basis_mean)
     assert np.allclose(ref_data_matrix, model.fit_matrix)
 
 
 def test_fit() -> None:
     x, y, y_true, model = utils.data_generation_model(100, 2)
+    model._fit(x, y)
 
-    result = np.linalg.lstsq(model.fit_matrix, y, rcond=None)
-    coefficients = result[0]
+    coefficients = np.linalg.lstsq(model.fit_matrix, y, rcond=None)[0]
 
-    assert np.allclose(coefficients[0], model.coefficients[0], 0.05, 0.1)
-    assert np.allclose(coefficients[1], model.coefficients[1], 0.05, 0.05)
-    assert np.allclose(coefficients[2], model.coefficients[2], 0.05, 0.05)
+    y_pred_model = model(x)
+    mse_model = np.mean((y_pred_model - y_true) ** 2)
+    y_pred_np = model.fit_matrix @ coefficients + model.y_mean
+    mse_np = np.mean((y_pred_np - y_true) ** 2)
+
+    assert np.allclose(mse_model, mse_np, 0.01)
 
 
-def update_case(model: regression.OMARS, x: np.ndarray, y: np.ndarray, func: callable) -> tuple[
-    regression.OMARS, np.ndarray]:
-    chol = model.fit(x, y)
-    old_node = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]
-    for c in [0.5, 0.4, 0.3]:
-        new_node = x[np.argmin(np.abs(x[:, 1] - c)), 1]
+def update_case(model: regression.OMARS, x: np.ndarray, y: np.ndarray,
+                func: callable) -> tuple[regression.OMARS, np.ndarray]:
+    chol = model._fit(x, y)
+    assert model.covariates[
+               np.sum(model.where[:, model.nbases - 1]), model.nbases - 1] == 1
+    old_node = model.nodes[np.sum(model.where[:, model.nbases - 1]), model.nbases - 1]
+    for new_node in sorted([value for value in x[:, 1] if value < old_node],
+                           reverse=True)[:3]:
         nodes = model.nodes[:, model.nbases - 1]
         nodes[np.sum(model.where[:, model.nbases - 1])] = new_node
-        model.update_basis(
+        model._update_basis(
             model.covariates[:, model.nbases - 1],
             nodes,
             model.hinges[:, model.nbases - 1],
             model.where[:, model.nbases - 1],
         )
-        chol = func(x, y, chol, old_node, 1)
+        chol = func(x, y, chol, old_node, model.nbases - 2)
         old_node = new_node
     return model, chol
 
 
-def extend_case(model: regression.OMARS, x: np.ndarray, y: np.ndarray, func: callable) -> tuple[
+def extend_case(model: regression.OMARS, x: np.ndarray, y: np.ndarray,
+                func: callable) -> tuple[
     regression.OMARS, np.ndarray]:
     for c in [0.5, 0.4, 0.3]:
         new_node = x[np.argmin(np.abs(x[:, 1] - c)), 1]
@@ -72,21 +80,21 @@ def extend_case(model: regression.OMARS, x: np.ndarray, y: np.ndarray, func: cal
         additional_hinges[parent_depth, 1] = True
         additional_where[parent_depth, 1] = True
 
-        model.add_basis(additional_covariates,
-                        additional_nodes,
-                        additional_hinges,
-                        additional_where)
+        model._add_basis(additional_covariates,
+                         additional_nodes,
+                         additional_hinges,
+                         additional_where)
         chol = func(x, y, 2)
 
     return model, chol
 
 
-def shrink_case(model: regression.OMARS, x: np.ndarray, y: np.ndarray, func: callable) -> tuple[
+def shrink_case(model: regression.OMARS, x: np.ndarray, y: np.ndarray,
+                func: callable) -> tuple[
     regression.OMARS, np.ndarray]:
     for i in range(3):
-        removal_slice = slice(model.nbases - 1, model.nbases)
-        model.remove_basis(removal_slice)
-        chol = func(x, y, removal_slice)
+        model._remove_basis(model.nbases - 1)
+        chol = func(x, y, model.nbases)
     return model, chol
 
 
@@ -96,14 +104,14 @@ def test_update_fit_matrix() -> None:
     former_fit_matrix = model.fit_matrix.copy()
 
     def update_func(x, y, chol, old_node, parent_idx):
-        model.update_init(x, old_node, parent_idx)
-        model.update_fit_matrix()
+        model._update_init(x, old_node, parent_idx)
+        model._update_fit_matrix()
         return None
 
     model, chol = update_case(model, x, y, update_func)
     updated_fit_matrix = model.fit_matrix.copy()
 
-    model.calculate_fit_matrix(x)
+    model._calculate_fit_matrix(x)
     full_fit_matrix = model.fit_matrix.copy()
 
     assert np.allclose(updated_fit_matrix, full_fit_matrix)
@@ -115,13 +123,13 @@ def test_extend_fit_matrix() -> None:
     former_fit_matrix = model.fit_matrix.copy()
 
     def extend_func(x, y, i):
-        model.extend_fit_matrix(x, i)
+        model._extend_fit_matrix(x, i)
         return None
 
     model, chol = extend_case(model, x, y, extend_func)
     extended_fit_matrix = model.fit_matrix.copy()
 
-    model.calculate_fit_matrix(x)
+    model._calculate_fit_matrix(x)
     full_fit_matrix = model.fit_matrix.copy()
 
     assert np.allclose(extended_fit_matrix, full_fit_matrix)
@@ -133,16 +141,16 @@ def test_update_covariance_matrix() -> None:
     former_covariance = model.covariance_matrix.copy()
 
     def update_func(x, y, chol, old_node, parent_idx):
-        model.update_init(x, old_node, parent_idx)
-        model.update_fit_matrix()
-        covariance_addition = model.update_covariance_matrix()
+        model._update_init(x, old_node, parent_idx)
+        model._update_fit_matrix()
+        covariance_addition = model._update_covariance_matrix()
         return None
 
     model, chol = update_case(model, x, y, update_func)
     updated_covariance = model.covariance_matrix.copy()
 
-    model.calculate_fit_matrix(x)
-    model.calculate_covariance_matrix()
+    model._calculate_fit_matrix(x)
+    model._calculate_covariance_matrix()
     full_covariance = model.covariance_matrix.copy()
     assert np.allclose(updated_covariance[:-1, :-1], full_covariance[:-1, :-1])
     assert np.allclose(updated_covariance[-1, :-1], full_covariance[-1, :-1])
@@ -155,24 +163,18 @@ def test_extend_covariance_matrix() -> None:
     former_covariance = model.covariance_matrix.copy()
 
     def extend_func(x, y, i):
-        model.extend_fit_matrix(x, i)
-        model.extend_covariance_matrix(i)
+        model._extend_fit_matrix(x, i)
+        model._extend_covariance_matrix(i)
         return None
 
     model, chol = extend_case(model, x, y, extend_func)
     extended_covariance = model.covariance_matrix.copy()
-    extended_fixed_mean = model.fixed_mean.copy()
-    extended_candidate_mean = model.candidate_mean.copy()
 
-    model.calculate_fit_matrix(x)
-    model.calculate_covariance_matrix()
+    model._calculate_fit_matrix(x)
+    model._calculate_covariance_matrix()
     full_covariance = model.covariance_matrix.copy()
-    full_fixed_mean = model.fixed_mean.copy()
-    full_candidate_mean = model.candidate_mean.copy()
 
     assert np.allclose(extended_covariance, full_covariance)
-    assert np.allclose(extended_fixed_mean, full_fixed_mean)
-    assert np.allclose(extended_candidate_mean, full_candidate_mean)
 
 
 def test_update_right_hand_side() -> None:
@@ -181,15 +183,16 @@ def test_update_right_hand_side() -> None:
     former_right_hand_side = model.right_hand_side.copy()
 
     def update_func(x, y, chol, old_node, parent_idx):
-        model.update_init(x, old_node, parent_idx)
-        model.update_right_hand_side(y)
+        model._update_init(x, old_node, parent_idx)
+        model._update_fit_matrix()
+        model._update_right_hand_side(y)
         return None
 
     model, chol = update_case(model, x, y, update_func)
     updated_right_hand_side = model.right_hand_side.copy()
 
-    model.calculate_fit_matrix(x)
-    model.calculate_right_hand_side(y)
+    model._calculate_fit_matrix(x)
+    model._calculate_right_hand_side(y)
     full_right_hand_side = model.right_hand_side.copy()
 
     assert np.allclose(updated_right_hand_side, full_right_hand_side)
@@ -201,17 +204,17 @@ def test_extend_right_hand_side() -> None:
     former_right_hand_side = model.right_hand_side.copy()
 
     def extend_func(x, y, i):
-        model.extend_fit_matrix(x, i)
-        model.extend_covariance_matrix(i)
-        model.extend_right_hand_side(y, i)
+        model._extend_fit_matrix(x, i)
+        model._extend_covariance_matrix(i)
+        model._extend_right_hand_side(y, i)
         return None
 
     model, chol = extend_case(model, x, y, extend_func)
     extended_right_hand_side = model.right_hand_side.copy()
 
-    model.calculate_fit_matrix(x)
-    model.calculate_covariance_matrix()
-    model.calculate_right_hand_side(y)
+    model._calculate_fit_matrix(x)
+    model._calculate_covariance_matrix()
+    model._calculate_right_hand_side(y)
     full_right_hand_side = model.right_hand_side.copy()
 
     assert np.allclose(extended_right_hand_side, full_right_hand_side)
@@ -225,13 +228,13 @@ def test_decompose() -> None:
     old_node = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]
     new_node = x[np.argmin(np.abs(x[:, 1] - 0.5)), 1]
     model.nodes[2, 2] = new_node
-    model.update_init(x, old_node, 1)
-    model.update_fit_matrix()
-    covariance_addition = model.update_covariance_matrix()
+    model._update_init(x, old_node, 1)
+    model._update_fit_matrix()
+    covariance_addition = model._update_covariance_matrix()
 
     updated_covariance = model.covariance_matrix.copy()
 
-    eigenvalues, eigenvectors = model.decompose_addition(covariance_addition)
+    eigenvalues, eigenvectors = model._decompose_addition(covariance_addition)
     reconstructed_covariance = former_covariance + eigenvalues[0] * np.outer(
         eigenvectors[0], eigenvectors[0])
     reconstructed_covariance += eigenvalues[1] * np.outer(eigenvectors[1],
@@ -243,35 +246,35 @@ def test_decompose() -> None:
 def test_update_cholesky() -> None:
     x, y, y_true, model = utils.data_generation_model(100, 2)
 
-    former_cholesky = model.fit(x, y)
+    former_cholesky = model._fit(x, y)
 
     def update_func(x, y, chol, old_node, parent_idx):
-        model.update_init(x, old_node, parent_idx)
-        model.update_fit_matrix()
-        covariance_addition = model.update_covariance_matrix()
+        model._update_init(x, old_node, parent_idx)
+        model._update_fit_matrix()
+        covariance_addition = model._update_covariance_matrix()
         if covariance_addition.any():
-            eigenvalues, eigenvectors = model.decompose_addition(covariance_addition)
+            eigenvalues, eigenvectors = model._decompose_addition(covariance_addition)
             chol = regression.update_cholesky(chol, eigenvectors, eigenvalues)
         return chol
 
     model, updated_cholesky = update_case(model, x, y, update_func)
 
-    full_cholesky = model.fit(x, y)
+    full_cholesky = model._fit(x, y)
     assert np.allclose(np.tril(updated_cholesky), np.tril(full_cholesky))
 
 
 def test_update_fit() -> None:
     x, y, y_true, model = utils.data_generation_model(100, 2)
 
-    former_chol = model.fit(x, y)
+    former_chol = model._fit(x, y)
     former_coefficients = model.coefficients.copy()
 
-    model, updated_chol = update_case(model, x, y, model.update_fit)
+    model, updated_chol = update_case(model, x, y, model._update_fit)
     updated_rhs = model.right_hand_side.copy()
     updated_coefficients = model.coefficients.copy()
     updated_lof = model.lof
 
-    full_chol = model.fit(x, y)
+    full_chol = model._fit(x, y)
     full_rhs = model.right_hand_side.copy()
     full_coefficients = model.coefficients.copy()
     full_lof = model.lof
@@ -280,22 +283,21 @@ def test_update_fit() -> None:
     assert np.allclose(updated_rhs, full_rhs)
     assert np.allclose(updated_coefficients[0], full_coefficients[0], 0.05, 0.1)
     assert np.allclose(updated_coefficients[1], full_coefficients[1], 0.05, 0.05)
-    assert np.allclose(updated_coefficients[2], full_coefficients[2], 0.05, 0.05)
     assert np.allclose(updated_lof, full_lof, 0.01)
 
 
 def test_extend_fit() -> None:
     x, y, y_true, model = utils.data_generation_model(100, 2)
 
-    former_tri = model.fit(x, y)
+    former_tri = model._fit(x, y)
     former_coefficients = model.coefficients.copy()
 
-    model, chol = extend_case(model, x, y, model.extend_fit)
+    model, chol = extend_case(model, x, y, model._extend_fit)
     extended_rhs = model.right_hand_side.copy()
     extended_coefficients = model.coefficients.copy()
     extended_lof = model.lof
 
-    full_chol = model.fit(x, y)
+    full_chol = model._fit(x, y)
     full_rhs = model.right_hand_side.copy()
     full_coefficients = model.coefficients.copy()
     full_lof = model.lof
@@ -318,20 +320,20 @@ def test_shrink_fit() -> None:
 
     additional_nodes[2, :] = np.random.choice(x[:, 0], 7)
 
-    model.add_basis(additional_covariates,
-                    additional_nodes,
-                    additional_hinges,
-                    additional_where)
+    model._add_basis(additional_covariates,
+                     additional_nodes,
+                     additional_hinges,
+                     additional_where)
 
-    former_chol = model.fit(x, y)
+    former_chol = model._fit(x, y)
     former_coefficients = model.coefficients.copy()
 
-    model, chol = shrink_case(model, x, y, model.shrink_fit)
+    model, chol = shrink_case(model, x, y, model._shrink_fit)
     shrunk_rhs = model.right_hand_side.copy()
     shrunk_coefficients = model.coefficients.copy()
     shrunk_lof = model.lof
 
-    full_tri = model.fit(x, y)
+    full_tri = model._fit(x, y)
     full_rhs = model.right_hand_side.copy()
     full_coefficients = model.coefficients.copy()
     full_gcv = model.lof
@@ -348,10 +350,10 @@ def test_expand_bases() -> None:
     x, y, y_true, ref_model = utils.data_generation_model(100, 2)
 
     model = regression.OMARS()
-    model.expand_bases(x, y_true)
+    model._expand_bases(x, y)
 
-    expected_node_1 = x[np.argmin(np.abs(x[:, 0] - 1)), 0]
-    expected_node_2 = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]
+    expected_node_1 = ref_model.nodes[1, 1]
+    expected_node_2 = ref_model.nodes[2, 2]
 
     potential_bases_1 = np.where(
         np.sum(np.isin(model.nodes, expected_node_1), axis=0) > 0)[0]
@@ -388,7 +390,7 @@ def test_prune_bases() -> None:
     x, y, y_true, ref_model = utils.data_generation_model(100, 2)
 
     test_model = deepcopy(ref_model)
-    test_model.prune_bases(x, y_true)
+    test_model._prune_bases(x, y_true)
 
     print(test_model)
     assert ref_model == test_model

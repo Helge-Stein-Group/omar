@@ -32,7 +32,7 @@ def data_generation_model(n_samples: int, dim: int) \
     reference_model.hinges[1:3, 2] = [True, True]
     reference_model.where[1, 1] = True
     reference_model.where[1:3, 2] = [True, True]
-    reference_model.fit(x, y)
+    reference_model._fit(x, y)
     return x, y, y_true, reference_model
 
 

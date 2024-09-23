@@ -1,45 +1,109 @@
+from dataclasses import dataclass
 from typing import Self
 
+import numba
 import numpy as np
-from numba import njit, prange
+from numba import njit, types
+from numba.typed import List
+
+from tests import utils
+
+
+def jitdataclass(cls=None, *, extra_spec=[]):
+    """
+    Helper decorator to make it easier to numba jitclass dataclasses
+
+    Inspired by https://github.com/numba/numba/issues/4037#issuecomment-907523015
+    """
+
+    def _jitdataclass(cls):
+        dc_cls = dataclass(cls, eq=False, match_args=False)
+        del dc_cls.__dataclass_params__
+        del dc_cls.__dataclass_fields__
+        del dc_cls.__repr__
+        return numba.experimental.jitclass(dc_cls, spec=extra_spec)
+
+    if cls is not None:
+        # We've been called without additional args - invoke actual decorator immediately
+        return _jitdataclass(cls)
+    # We've been called with additional args - so return actual decorator which python calls for us
+    return _jitdataclass
+
+
+@jitdataclass
+class ModelSpec:
+    covariates: types.int32[:, :]
+    nodes: types.float64[:, :]
+    hinges: types.boolean[:, :]
+    where: types.boolean[:, :]
+
+    def __getitem__(self, item):
+        return ModelSpec(
+            covariates=self.covariates[item],
+            nodes=self.nodes[item],
+            hinges=self.hinges[item],
+            where=self.where[item]
+        )
+
+    def __eq__(self, other):
+        return np.array_equal(self.covariates, other.covariates) and \
+            np.array_equal(self.nodes, other.nodes) and \
+            np.array_equal(self.hinges, other.hinges) and \
+            np.array_equal(self.where, other.where)
+
+
+@jitdataclass
+class FitResults:
+    lof: types.float64
+    coefficients: types.float64[:]
+    fit_matrix: types.float64[:, :]
+    basis_mean: types.float64[:]
+    covariance_matrix: types.float64[:, :]
+    chol: types.float64[:, :]
+    right_hand_side: types.float64[:]
+    y_mean: numba.float64
+
+
+@njit(cache=True, error_model="numpy", fastmath=True, parallel=False)
+def active_base_indices(where: np.ndarray) -> np.ndarray:
+    """
+    Get the indices of the active basis functions.
+
+    Returns:
+        Indices of the active basis functions.
+    """
+    return np.where(np.sum(where, axis=0) > 0)[0]
 
 
 @njit(cache=True, error_model="numpy", fastmath=True, parallel=False)
 def data_matrix(x: np.ndarray,
-                basis_start: int,
-                basis_end: int,
-                covariates: np.ndarray,
-                nodes: np.ndarray,
-                hinges: np.ndarray,
-                where: np.ndarray) -> np.ndarray:
+                basis_indices: np.ndarray,
+                spec: ModelSpec) -> tuple[np.ndarray, np.ndarray]:
     """
     Calculate the data matrix for the given data and basis, which is the
     evaluation of the basis for the data points.
 
     Args:
         x: Data points. [n x d]
-        basis_start: First basis to evaluate.
-        basis_end: Last basis to evaluate.
-        covariates: Covariates of the basis. [max_nbases x max_nbases]
-        nodes: Nodes of the basis. [max_nbases x max_nbases]
-        hinges: Hinges of the basis. [max_nbases x max_nbases]
-        where: Signals product length of basis. [max_nbases x max_nbases]
+        basis_indices: Slice of the basis to be evaluated.
+        spec: Model specification.
 
     Returns:
         Data matrix.
     """
     n_samples = x.shape[0]
-    n_basis = basis_end - basis_start
-    result = np.ones((n_samples, n_basis))
-    for i in range(n_basis):
-        basis_idx = i + basis_start
-        for func_idx in range(where.shape[0]):
-            if where[func_idx, basis_idx]:
-                intermediate_result = -nodes[func_idx, basis_idx] + x[:, covariates[func_idx, basis_idx]]
-                if hinges[func_idx, basis_idx]:
+    result = np.ones((n_samples, len(basis_indices)))
+    for i, basis_idx in enumerate(basis_indices):
+        for func_idx in range(spec.where.shape[0]):
+            if spec.where[func_idx, basis_idx]:
+                intermediate_result = (-spec.nodes[func_idx, basis_idx] +
+                                       x[:, spec.covariates[func_idx, basis_idx]])
+                if spec.hinges[func_idx, basis_idx]:
                     intermediate_result = np.maximum(0, intermediate_result)
                 result[:, i] *= intermediate_result
-    return result
+    result_mean = result.sum(axis=0) / n_samples
+
+    return np.atleast_2d(result - result_mean), result_mean
 
 
 @njit(cache=True, error_model="numpy", fastmath=True, parallel=False)
@@ -74,7 +138,7 @@ def update_cholesky(chol: np.ndarray,
             u[i, i + 1:] -= u[i - 1, i] * chol[i + 1:, i]
             b[i] = b[i - 1] + multiplier * u[i - 1, i - 1] ** 2 / diag[i - 1]
 
-        for i in prange(chol.shape[0]):
+        for i in range(chol.shape[0]):
             chol[i, i] = np.sqrt(diag[i] + multiplier / b[i] * u[i, i] ** 2)
             chol[i + 1:, i] *= chol[i, i]
             chol[i + 1:, i] += multiplier / b[i] * u[i, i] * u[i, i + 1:] / chol[i, i]
@@ -153,14 +217,14 @@ def update_basis(nbases,
 def remove_bases(
         nbases,
         where: np.ndarray,
-        removal_slice: slice) -> int:
+        removal_idx: int) -> int:
     """
     Remove basis from the model.
 
     Args:
         nbases: Number of basis functions.
         where: Signals product length of basis. [max_nbases x max_nbases]
-        removal_slice: Slice of the basis to be removed.
+        removal_idx: Slice of the basis to be removed.
 
     Returns:
         New number of basis functions.
@@ -169,79 +233,10 @@ def remove_bases(
         Only the where attributes is turned off, the other attributes (e.g. covariates) are deliberately not
         deleted to avoid recalculation in the expansion step.
     """
-    where[:, removal_slice] = False
-    nbases -= removal_slice.stop - removal_slice.start
+    where[:, removal_idx] = False
+    nbases -= 1
 
     return nbases
-
-
-@njit(cache=True, error_model="numpy", fastmath=True)
-def calculate_means(fit_matrix: np.ndarray,
-                    collapsed_fit: np.ndarray) -> tuple[np.ndarray, float]:
-    """
-    Calculate and store the means of the fixed and candidate basis.
-
-    Args:
-        fit_matrix: Evaluation of the bases on the data. [n x nbases]
-        collapsed_fit: Sum of the fit matrix. [nbases]
-
-    Returns:
-        Mean of the fixed and candidate basis.
-    """
-    fixed_mean = collapsed_fit[:-1] / fit_matrix.shape[0]
-    candidate_mean = collapsed_fit[-1] / fit_matrix.shape[0]
-
-    return fixed_mean, candidate_mean
-
-
-@njit(cache=True, error_model="numpy", fastmath=True)
-def extend_means(fit_matrix: np.ndarray,
-                 collapsed_fit: np.ndarray,
-                 fixed_mean: np.ndarray,
-                 candidate_mean: float) -> tuple[np.ndarray, float]:
-    """
-    Extend the means of the fixed and candidate basis
-    by accounting for newly added bases.
-
-    Args:
-        fit_matrix: Evaluation of the bases on the data. [n x nbases]
-        collapsed_fit: Sum of the fit matrix. [nadditions]
-        fixed_mean: Mean of the previous fixed basis. [nbases-1-nadditions]
-        candidate_mean: Mean of the previous candidate basis.
-
-    Returns:
-        Fixed and candidate mean of the extended basis.
-    """
-    fixed_mean = np.append(fixed_mean, candidate_mean)
-    fixed_mean = np.append(fixed_mean,
-                           collapsed_fit[:-1] / fit_matrix.shape[0])
-    candidate_mean = collapsed_fit[-1] / fit_matrix.shape[0]
-    return fixed_mean, candidate_mean
-
-
-@njit(cache=True, error_model="numpy", fastmath=True)
-def shrink_means(fixed_mean: np.ndarray,
-                 candidate_mean: float,
-                 removal_slice: slice) -> tuple[np.ndarray, float]:
-    """
-    Shrink the means of the fixed and candidate basis 
-    accounting for removed bases.
-
-    Args:
-        fixed_mean: Mean of the previous fixed basis. [nbases-1+nremovals]
-        candidate_mean: Mean of the previous candidate basis.
-        removal_slice: Slice of the basis to be removed.
-
-    Returns:
-        Fixed and candidate mean of the shrunk basis.
-    """
-    joint_mean = np.append(fixed_mean, candidate_mean)
-    reduced_mean = np.delete(joint_mean, removal_slice)
-
-    fixed_mean = reduced_mean[:-1]
-    candidate_mean = reduced_mean[-1]
-
-    return fixed_mean, candidate_mean
 
 
 @njit(cache=True, error_model="numpy", fastmath=True)
@@ -254,7 +249,7 @@ def update_init(
         nodes: np.ndarray,
         where: np.ndarray,
         fit_matrix: np.ndarray,
-        candidate_mean: float) -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+        basis_mean: np.ndarray) -> tuple[np.ndarray, float]:
     """
     Initialize the update of the fit by precomputing the necessary update values, 
     that allow for a fast update of the cholesky decomposition and therefore a 
@@ -269,106 +264,102 @@ def update_init(
         nodes: Nodes of the basis. [max_nbases x max_nbases]
         where: Signals product length of basis. [max_nbases x max_nbases]
         fit_matrix: Evaluation of the bases on the data. [n x nbases]
-        candidate_mean: Mean of the candidate basis.
+        basis_mean: Mean of the bases. [nbases]
 
     Returns:
-        Indices of the data points that need to be updated.
         Update values of the data points.
         Mean of the updates.
-        Mean of the candidate basis.
     """
     prod_idx = np.sum(where[:, nbases - 1])
     new_node = nodes[prod_idx, nbases - 1]
     covariate = covariates[prod_idx, nbases - 1]
 
-    indices = x[:, covariate] > new_node
-    update = np.where(x[indices, covariate] >= old_node,
-                      old_node - new_node,
-                      x[indices, covariate] - new_node)
-    update *= fit_matrix[indices, parent_idx]
+    update = x[:, covariate] - new_node
+    update[x[:, covariate] >= old_node] = old_node - new_node
+    update[x[:, covariate] < new_node] = 0
 
-    update_mean = np.sum(update) / len(x)
-    candidate_mean += update_mean
+    if parent_idx != 0:  # Not Constant basis function, otherwise 1 anyway
+        update *= fit_matrix[:, parent_idx - 1] + basis_mean[parent_idx - 1]
 
-    return indices, update, update_mean, candidate_mean
+    update_mean = update.mean()
+    update -= update_mean
+
+    return update, update_mean
 
 
 @njit(cache=True, error_model="numpy", fastmath=True)
 def calculate_fit_matrix(x: np.ndarray,
-                         nbases: int,
-                         covariates: np.ndarray,
-                         nodes: np.ndarray,
-                         hinges: np.ndarray,
-                         where) -> np.ndarray:
+                         spec: ModelSpec) -> tuple[np.ndarray, np.ndarray]:
     """
     Calculate the data matrix for the given data.
 
     Args:
         x: Data points. [n x d]
-        nbases: Number of basis functions.
-        covariates: Covariates of the basis. [max_nbases x max_nbases]
-        nodes: Nodes of the basis. [max_nbases x max_nbases]
-        hinges: Hinges of the basis. [max_nbases x max_nbases]
-        where: Signals product length of basis. [max_nbases x max_nbases]
+        spec: Model specification.
 
     Returns:
         Fit matrix. [n x nbases]
+        Mean of the bases. [nbases]
     """
-    fit_matrix = data_matrix(x, 0, nbases, covariates, nodes, hinges, where)
+    fit_matrix, basis_mean = data_matrix(x, active_base_indices(spec.where), spec)
 
-    return fit_matrix
+    return fit_matrix, basis_mean
 
 
 @njit(cache=True, error_model="numpy", fastmath=True)
 def extend_fit_matrix(x: np.ndarray,
                       nadditions: int,
-                      nbases: int,
                       fit_matrix: np.ndarray,
-                      covariates: np.ndarray,
-                      nodes: np.ndarray,
-                      hinges: np.ndarray,
-                      where: np.ndarray) -> np.ndarray:
+                      basis_mean: np.ndarray,
+                      spec: ModelSpec) -> tuple[np.ndarray, np.ndarray]:
     """
     Extend the data matrix by evaluating the newly added basis functions for the data points.
 
     Args:
         x: Data points. [n x d]
         nadditions: Number of newly added basis functions.
-        nbases: Number of basis functions.
         fit_matrix: Evaluation of the bases on the data. [n x nbases-nadditions]
-        covariates: Covariates of the basis. [max_nbases x max_nbases]
-        nodes: Nodes of the basis. [max_nbases x max_nbases]
-        hinges: Hinges of the basis. [max_nbases x max_nbases]
-        where: Signals product length of basis. [max_nbases x max_nbases]
+        basis_mean: Mean of the bases. [nbases-nadditions]
+        spec: Model specification.
 
     Returns:
         Extended fit matrix. [n x nbases]
+        Extended mean of the bases. [nbases]
     """
-    fit_matrix = np.column_stack((
-        fit_matrix,
-        data_matrix(x, nbases - nadditions, nbases, covariates, nodes, hinges, where)
-    ))
-    return fit_matrix
+    ext_indices = active_base_indices(spec.where)[-nadditions:]
+    if fit_matrix.size:
+        fit_matrix_ext, basis_mean_ext = data_matrix(x, ext_indices, spec)
+        fit_matrix = np.hstack((
+            fit_matrix,
+            fit_matrix_ext
+        ))
+        basis_mean = np.append(basis_mean, basis_mean_ext)
+    else:
+        fit_matrix, basis_mean = data_matrix(x, ext_indices, spec)
+
+    return fit_matrix, basis_mean
 
 
 @njit(cache=True, error_model="numpy", fastmath=True)
 def update_fit_matrix(fit_matrix: np.ndarray,
-                      indices: np.ndarray,
-                      update: np.ndarray) -> None:
+                      basis_mean: np.ndarray,
+                      update: np.ndarray,
+                      update_mean: float) -> None:
     """
     Update the data matrix by adding the update attribute to the last column.
 
     Args:
         fit_matrix: Evaluation of the bases on the data. [n x nbases]
-        indices: Indices of the data points that need to be updated.
+        basis_mean: Mean of the bases. [nbases]
         update: Update values of the data points.
+        update_mean: Mean of the updates.
     """
-    fit_matrix[indices, -1] += update
+    fit_matrix[:, -1] += update
+    basis_mean[-1] += update_mean
 
 
 @njit(cache=True, error_model="numpy", fastmath=True)
-def calculate_covariance_matrix(fit_matrix: np.ndarray) -> tuple[
-    np.ndarray, np.ndarray, float]:
+def calculate_covariance_matrix(fit_matrix: np.ndarray) -> np.ndarray:
     """
     Calculate the covariance matrix of the data matrix,
     which is the chosen formulation of the least-squares problem.
@@ -378,26 +369,18 @@ def calculate_covariance_matrix(fit_matrix: np.ndarray) -> tuple[
 
     Returns:
         Covariance matrix.
-        Mean of the fixed basis.
-        Mean of the candidate basis.
     """
-    covariance_matrix = fit_matrix.T @ fit_matrix
-    collapsed_fit = np.sum(fit_matrix, axis=0)
-    fixed_mean, candidate_mean = calculate_means(fit_matrix, collapsed_fit)
-    covariance_matrix -= np.outer(collapsed_fit, collapsed_fit) / \
-                         fit_matrix.shape[0]
+    covariance_matrix = np.atleast_2d(fit_matrix.T @ fit_matrix)
 
     covariance_matrix += np.eye(covariance_matrix.shape[0]) * 1e-8
-    return covariance_matrix, fixed_mean, candidate_mean,
+
+    return covariance_matrix
 
 
 @njit(cache=True, error_model="numpy", fastmath=True)
 def extend_covariance_matrix(covariance_matrix: np.ndarray,
                              nadditions: int,
-                             fit_matrix: np.ndarray,
-                             fixed_mean: np.ndarray,
-                             candidate_mean: float) -> tuple[
-    np.ndarray, np.ndarray, float]:
+                             fit_matrix: np.ndarray) -> np.ndarray:
     """
     Extend the covariance matrix by accounting for the newly added basis functions, expects and
     extended fit matrix.
@@ -406,45 +389,28 @@ def extend_covariance_matrix(covariance_matrix: np.ndarray,
         covariance_matrix: Covariance matrix to extend. [nbases-nadditions x nbases-nadditions]
         nadditions: Number of newly added basis functions.
         fit_matrix: Evaluation of the bases on the data. [n x nbases]
-        fixed_mean: Mean of the fixed basis. [nbases-1-nadditions]
-        candidate_mean: Mean of the candidate basis.
 
     Returns:
         Extended covariance matrix. [nbases x nbases]
-        Mean of the fixed basis. [nbases]
-        Mean of the candidate basis.
-
-    Notes:
-        Also updates the means of the fixed and candidate basis. Done here to avoid
-        recalculation of the sum.
     """
     covariance_extension = fit_matrix.T @ fit_matrix[:, -nadditions:]
-    collapsed_fit = np.sum(fit_matrix[:, -nadditions:], axis=0)
-    fixed_mean, candidate_mean = extend_means(fit_matrix,
-                                              collapsed_fit,
-                                              fixed_mean,
-                                              candidate_mean)
-    full_fit = np.append(fixed_mean, candidate_mean) * fit_matrix.shape[0]
-    covariance_extension -= np.outer(full_fit, collapsed_fit) / fit_matrix.shape[0]
 
-    covariance_matrix = np.column_stack((covariance_matrix,
-                                         covariance_extension[:-nadditions]))
-    covariance_matrix = np.row_stack((covariance_matrix,
-                                      covariance_extension.T))
+    if covariance_matrix.size:
+        covariance_matrix = np.hstack((covariance_matrix,
+                                       covariance_extension[:-nadditions]))
+        covariance_matrix = np.vstack((covariance_matrix, covariance_extension.T))
+    else:
+        covariance_matrix = covariance_extension
     for j in range(1, nadditions + 1):
         covariance_matrix[-j, -j] += 1e-8
 
-    return covariance_matrix, fixed_mean, candidate_mean
+    return covariance_matrix
 
 
 @njit(cache=True, error_model="numpy", fastmath=True)
 def update_covariance_matrix(covariance_matrix: np.ndarray,
                              update: np.ndarray,
-                             fit_matrix: np.ndarray,
-                             indices: np.ndarray,
-                             fixed_mean: np.ndarray,
-                             update_mean: np.ndarray,
-                             candidate_mean: float) -> np.ndarray:
+                             fit_matrix: np.ndarray) -> np.ndarray:
     """
     Update the covariance matrix.
     Expects update initialisation and an updated fit matrix.
@@ -453,18 +419,14 @@ def update_covariance_matrix(covariance_matrix: np.ndarray,
         covariance_matrix: Covariance matrix to update. [nbases x nbases]
         update: Update values of the data points.
         fit_matrix: Evaluation of the bases on the data. [n x nbases]
-        indices: Indices of the data points that need to be updated.
-        fixed_mean: Mean of the fixed basis. [nbases-1]
-        update_mean: Mean of the updates.
-        candidate_mean: Mean of the candidate basis.
 
     Returns:
         Covariance addition: Vector that was used to update the covariance matrix.
     """
-    covariance_addition = np.zeros(covariance_matrix.shape[0], dtype=float)
-    covariance_addition[:-1] += np.sum(update[np.newaxis, ...] @ (fit_matrix[indices, :-1] - fixed_mean), axis=0)
-    covariance_addition[-1] += (fit_matrix[indices, -1] - update) @ (update - update_mean)
-    covariance_addition[-1] += update @ (fit_matrix[indices, -1] - candidate_mean)
+    covariance_addition = np.zeros_like(covariance_matrix[-1, :])
+    covariance_addition[:-1] = update @ fit_matrix[:, :-1]
+    covariance_addition[-1] = 2 * fit_matrix[:, -1] @ update
+    covariance_addition[-1] -= update @ update
 
     covariance_matrix[-1, :-1] += covariance_addition[:-1]
     covariance_matrix[:, -1] += covariance_addition
@@ -472,7 +434,7 @@ def update_covariance_matrix(covariance_matrix: np.ndarray,
     return covariance_addition
 
 
-@njit(cache=True, error_model="numpy", fastmath=True, parallel=False) # Detrimental?
+@njit(cache=True, error_model="numpy", fastmath=True, parallel=False)  # Detrimental?
 def decompose_addition(covariance_addition: np.ndarray) \
         -> tuple[list[float], list[np.ndarray]]:
     """
@@ -489,14 +451,14 @@ def decompose_addition(covariance_addition: np.ndarray) \
     """
     eigenvalue_intermediate = np.sqrt(
         covariance_addition[-1] ** 2 + 4 * np.sum(covariance_addition[:-1] ** 2))
-    eigenvalues = [
+    eigenvalues = List([
         (covariance_addition[-1] + eigenvalue_intermediate) / 2,
         (covariance_addition[-1] - eigenvalue_intermediate) / 2,
-    ]
-    eigenvectors = [
+    ])
+    eigenvectors = List([
         np.array([*(covariance_addition[:-1] / eigenvalues[0]), 1]),
         np.array([*(covariance_addition[:-1] / eigenvalues[1]), 1]),
-    ]
+    ])
     eigenvectors[0] /= np.linalg.norm(eigenvectors[0])
     eigenvectors[1] /= np.linalg.norm(eigenvectors[1])
 
@@ -517,7 +479,7 @@ def calculate_right_hand_side(y: np.ndarray,
        Right hand side of the least-squares problem. [nbases]
        Mean of the target values.
    """
-    y_mean = np.mean(y)
+    y_mean = y.mean()
     right_hand_side = fit_matrix.T @ (y - y_mean)
     return right_hand_side, y_mean
 
@@ -527,7 +489,7 @@ def extend_right_hand_side(right_hand_side: np.ndarray,
                            y: np.ndarray,
                            fit_matrix: np.ndarray,
                            y_mean: float,
-                           nadditions: int):
+                           nadditions: int) -> tuple[np.ndarray, float]:
     """
     Extend the right hand side of the least-squares problem
     by accounting for the newly added basis functions.
@@ -542,17 +504,18 @@ def extend_right_hand_side(right_hand_side: np.ndarray,
     Returns:
         Extended right hand side of the least-squares problem. [nbases]
     """
+    if not right_hand_side.size:
+        y_mean = y.mean()
     right_hand_side = np.append(right_hand_side,
                                 fit_matrix[:, -nadditions:].T @ (
                                         y - y_mean))
-    return right_hand_side
+    return right_hand_side, y_mean
 
 
 @njit(cache=True, error_model="numpy", fastmath=True)
 def update_right_hand_side(right_hand_side: np.ndarray,
                            y: np.ndarray,
                            y_mean: float,
-                           indices: np.ndarray,
                            update: np.ndarray) -> None:
     """
     Update the right hand side according to the basis update.
@@ -561,15 +524,14 @@ def update_right_hand_side(right_hand_side: np.ndarray,
         right_hand_side: Right hand side of the least-squares problem. [nbases]
         y: Target values. [n]
         y_mean: Mean of the target values.
-        indices: Indices of the data points that need to be updated.
         update: Update values of the data points.
     """
-    right_hand_side[-1] += np.sum(
-        update * (y[indices] - y_mean))
+    right_hand_side[-1] += update.T @ (y - y_mean)
 
 
 @njit(cache=True, error_model="numpy", fastmath=True)
 def generalised_cross_validation(y: np.ndarray,
+                                 y_mean: float,
                                  fit_matrix: np.ndarray,
                                  coefficients: np.ndarray,
                                  nbases: int,
@@ -579,6 +541,7 @@ def generalised_cross_validation(y: np.ndarray,
 
     Args:
         y: Target values. [n]
+        y_mean: Mean of the target values.
         fit_matrix: Evaluation of the bases on the data. [n x nbases]
         coefficients: Coefficients of the basis. [nbases]
         nbases: Number of basis functions.
@@ -587,11 +550,11 @@ def generalised_cross_validation(y: np.ndarray,
     Returns:
         Generalised cross validation criterion.
     """
-    y_pred = fit_matrix @ coefficients
+    y_pred = fit_matrix @ coefficients + y_mean
     mse = np.sum((y - y_pred) ** 2)
 
     c_m = nbases + 1 + smoothness * (nbases - 1)
-    lof = mse / len(y) / (1 - c_m / len(y)) ** 2
+    lof = mse / len(y) / (1 - c_m / len(y) + 1e-6) ** 2
     return lof
 
 
@@ -630,7 +593,14 @@ def fit(x: np.ndarray,
         hinges: np.ndarray,
         where: np.ndarray,
         smoothness: int) -> tuple[
-    float, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, float, float]:
+    float,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    float]:
     """
     Calculate the least-squares fit of the current model from scratch.
 
@@ -648,32 +618,41 @@ def fit(x: np.ndarray,
         Generalised cross validation criterion.
         Coefficients of the basis. [nbases]
         Fit matrix. [n x nbases]
+        Basis mean. [nbases]
         Covariance matrix. [nbases x nbases]
         Cholesky decomposition of the covariance matrix. [nbases x nbases]
         Right hand side of the least-squares problem. [nbases]
-        Mean of the fixed basis.
-        Mean of the candidate basis.
         Mean of the target values.
     """
-    fit_matrix = calculate_fit_matrix(x, nbases, covariates, nodes, hinges, where)
-    covariance_matrix, fixed_mean, candidate_mean = calculate_covariance_matrix(
-        fit_matrix)
-    right_hand_side, y_mean = calculate_right_hand_side(y, fit_matrix)
+    if nbases > 1:
+        spec = ModelSpec(covariates, nodes,hinges, where)
+        fit_matrix, basis_mean = calculate_fit_matrix(x, spec)
+        covariance_matrix = calculate_covariance_matrix(fit_matrix)
+        right_hand_side, y_mean = calculate_right_hand_side(y, fit_matrix)
 
-    chol = np.linalg.cholesky(covariance_matrix)
+        chol = np.linalg.cholesky(covariance_matrix)
 
-    coefficients = cho_solve_numpy(chol, right_hand_side)
+        coefficients = cho_solve_numpy(chol, right_hand_side)
 
-    lof = generalised_cross_validation(y, fit_matrix, coefficients, nbases, smoothness)
+        lof = generalised_cross_validation(y, y_mean, fit_matrix, coefficients, nbases,
+                                           smoothness)
+    else:
+        lof = y.mean()
+        coefficients = np.empty(0, dtype=np.float64)
+        fit_matrix = np.empty((0, 0), dtype=np.float64)
+        basis_mean = np.empty(0, dtype=np.float64)
+        covariance_matrix = np.empty((0, 0), dtype=np.float64)
+        chol = np.empty((0, 0), dtype=np.float64)
+        right_hand_side = np.empty(0, dtype=np.float64)
+        y_mean = lof
 
     return (lof,
             coefficients,
             fit_matrix,
+            basis_mean,
             covariance_matrix,
             np.tril(chol),
             right_hand_side,
-            fixed_mean,
-            candidate_mean,
             y_mean)
 
 
@@ -688,12 +667,18 @@ def extend_fit(x: np.ndarray,
                smoothness: int,
                nadditions: int,
                fit_matrix: np.ndarray,
+               basis_mean: np.ndarray,
                covariance_matrix: np.ndarray,
                right_hand_side: np.ndarray,
-               y_mean: float,
-               fixed_mean: np.ndarray,
-               candidate_mean: float) -> tuple[
-    float, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]:
+               y_mean: float) -> tuple[
+    float,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    float]:
     """
     Extend the least-squares fit. Expects the correct fit matrix,
     covariance matrix and right hand side of the smaller model.
@@ -709,47 +694,46 @@ def extend_fit(x: np.ndarray,
         smoothness: Cost for each basis optimization.
         nadditions: Number of newly added basis functions.
         fit_matrix: Evaluation of the bases on the data. [n x nbases-nadditions]
+        basis_mean: Mean of the bases. [nbases-nadditions]
         covariance_matrix: Covariance matrix of the smaller model. [nbases-nadditions x nbases-nadditions]
         right_hand_side: Right hand side of the smaller model. [nbases-nadditions]
         y_mean: Mean of the target values.
-        fixed_mean: Mean of the fixed basis. [nbases-1-nadditions]
-        candidate_mean: Mean of the previous candidate basis.
 
     Returns:
         Generalised cross validation criterion.
         Coefficients of the basis. [nbases]
         Fit matrix. [n x nbases]
+        Basis mean. [nbases]
         Covariance matrix. [nbases x nbases]
         Cholesky decomposition of the covariance matrix. [nbases x nbases]
         Right hand side of the least-squares problem. [nbases]
         Mean of the fixed basis. [nbases-1]
         Mean of the candidate basis.
     """
-    fit_matrix = extend_fit_matrix(x, nadditions, nbases, fit_matrix, covariates, nodes,
-                                   hinges, where)
-    covariance_matrix, fixed_mean, candidate_mean = extend_covariance_matrix(
-        covariance_matrix,
-        nadditions,
-        fit_matrix,
-        fixed_mean,
-        candidate_mean)
-    right_hand_side = extend_right_hand_side(right_hand_side, y, fit_matrix, y_mean,
-                                             nadditions)
+    spec = ModelSpec(covariates, nodes, hinges, where)
+    fit_matrix, basis_mean = extend_fit_matrix(x, nadditions, fit_matrix, basis_mean,
+                                               spec)
+    covariance_matrix = extend_covariance_matrix(covariance_matrix, nadditions,
+                                                 fit_matrix)
+    right_hand_side, y_mean = extend_right_hand_side(right_hand_side, y, fit_matrix,
+                                                     y_mean,
+                                                     nadditions)
 
     chol = np.linalg.cholesky(covariance_matrix)
 
     coefficients = cho_solve_numpy(chol, right_hand_side)
 
-    lof = generalised_cross_validation(y, fit_matrix, coefficients, nbases, smoothness)
+    lof = generalised_cross_validation(y, y_mean, fit_matrix, coefficients, nbases,
+                                       smoothness)
 
     return (lof,
             coefficients,
             fit_matrix,
+            basis_mean,
             covariance_matrix,
             np.tril(chol),
             right_hand_side,
-            fixed_mean,
-            candidate_mean)
+            y_mean)
 
 
 @njit(cache=True, error_model="numpy", fastmath=True)
@@ -761,15 +745,20 @@ def update_fit(x: np.ndarray,
                where: np.ndarray,
                smoothness: int,
                fit_matrix: np.ndarray,
+               basis_mean: np.ndarray,
                covariance_matrix: np.ndarray,
                right_hand_side: np.ndarray,
                y_mean: float,
-               fixed_mean: np.ndarray,
-               candidate_mean: float,
                old_node: float,
                parent_idx: int,
                chol: np.ndarray) -> tuple[
-    float, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]:
+    float,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray]:
     """
     Update the least-squares fit. Expects the correct fit matrix, covariance matrix
     and right hand side of the previous model. The only change in the bases occurred
@@ -784,11 +773,10 @@ def update_fit(x: np.ndarray,
         where: Signals product length of basis. [max_nbases x max_nbases]
         smoothness: Cost for each basis optimization.
         fit_matrix: Evaluation of the bases on the data. [n x nbases]
+        basis_mean: Mean of the bases. [nbases]
         covariance_matrix: Covariance matrix of the model. [nbases x nbases]
         right_hand_side: Right hand side of the model. [nbases]
         y_mean: Mean of the target values.
-        fixed_mean: Mean of the fixed basis. [nbases-1]
-        candidate_mean: Mean of the candidate basis.
         old_node: Previous node of the basis function.
         parent_idx: Index of the parent basis function.
         chol: Cholesky decomposition of the covariance matrix. [nbases x nbases]
@@ -797,95 +785,97 @@ def update_fit(x: np.ndarray,
         Generalised cross validation criterion.
         Coefficients of the basis. [nbases]
         Fit matrix. [n x nbases]
+        Basis mean. [nbases]
         Covariance matrix. [nbases x nbases]
         Cholesky decomposition of the covariance matrix. [nbases x nbases]
         Right hand side of the least-squares problem. [nbases]
-        Mean of the fixed basis. [nbases-1]
-        Mean of the candidate basis.
     """
-    indices, update, update_mean, candidate_mean = update_init(x, old_node, parent_idx,
-                                                               nbases, covariates,
-                                                               nodes, where, fit_matrix,
-                                                               candidate_mean)
-    update_fit_matrix(fit_matrix, indices, update)
+    update, update_mean = update_init(x, old_node, parent_idx, nbases, covariates,
+                                      nodes, where, fit_matrix, basis_mean)
+    update_fit_matrix(fit_matrix, basis_mean, update, update_mean)
     covariance_addition = update_covariance_matrix(covariance_matrix, update,
-                                                   fit_matrix, indices, fixed_mean,
-                                                   update_mean, candidate_mean)
+                                                   fit_matrix)
 
     if covariance_addition.any():
         eigenvalues, eigenvectors = decompose_addition(covariance_addition)
         chol = update_cholesky(chol, eigenvectors, eigenvalues)
 
-    update_right_hand_side(right_hand_side, y, y_mean, indices, update)
+    update_right_hand_side(right_hand_side, y, y_mean, update)
 
     coefficients = cho_solve_numpy(chol, right_hand_side)
 
-    lof = generalised_cross_validation(y, fit_matrix, coefficients, nbases, smoothness)
+    lof = generalised_cross_validation(y, y_mean, fit_matrix, coefficients, nbases,
+                                       smoothness)
 
     return (lof,
             coefficients,
             fit_matrix,
+            basis_mean,
             covariance_matrix,
             np.tril(chol),
-            right_hand_side,
-            fixed_mean,
-            candidate_mean)
+            right_hand_side)
 
 
 @njit(cache=True, error_model="numpy", fastmath=True)
-def delete(array: np.ndarray, removal_slice: slice, axis: int) -> np.ndarray:
+def delete(array: np.ndarray, removal_idx: int, axis: int) -> np.ndarray:
     """
     Delete a slice from an array. Replacement for np.delete.
     Only supports 2D arrays. Only supports float arrays.
 
     Args:
         array: Array to delete from.
-        removal_slice: Slice to remove.
+        removal_idx: idx of the slice to remove.
         axis: Axis to remove from.
 
     Returns:
         Array with the slice removed.
     """
     new_shape = list(array.shape)
-    new_shape[axis] -= removal_slice.stop - removal_slice.start
+    new_shape[axis] -= 1
 
     trimmed_array = np.zeros((new_shape[0], new_shape[1]), dtype=float)
     if axis == 0:
-        trimmed_array[:removal_slice.start] = array[:removal_slice.start, :]
-        trimmed_array[removal_slice.start:] = array[removal_slice.stop:, :]
+        trimmed_array[:removal_idx] = array[:removal_idx, :]
+        trimmed_array[removal_idx:] = array[removal_idx + 1:, :]
     elif axis == 1:
-        trimmed_array[:, :removal_slice.start] = array[:, :removal_slice.start]
-        trimmed_array[:, removal_slice.start:] = array[:, removal_slice.stop:]
+        trimmed_array[:, :removal_idx] = array[:, :removal_idx]
+        trimmed_array[:, removal_idx:] = array[:, removal_idx + 1:]
 
     return trimmed_array
 
 
 @njit(cache=True, error_model="numpy", fastmath=True)
 def shrink_fit(y: np.ndarray,
+               y_mean: float,
                nbases: int,
                smoothness: int,
-               removal_slice: slice,
+               removal_idx: int,
                fit_matrix: np.ndarray,
+               basis_mean: np.ndarray,
                covariance_matrix: np.ndarray,
                right_hand_side: np.ndarray,
-               fixed_mean: np.ndarray,
-               candidate_mean: float
                ) -> tuple[
-    float, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]:
+    float,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray]:
     """
     Shrink the least-squares fit. Expects the correct fit matrix, covariance matrix
     and right hand side of the larger model.
 
     Args:
         y: Target values.  [n]
+        y_mean: Mean of the target values.
         nbases: Number of basis functions.
         smoothness: Cost for each basis optimization.
-        removal_slice: Slice of the basis functions to be removed.
-        fit_matrix: Evaluation of the bases on the data. [n x nbases+nremovals]
-        covariance_matrix: Covariance matrix of the model. [nbases+nremovals x nbases+nremovals]
-        right_hand_side: Right hand side of the model. [nbases+nremovals]
-        fixed_mean: Mean of the fixed basis. [nbases-1+nremovals]
-        candidate_mean: Mean of the candidate basis.
+        removal_idx: Index of the basis function to be removed.
+        fit_matrix: Evaluation of the bases on the data. [n x nbases+1]
+        basis_mean: Mean of the bases. [nbases+1]
+        covariance_matrix: Covariance matrix of the model. [nbases+1 x nbases+1]
+        right_hand_side: Right hand side of the model. [nbases+1]
 
     Returns:
         Generalised cross validation criterion.
@@ -897,27 +887,39 @@ def shrink_fit(y: np.ndarray,
         Mean of the fixed basis. [nbases-1]
         Mean of the candidate basis.
     """
-    fit_matrix = delete(fit_matrix, removal_slice, axis=1)
-    covariance_matrix = delete(covariance_matrix, removal_slice, axis=0)
-    covariance_matrix = delete(covariance_matrix, removal_slice, axis=1)
-    fixed_mean, candidate_mean = shrink_means(fixed_mean, candidate_mean, removal_slice)
+    removal_idx -= 1
 
-    right_hand_side = np.delete(right_hand_side, removal_slice)
+    fit_matrix = delete(fit_matrix, removal_idx, axis=1)
+    basis_mean = np.delete(basis_mean, removal_idx)
+    if basis_mean.size:
+        covariance_matrix = delete(covariance_matrix, removal_idx, axis=0)
+        covariance_matrix = delete(covariance_matrix, removal_idx, axis=1)
+    else:
+        covariance_matrix = np.empty((0, 0), dtype=np.float64)
+    covariance_matrix = np.atleast_2d(covariance_matrix)
+    right_hand_side = np.delete(right_hand_side, removal_idx)
 
-    chol = np.linalg.cholesky(covariance_matrix)
+    if fit_matrix.size:
+        chol = np.linalg.cholesky(covariance_matrix)
 
-    coefficients = cho_solve_numpy(chol, right_hand_side)
+        coefficients = cho_solve_numpy(chol, right_hand_side)
 
-    lof = generalised_cross_validation(y, fit_matrix, coefficients, nbases, smoothness)
+        lof = generalised_cross_validation(y, y_mean, fit_matrix, coefficients, nbases,
+                                           smoothness)
+        chol = np.tril(chol)
+    else:
+        chol = None
+        mse = np.sum((y - y_mean) ** 2)
+        lof = mse / len(y) / (1 - 1 / len(y)) ** 2
+        coefficients = None
 
     return (lof,
             coefficients,
             fit_matrix,
+            basis_mean,
             covariance_matrix,
-            np.tril(chol),
-            right_hand_side,
-            fixed_mean,
-            candidate_mean)
+            chol,
+            right_hand_side)
 
 
 @njit(cache=True, error_model="numpy", fastmath=True, parallel=False)
@@ -961,8 +963,8 @@ def expand_bases(x: np.ndarray,
                  smoothness: int,
                  max_ncandidates: int,
                  aging_factor: float) -> tuple[
-    int, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
-    float, np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]:
+    int, np.ndarray, np.ndarray, np.ndarray, np.ndarray, float, np.ndarray,
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]:
     """
     Expand the bases to the maximum allowed number of basis functions. By iteratively adding the basis
     that reduces the lack of fit criterion the most. Equivalent to the forward pass in the Mars paper, including
@@ -982,26 +984,35 @@ def expand_bases(x: np.ndarray,
         Nodes of the basis. [max_nbases x max_nbases]
         Hinges of the basis. [max_nbases x max_nbases]
         Signals product length of basis. [max_nbases x max_nbases]
-        Coefficients of the basis. [nbases]
         Generalised cross validation criterion.
+        Coefficients of the basis. [nbases]
         Fit matrix. [n x nbases]
+        Basis mean. [nbases]
         Covariance matrix. [nbases x nbases]
         Cholesky decomposition of the covariance matrix. [nbases x nbases]
         Right hand side of the least-squares problem. [nbases]
-        Mean of the fixed basis.
-        Mean of the candidate basis.
+        Mean of the target values.
     """
+    # Bases (including the constant function)
     nbases = 1
     covariates = np.zeros((max_nbases, max_nbases), dtype=np.int32)
-    nodes = np.zeros((max_nbases, max_nbases), dtype=float)
+    nodes = np.zeros((max_nbases, max_nbases), dtype=np.float64)
     hinges = np.zeros((max_nbases, max_nbases), dtype=np.bool_)
     where = np.zeros((max_nbases, max_nbases), dtype=np.bool_)
 
+    coefficients = np.empty(0, dtype=np.float64)
+    fit_matrix = np.empty((0, 0), dtype=np.float64)
+    covariance_matrix = np.empty((0, 0), dtype=np.float64)
+    right_hand_side = np.empty(0, dtype=np.float64)
+
+    lof = 0.0
+
+    basis_mean = np.empty(0, dtype=np.float64)
+    y_mean = y.mean()
+
     all_covariates = np.array(list(range(x.shape[1])))
-    (lof, coefficients, fit_matrix, covariance_matrix, chol, right_hand_side,
-     fixed_mean, candidate_mean, y_mean) = fit(x, y, nbases, covariates, nodes, hinges,
-                                               where, smoothness)
-    candidate_queue = np.zeros(nbases, dtype=float)
+
+    candidate_queue = np.zeros(1, dtype=np.float64)
     for _ in range((max_nbases - nbases) // 2):
         best_lof = np.inf
         best_covariate = None
@@ -1009,12 +1020,16 @@ def expand_bases(x: np.ndarray,
         best_hinge = None
         best_where = None
         for parent_idx in np.argsort(candidate_queue)[:-max_ncandidates - 1:-1]:
-            eligible_covariates = setdiff1d(all_covariates, covariates[where[:, parent_idx], parent_idx])
+            eligible_covariates = setdiff1d(all_covariates, covariates[
+                where[:, parent_idx], parent_idx])
             basis_lof = np.inf
-            parent_depth = np.sum(where[:, parent_idx])
+            parent_depth = where[:, parent_idx].sum()
             for cov in eligible_covariates:
-                eligible_knots = x[
-                    np.where(fit_matrix[:, parent_idx] > 0)[0], cov]
+                if parent_idx == 0:  # constant function
+                    eligible_knots = x[:, cov].copy()
+                else:
+                    eligible_knots = x[
+                        np.where(fit_matrix[:, parent_idx - 1] > 0)[0], cov]
                 eligible_knots[::-1].sort()
                 additional_covariates = tile(covariates[:, parent_idx])
                 additional_nodes = tile(nodes[:, parent_idx])
@@ -1036,13 +1051,10 @@ def expand_bases(x: np.ndarray,
                     additional_where,
                     covariates, nodes, hinges, where
                 )
-                (
-                    lof, coefficients, fit_matrix, covariance_matrix, chol,
-                    right_hand_side,
-                    fixed_mean, candidate_mean) = extend_fit(
+                (lof, coefficients, fit_matrix, basis_mean, covariance_matrix, chol,
+                 right_hand_side, y_mean) = extend_fit(
                     x, y, nbases, covariates, nodes, hinges, where, smoothness, 2,
-                    fit_matrix, covariance_matrix, right_hand_side, y_mean, fixed_mean,
-                    candidate_mean)
+                    fit_matrix, basis_mean, covariance_matrix, right_hand_side, y_mean)
                 old_node = eligible_knots[0]
 
                 for new_node in eligible_knots[1:]:
@@ -1059,11 +1071,11 @@ def expand_bases(x: np.ndarray,
                         hinges,
                         where
                     )
-                    (lof, coefficients, fit_matrix, covariance_matrix, chol,
-                     right_hand_side, fixed_mean, candidate_mean) = update_fit(
+                    (lof, coefficients, fit_matrix, basis_mean, covariance_matrix, chol,
+                     right_hand_side) = update_fit(
                         x, y, nbases, covariates, nodes, where, smoothness, fit_matrix,
-                        covariance_matrix, right_hand_side, y_mean, fixed_mean,
-                        candidate_mean, old_node, parent_idx, chol)
+                        basis_mean, covariance_matrix, right_hand_side, y_mean,
+                        old_node, parent_idx, chol)
                     old_node = new_node
                     if lof < basis_lof:
                         basis_lof = lof
@@ -1074,14 +1086,13 @@ def expand_bases(x: np.ndarray,
                         best_node = nodes[:, addition_slice].copy()
                         best_hinge = hinges[:, addition_slice].copy()
                         best_where = where[:, addition_slice].copy()
-                removal_slice = slice(nbases - 2, nbases)
-                nbases = remove_bases(nbases, where, removal_slice)
-                (
-                    lof, coefficients, fit_matrix, covariance_matrix, chol,
-                    right_hand_side,
-                    fixed_mean, candidate_mean) = shrink_fit(
-                    y, nbases, smoothness, removal_slice, fit_matrix, covariance_matrix,
-                    right_hand_side, fixed_mean, candidate_mean)
+                for i in range(2):
+                    nbases = remove_bases(nbases, where, nbases - 1)
+                    # CARE remove basis decrements nbases
+                    (lof, coefficients, fit_matrix, basis_mean, covariance_matrix, chol,
+                     right_hand_side) = shrink_fit(
+                        y, y_mean, nbases, smoothness, nbases, fit_matrix,
+                        basis_mean, covariance_matrix, right_hand_side)
 
             candidate_queue[parent_idx] = best_lof - basis_lof
         for unselected_idx in np.argsort(candidate_queue)[max_ncandidates:]:
@@ -1090,11 +1101,10 @@ def expand_bases(x: np.ndarray,
             nbases = add_bases(nbases, best_covariate, best_node, best_hinge,
                                best_where, covariates, nodes, hinges,
                                where)
-            (lof, coefficients, fit_matrix, covariance_matrix, chol, right_hand_side,
-             fixed_mean, candidate_mean) = extend_fit(
+            (lof, coefficients, fit_matrix, basis_mean, covariance_matrix, chol,
+             right_hand_side, y_mean) = extend_fit(
                 x, y, nbases, covariates, nodes, hinges, where, smoothness, 2,
-                fit_matrix, covariance_matrix, right_hand_side, y_mean, fixed_mean,
-                candidate_mean)
+                fit_matrix, basis_mean, covariance_matrix, right_hand_side, y_mean)
             candidate_queue = np.append(candidate_queue, [0, 0])
 
     return (nbases,
@@ -1102,13 +1112,13 @@ def expand_bases(x: np.ndarray,
             nodes,
             hinges,
             where,
-            coefficients,
             lof,
+            coefficients,
             fit_matrix,
+            basis_mean,
             covariance_matrix,
             right_hand_side,
-            fixed_mean,
-            candidate_mean)
+            y_mean)
 
 
 @njit(cache=True, error_model="numpy", fastmath=True, parallel=False)
@@ -1121,10 +1131,10 @@ def prune_bases(x: np.ndarray,
                 where: np.ndarray,
                 lof: float,
                 fit_matrix: np.ndarray,
+                basis_mean: np.ndarray,
                 covariance_matrix: np.ndarray,
                 right_hand_side: np.ndarray,
-                fixed_mean: np.ndarray,
-                candidate_mean: float,
+                y_mean: float,
                 smoothness: int) -> tuple[int, np.ndarray, np.ndarray]:
     """
     Prune the bases to the best fitting subset of the basis functions.
@@ -1141,10 +1151,10 @@ def prune_bases(x: np.ndarray,
         where: Signals product length of basis. [max_nbases x max_nbases]
         lof: Generalised cross validation criterion.
         fit_matrix: Evaluation of the bases on the data. [n x nbases]
+        basis_mean: Mean of the bases. [nbases]
         covariance_matrix: Covariance matrix of the model. [nbases x nbases]
         right_hand_side: Right hand side of the model. [nbases]
-        fixed_mean: Mean of the fixed basis. [nbases-1]
-        candidate_mean: Mean of the candidate basis.
+        y_mean: Mean of the target values.
         smoothness: Cost for each basis optimization.
 
     Returns:
@@ -1168,17 +1178,15 @@ def prune_bases(x: np.ndarray,
         previous_fit = fit_matrix.copy()
         previous_covariance = covariance_matrix.copy()
         previous_right_hand_side = right_hand_side.copy()
-        previous_fixed_mean = fixed_mean.copy()
-        previous_candidate_mean = candidate_mean
+        previous_basis_mean = basis_mean.copy()
 
-        # First basis function (constant 1) cannot be excluded
-        for basis_idx in prange(1, nbases):
-            removal_slice = slice(basis_idx, basis_idx + 1)
-            nbases = remove_bases(nbases, where, removal_slice)
-            (lof, coefficients, fit_matrix, covariance_matrix, chol, right_hand_side,
-             fixed_mean, candidate_mean) = shrink_fit(
-                y, nbases, smoothness, removal_slice, fit_matrix, covariance_matrix,
-                right_hand_side, fixed_mean, candidate_mean)
+        # Constant basis function cannot be excluded
+        for basis_idx in range(1, nbases):
+            nbases = remove_bases(nbases, where, basis_idx)
+            (lof, coefficients, fit_matrix, basis_mean, covariance_matrix, chol,
+             right_hand_side) = shrink_fit(
+                y, y_mean, nbases, smoothness, basis_idx, fit_matrix,
+                basis_mean, covariance_matrix, right_hand_side)
             if lof < best_trimmed_lof:
                 best_trimmed_lof = lof
                 best_trimmed_nbases = nbases
@@ -1192,25 +1200,18 @@ def prune_bases(x: np.ndarray,
             fit_matrix = previous_fit.copy()
             covariance_matrix = previous_covariance.copy()
             right_hand_side = previous_right_hand_side.copy()
-            fixed_mean = previous_fixed_mean.copy()
-            candidate_mean = previous_candidate_mean
+            basis_mean = previous_basis_mean.copy()
 
         nbases = best_trimmed_nbases
         where = best_trimmed_where.copy()
-        lof, coefficients, fit_matrix, covariance_matrix, chol, right_hand_side, fixed_mean, candidate_mean, y_mean = fit(
-            x,
-            y,
-            nbases,
-            covariates,
-            nodes,
-            hinges,
-            where,
-            smoothness)
+        (lof, coefficients, fit_matrix, basis_mean, covariance_matrix, chol,
+         right_hand_side, y_mean) = fit(x, y, nbases, covariates, nodes, hinges, where,
+                                        smoothness)
     nbases = best_nbases
     where = best_where.copy()
-    (lof, coefficients, fit_matrix, covariance_matrix, chol, right_hand_side,
-     fixed_mean, candidate_mean, y_mean) = fit(x, y, nbases, covariates, nodes, hinges,
-                                               where, smoothness)
+    (lof, coefficients, fit_matrix, basis_mean, covariance_matrix, chol,
+     right_hand_side, y_mean) = fit(x, y, nbases, covariates, nodes, hinges,
+                                    where, smoothness)
     return nbases, where, coefficients
 
 
@@ -1222,7 +1223,7 @@ def find_bases(x: np.ndarray,
                aging_factor: float = 0.,
                smoothness: int = 3
                ) -> tuple[
-    int, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    int, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]:
     """
     Find the best fitting basis for the given data.
 
@@ -1241,6 +1242,7 @@ def find_bases(x: np.ndarray,
         Hinges of the basis. [max_nbases x max_nbases]
         Signals product length of basis. [max_nbases x max_nbases]
         Coefficients of the basis. [nbases]
+        Mean of the target values.
     """
     assert x.ndim == 2
     assert y.ndim == 1
@@ -1250,19 +1252,18 @@ def find_bases(x: np.ndarray,
      nodes,
      hinges,
      where,
-     coefficients,
      lof,
+     coefficients,
      fit_matrix,
+     basis_mean,
      covariance_matrix,
      right_hand_side,
-     fixed_mean,
-     candidate_mean) = expand_bases(x, y, max_nbases, smoothness, max_ncandidates,
-                                    aging_factor)
+     y_mean) = expand_bases(x, y, max_nbases, smoothness, max_ncandidates, aging_factor)
     nbases, where, coefficients = prune_bases(
-        x, y, nbases, covariates, nodes, hinges, where, lof, fit_matrix,
-        covariance_matrix, right_hand_side, fixed_mean, candidate_mean, smoothness)
+        x, y, nbases, covariates, nodes, hinges, where, lof, fit_matrix, basis_mean,
+        covariance_matrix, right_hand_side, y_mean, smoothness)
 
-    return nbases, covariates, nodes, hinges, where, coefficients
+    return nbases, covariates, nodes, hinges, where, coefficients, y_mean
 
 
 class OMARS:
@@ -1282,11 +1283,9 @@ class OMARS:
 
     def __init__(self,
                  nbases: int,
-                 covariates: np.ndarray,
-                 nodes: np.ndarray,
-                 hinges: np.ndarray,
-                 where: np.ndarray,
-                 coefficients: np.ndarray):
+                 spec: ModelSpec,
+                 coefficients: np.ndarray,
+                 y_mean: float) -> None:
         """
         Initialize the OMARS model.
 
@@ -1297,23 +1296,23 @@ class OMARS:
             hinges: Hinges of the basis. [max_nbases x max_nbases]
             where: Where to apply the hinge. [max_nbases x max_nbases]
             coefficients: Coefficients of the basis. [max_nbases]
+            y_mean: Mean of the target values.
         """
         assert isinstance(nbases, int)
-        assert covariates.ndim == 2
-        assert nodes.ndim == 2
-        assert hinges.ndim == 2
-        assert where.ndim == 2
         assert coefficients.ndim == 1
 
         self.nbases = nbases
-        max_prod_len = np.max(np.sum(where, axis=0)) + 1
+        self.max_prod_len = np.max(np.sum(spec.where, axis=0)) + 1
 
-        self.covariates = covariates[:max_prod_len, :nbases]
-        self.nodes = nodes[:max_prod_len, :nbases]
-        self.hinges = hinges[:max_prod_len, :nbases]
-        self.where = where[:max_prod_len, :nbases]
+        self.spec = ModelSpec(
+            spec.covariates[:self.max_prod_len, :nbases],
+            spec.nodes[:self.max_prod_len, :nbases],
+            spec.hinges[:self.max_prod_len, :nbases],
+            spec.where[:self.max_prod_len, :nbases]
+        )
 
-        self.coefficients = coefficients[:nbases]
+        self.coefficients = coefficients[:nbases - 1]
+        self.y_mean = y_mean
 
     def __str__(self) -> str:
         """
@@ -1322,13 +1321,13 @@ class OMARS:
         Returns:
             Description of the basis.
         """
-        desc = "basis: \n"
-        for basis_idx in range(self.covariates.shape[1]):
-            for func_idx in range(self.covariates.shape[0]):
-                if self.where[func_idx, basis_idx]:
-                    cov = self.covariates[func_idx, basis_idx]
-                    node = self.nodes[func_idx, basis_idx]
-                    hinge = self.hinges[func_idx, basis_idx]
+        desc = "Basis functions: \n"
+        for basis_idx in active_base_indices(self.spec.where):
+            for func_idx in range(self.max_prod_len):
+                if self.spec.where[func_idx, basis_idx]:
+                    cov = self.spec.covariates[func_idx, basis_idx]
+                    node = self.spec.nodes[func_idx, basis_idx]
+                    hinge = self.spec.hinges[func_idx, basis_idx]
                     desc += f"(x[{cov}] - {node}){u'\u208A' if hinge else ''}"
             desc += "\n"
         return desc
@@ -1345,13 +1344,9 @@ class OMARS:
         """
         assert x.ndim == 2
 
-        return data_matrix(x,
-                           0,
-                           self.nbases,
-                           self.covariates,
-                           self.nodes,
-                           self.hinges,
-                           self.where) @ self.coefficients
+        fit_matrix, _ = data_matrix(x, active_base_indices(self.spec.where), self.spec)
+        centered_y_pred = fit_matrix @ self.coefficients
+        return centered_y_pred + self.y_mean
 
     def __len__(self) -> int:
         """
@@ -1375,13 +1370,13 @@ class OMARS:
         assert isinstance(i, int)
         assert i < self.nbases
 
-        idx = [slice(None), slice(i, i + 1)]
-        return OMARS(1,
-                     self.covariates[*idx],
-                     self.nodes[*idx],
-                     self.hinges[*idx],
-                     self.where[*idx],
-                     self.coefficients[idx[1]])
+        nbases = 1
+        spec = self.spec[:, i:i + 1]
+        if i != 0:
+            coefficients = self.coefficients[i:i + 1]
+        else:
+            coefficients = [self.y_mean]
+        return OMARS(nbases, spec, coefficients, self.y_mean)
 
     def __eq__(self, other: Self) -> bool:
         """
@@ -1393,21 +1388,17 @@ class OMARS:
         Returns:
             True if the models are equal, False otherwise.
         """
-        self_idx = [slice(None), slice(self.nbases)]
-        other_idx = [slice(None), slice(other.nbases)]
-
-        return self.nbases == other.nbases and \
-            np.array_equal(self.covariates[*self_idx], other.covariates[*other_idx]) and \
-            np.array_equal(self.nodes[*self_idx], other.nodes[*other_idx]) and \
-            np.array_equal(self.hinges[*self_idx], other.hinges[*other_idx]) and \
-            np.array_equal(self.where[*self_idx], other.where[*other_idx])
+        return self.nbases == other.nbases and self.spec == other.spec
 
 
 if __name__ == "__main__":
-    import tests.utils as utils
+    x, y, y_true, nbases, ref_covariates, ref_nodes, ref_hinges, ref_where = utils.data_generation_model_noop(
+        100, 2)
 
-    x, y, y_true = utils.generate_data(100, 2)
+    import os
 
-    model = OMARS(*find_bases(x, y))
+    os.environ["NUMBA_DEBUG"] = "0"
+    os.environ["NUMBA_DEBUG_FRONTEND"] = "0"
+    os.environ["NUMBA_DUMP_CFG"] = "0"
 
-    print(model)
+    expansion_results = expand_bases(x, y, 11, 3, 11, 0.0)
