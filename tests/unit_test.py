@@ -1,46 +1,38 @@
 from copy import deepcopy
 
-import numpy as np
-
 import regression
 import utils
 
+from suites import *
+
+def pack_model():
+    x, y, y_true, nbases, covariates, nodes, hinges, where = utils.generate_data_and_splines(100, 2)
+
+    model = regression.OMARS()
+    model.nbases = nbases
+    model.covariates = covariates
+    model.nodes = nodes
+    model.hinges = hinges
+    model.where = where
+
+    model._fit(x, y)
+    return x, y, y_true, model
 
 def test_data_matrix() -> None:
-    x, y, y_true, model = utils.data_generation_model(100, 2)
+    x, y, y_true, model = pack_model()
 
-    x1 = model.nodes[1, 1]
-    x08 = model.nodes[2, 2]
-    ref_data_matrix = np.column_stack([
-        np.maximum(0, x[:, 0] - x1),
-        np.maximum(0, x[:, 0] - x1) * np.maximum(0, x[:, 1] - x08),
-    ])
-    ref_basis_mean = ref_data_matrix.mean(axis=0)
-    ref_data_matrix -= ref_basis_mean
-
-    assert np.allclose(ref_basis_mean, model.basis_mean)
-    assert np.allclose(ref_data_matrix, model.fit_matrix)
+    suite_data_matrix(x, model.basis_mean, model.fit_matrix)
 
 
 def test_fit() -> None:
-    x, y, y_true, model = utils.data_generation_model(100, 2)
-    model._fit(x, y)
+    x, y, y_true, model = pack_model()
 
-    coefficients = np.linalg.lstsq(model.fit_matrix, y, rcond=None)[0]
-
-    y_pred_model = model(x)
-    mse_model = np.mean((y_pred_model - y_true) ** 2)
-    y_pred_np = model.fit_matrix @ coefficients + model.y_mean
-    mse_np = np.mean((y_pred_np - y_true) ** 2)
-
-    assert np.allclose(mse_model, mse_np, 0.01)
+    suite_fit(model.coefficients, model.fit_matrix, y, y_true, model.y_mean)
 
 
 def update_case(model: regression.OMARS, x: np.ndarray, y: np.ndarray,
                 func: callable) -> tuple[regression.OMARS, np.ndarray]:
     chol = model._fit(x, y)
-    assert model.covariates[
-               np.sum(model.where[:, model.nbases - 1]), model.nbases - 1] == 1
     old_node = model.nodes[np.sum(model.where[:, model.nbases - 1]), model.nbases - 1]
     for new_node in sorted([value for value in x[:, 1] if value < old_node],
                            reverse=True)[:3]:
@@ -99,7 +91,7 @@ def shrink_case(model: regression.OMARS, x: np.ndarray, y: np.ndarray,
 
 
 def test_update_fit_matrix() -> None:
-    x, y, y_true, model = utils.data_generation_model(100, 2)
+    x, y, y_true, model = pack_model()
 
     former_fit_matrix = model.fit_matrix.copy()
 
@@ -118,7 +110,7 @@ def test_update_fit_matrix() -> None:
 
 
 def test_extend_fit_matrix() -> None:
-    x, y, y_true, model = utils.data_generation_model(100, 2)
+    x, y, y_true, model = pack_model()
 
     former_fit_matrix = model.fit_matrix.copy()
 
@@ -136,7 +128,7 @@ def test_extend_fit_matrix() -> None:
 
 
 def test_update_covariance_matrix() -> None:
-    x, y, y_true, model = utils.data_generation_model(100, 2)
+    x, y, y_true, model = pack_model()
 
     former_covariance = model.covariance_matrix.copy()
 
@@ -158,7 +150,7 @@ def test_update_covariance_matrix() -> None:
 
 
 def test_extend_covariance_matrix() -> None:
-    x, y, y_true, model = utils.data_generation_model(100, 2)
+    x, y, y_true, model = pack_model()
 
     former_covariance = model.covariance_matrix.copy()
 
@@ -178,7 +170,7 @@ def test_extend_covariance_matrix() -> None:
 
 
 def test_update_right_hand_side() -> None:
-    x, y, y_true, model = utils.data_generation_model(100, 2)
+    x, y, y_true, model = pack_model()
 
     former_right_hand_side = model.right_hand_side.copy()
 
@@ -199,7 +191,7 @@ def test_update_right_hand_side() -> None:
 
 
 def test_extend_right_hand_side() -> None:
-    x, y, y_true, model = utils.data_generation_model(100, 2)
+    x, y, y_true, model = pack_model()
 
     former_right_hand_side = model.right_hand_side.copy()
 
@@ -221,7 +213,7 @@ def test_extend_right_hand_side() -> None:
 
 
 def test_decompose() -> None:
-    x, y, y_true, model = utils.data_generation_model(100, 2)
+    x, y, y_true, model = pack_model()
 
     former_covariance = model.covariance_matrix.copy()
 
@@ -244,7 +236,7 @@ def test_decompose() -> None:
 
 
 def test_update_cholesky() -> None:
-    x, y, y_true, model = utils.data_generation_model(100, 2)
+    x, y, y_true, model = pack_model()
 
     former_cholesky = model._fit(x, y)
 
@@ -264,7 +256,7 @@ def test_update_cholesky() -> None:
 
 
 def test_update_fit() -> None:
-    x, y, y_true, model = utils.data_generation_model(100, 2)
+    x, y, y_true, model = pack_model()
 
     former_chol = model._fit(x, y)
     former_coefficients = model.coefficients.copy()
@@ -287,7 +279,7 @@ def test_update_fit() -> None:
 
 
 def test_extend_fit() -> None:
-    x, y, y_true, model = utils.data_generation_model(100, 2)
+    x, y, y_true, model = pack_model()
 
     former_tri = model._fit(x, y)
     former_coefficients = model.coefficients.copy()
@@ -311,7 +303,7 @@ def test_extend_fit() -> None:
 
 
 def test_shrink_fit() -> None:
-    x, y, y_true, model = utils.data_generation_model(100, 2)
+    x, y, y_true, model = pack_model()
 
     additional_covariates = np.tile(model.covariates[:, 1], (7, 1)).T
     additional_nodes = np.tile(model.nodes[:, 1], (7, 1)).T
@@ -347,7 +339,7 @@ def test_shrink_fit() -> None:
 
 
 def test_expand_bases() -> None:
-    x, y, y_true, ref_model = utils.data_generation_model(100, 2)
+    x, y, y_true, ref_model = pack_model()
 
     model = regression.OMARS()
     model._expand_bases(x, y)
@@ -387,7 +379,7 @@ def test_expand_bases() -> None:
 
 
 def test_prune_bases() -> None:
-    x, y, y_true, ref_model = utils.data_generation_model(100, 2)
+    x, y, y_true, ref_model = pack_model()
 
     test_model = deepcopy(ref_model)
     test_model._prune_bases(x, y_true)

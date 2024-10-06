@@ -25,7 +25,6 @@ contains
         ! Perform the calculation
         !$OMP PARALLEL DO PRIVATE(basis_idx, func_idx, temp)
         do basis_idx = basis_slice_start + 1, basis_slice_end
-            !$OMP declare simd
             do func_idx = 1, size(nodes, 1)
                 if (where(func_idx, basis_idx) == 1) then
                     temp = x(:, covariates(func_idx, basis_idx) + 1) - nodes(func_idx, basis_idx)

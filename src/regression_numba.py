@@ -1,115 +1,46 @@
-from dataclasses import dataclass
 from typing import Self
 
-import numba
 import numpy as np
-from numba import njit, types
+from numba import njit
+from numba.core.types import float64
 from numba.typed import List
 
-from tests import utils
-
-
-def jitdataclass(cls=None, *, extra_spec=[]):
-    """
-    Helper decorator to make it easier to numba jitclass dataclasses
-
-    Inspired by https://github.com/numba/numba/issues/4037#issuecomment-907523015
-    """
-
-    def _jitdataclass(cls):
-        dc_cls = dataclass(cls, eq=False, match_args=False)
-        del dc_cls.__dataclass_params__
-        del dc_cls.__dataclass_fields__
-        del dc_cls.__repr__
-        return numba.experimental.jitclass(dc_cls, spec=extra_spec)
-
-    if cls is not None:
-        # We've been called without additional args - invoke actual decorator immediately
-        return _jitdataclass(cls)
-    # We've been called with additional args - so return actual decorator which python calls for us
-    return _jitdataclass
-
-
-@jitdataclass
-class ModelSpec:
-    covariates: types.int32[:, :]
-    nodes: types.float64[:, :]
-    hinges: types.boolean[:, :]
-    where: types.boolean[:, :]
-
-    def __getitem__(self, item):
-        return ModelSpec(
-            covariates=self.covariates[item],
-            nodes=self.nodes[item],
-            hinges=self.hinges[item],
-            where=self.where[item]
-        )
-
-    def __eq__(self, other):
-        return np.array_equal(self.covariates, other.covariates) and \
-            np.array_equal(self.nodes, other.nodes) and \
-            np.array_equal(self.hinges, other.hinges) and \
-            np.array_equal(self.where, other.where)
-
-
-@jitdataclass
-class FitResults:
-    lof: types.float64
-    coefficients: types.float64[:]
-    fit_matrix: types.float64[:, :]
-    basis_mean: types.float64[:]
-    covariance_matrix: types.float64[:, :]
-    chol: types.float64[:, :]
-    right_hand_side: types.float64[:]
-    y_mean: numba.float64
-
 
 @njit(cache=True, error_model="numpy", fastmath=True, parallel=False)
-def active_base_indices(where: np.ndarray) -> np.ndarray:
+def decompose_addition(covariance_addition: float64[:]) \
+        -> tuple[List[float64], List[float64[:]]]:
     """
-    Get the indices of the active basis functions.
-
-    Returns:
-        Indices of the active basis functions.
-    """
-    return np.where(np.sum(where, axis=0) > 0)[0]
-
-
-@njit(cache=True, error_model="numpy", fastmath=True, parallel=False)
-def data_matrix(x: np.ndarray,
-                basis_indices: np.ndarray,
-                spec: ModelSpec) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Calculate the data matrix for the given data and basis, which is the
-    evaluation of the basis for the data points.
+    Decompose the addition to the covariance matrix,
+    which was done by adding to the last row and column of the matrix,
+    into eigenvalues and eigenvectors to perform 2 rank-1 updates.
 
     Args:
-        x: Data points. [n x d]
-        basis_indices: Slice of the basis to be evaluated.
-        spec: Model specification.
+        covariance_addition: Addition to the covariance matrix.
+        (the same vector is applied to the row and column) [nbases]
 
     Returns:
-        Data matrix.
+        Eigenvalues and eigenvectors of the addition.
     """
-    n_samples = x.shape[0]
-    result = np.ones((n_samples, len(basis_indices)))
-    for i, basis_idx in enumerate(basis_indices):
-        for func_idx in range(spec.where.shape[0]):
-            if spec.where[func_idx, basis_idx]:
-                intermediate_result = (-spec.nodes[func_idx, basis_idx] +
-                                       x[:, spec.covariates[func_idx, basis_idx]])
-                if spec.hinges[func_idx, basis_idx]:
-                    intermediate_result = np.maximum(0, intermediate_result)
-                result[:, i] *= intermediate_result
-    result_mean = result.sum(axis=0) / n_samples
+    eigenvalue_intermediate = np.sqrt(
+        covariance_addition[-1] ** 2 + 4 * np.sum(covariance_addition[:-1] ** 2))
+    eigenvalues = List([
+        (covariance_addition[-1] + eigenvalue_intermediate) / 2,
+        (covariance_addition[-1] - eigenvalue_intermediate) / 2,
+    ])
+    eigenvectors = List([
+        np.array([*(covariance_addition[:-1] / eigenvalues[0]), 1]),
+        np.array([*(covariance_addition[:-1] / eigenvalues[1]), 1]),
+    ])
+    eigenvectors[0] /= np.linalg.norm(eigenvectors[0])
+    eigenvectors[1] /= np.linalg.norm(eigenvectors[1])
 
-    return np.atleast_2d(result - result_mean), result_mean
+    return eigenvalues, eigenvectors
 
 
 @njit(cache=True, error_model="numpy", fastmath=True, parallel=False)
-def update_cholesky(chol: np.ndarray,
-                    update_vectors: list[np.ndarray],
-                    multipliers: list[float]) -> np.ndarray:
+def update_cholesky(chol: float64[:, :],
+                    update_vectors: List[float64[:]],
+                    multipliers: List[float64]) -> float64[:, :]:
     """
     Update the Cholesky decomposition by rank-1 matrices.
     Args:
@@ -120,8 +51,9 @@ def update_cholesky(chol: np.ndarray,
     Returns:
         Updated Cholesky decomposition.
 
-    Notes: Algortihm according to [1] Oswin Krause. Christian Igel. A More Efficient Rank-one Covariance Matrix Update
-    for Evolution Strategies. 2015 ACM Conference. https://christian-igel.github.io/paper/AMERCMAUfES.pdf.
+    Notes: Algorithm according to [1] Oswin Krause. Christian Igel.
+    A More Efficient Rank-one Covariance Matrix Update for Evolution Strategies.
+    2015 ACM Conference. https://christian-igel.github.io/paper/AMERCMAUfES.pdf.
     Adapted for computation speed and parallelization.
     """
     for update_vec, multiplier in zip(update_vectors, multipliers):
@@ -145,17 +77,57 @@ def update_cholesky(chol: np.ndarray,
 
     return chol
 
+@njit(cache=True, error_model="numpy", fastmath=True, parallel=False)
+def active_base_indices(where):
+    return np.where(np.sum(where, axis=0) > 0)[0]
+
+@njit(cache=True, error_model="numpy", fastmath=True, parallel=False)
+def data_matrix(x: float64[:, :],
+                basis_indices: float64[:],
+                covariates: float64[:, :],
+                nodes: float64[:, :],
+                hinges: float64[:, :],
+                where: float64[:, :]) -> tuple[float64[:, :], float64[:]]:
+    """
+    Calculate the data matrix for the given data and basis, which is the
+    evaluation of the basis for the data points.
+
+    Args:
+        x: Data points. [n x d]
+        basis_indices: Slice of the basis to be evaluated.
+        covariates: Covariates of the basis.
+        nodes: Nodes of the basis.
+        hinges: Hinges of the basis.
+        where: Signals product length of basis.
+
+    Returns:
+        Data matrix.
+    """
+    n_samples = x.shape[0]
+    result = np.ones((n_samples, len(basis_indices)))
+    for i, basis_idx in enumerate(basis_indices):
+        for func_idx in range(where.shape[0]):
+            if where[func_idx, basis_idx]:
+                intermediate_result = (-nodes[func_idx, basis_idx] +
+                                       x[:, covariates[func_idx, basis_idx]])
+                if hinges[func_idx, basis_idx]:
+                    intermediate_result = np.maximum(0, intermediate_result)
+                result[:, i] *= intermediate_result
+    result_mean = result.sum(axis=0) / n_samples
+
+    return np.atleast_2d(result - result_mean), result_mean
+
 
 @njit(cache=True, error_model="numpy", fastmath=True)
 def add_bases(nbases,
-              new_covariates: np.ndarray,
-              new_nodes: np.ndarray,
-              new_hinges: np.ndarray,
-              new_where: np.ndarray,
-              covariates: np.ndarray,
-              nodes: np.ndarray,
-              hinges: np.ndarray,
-              where: np.ndarray) -> int:
+              new_covariates: float64[:, :],
+              new_nodes: float64[:, :],
+              new_hinges: float64[:, :],
+              new_where: float64[:, :],
+              covariates: float64[:, :],
+              nodes: float64[:, :],
+              hinges: float64[:, :],
+              where: float64[:, :], ) -> int:
     """
     Add a basis to the model.
 
@@ -289,19 +261,26 @@ def update_init(
 
 @njit(cache=True, error_model="numpy", fastmath=True)
 def calculate_fit_matrix(x: np.ndarray,
-                         spec: ModelSpec) -> tuple[np.ndarray, np.ndarray]:
+                         covariates: np.ndarray,
+                         nodes: np.ndarray,
+                         hinges: np.ndarray,
+                         where: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
     Calculate the data matrix for the given data.
 
     Args:
         x: Data points. [n x d]
-        spec: Model specification.
+        covariates: Covariates of the basis. [max_nbases x max_nbases]
+        nodes: Nodes of the basis. [max_nbases x max_nbases]
+        hinges: Hinges of the basis. [max_nbases x max_nbases]
+        where: Signals product length of basis. [max_nbases x max_nbases]
 
     Returns:
         Fit matrix. [n x nbases]
         Mean of the bases. [nbases]
     """
-    fit_matrix, basis_mean = data_matrix(x, active_base_indices(spec.where), spec)
+    fit_matrix, basis_mean = data_matrix(x, active_base_indices(where), covariates,
+                                         nodes, hinges, where)
 
     return fit_matrix, basis_mean
 
@@ -311,7 +290,10 @@ def extend_fit_matrix(x: np.ndarray,
                       nadditions: int,
                       fit_matrix: np.ndarray,
                       basis_mean: np.ndarray,
-                      spec: ModelSpec) -> tuple[np.ndarray, np.ndarray]:
+                      covariates: np.ndarray,
+                      nodes: np.ndarray,
+                      hinges: np.ndarray,
+                      where: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
     Extend the data matrix by evaluating the newly added basis functions for the data points.
 
@@ -320,22 +302,27 @@ def extend_fit_matrix(x: np.ndarray,
         nadditions: Number of newly added basis functions.
         fit_matrix: Evaluation of the bases on the data. [n x nbases-nadditions]
         basis_mean: Mean of the bases. [nbases-nadditions]
-        spec: Model specification.
+        covariates: Covariates of the basis. [max_nbases x max_nbases]
+        nodes: Nodes of the basis. [max_nbases x max_nbases]
+        hinges: Hinges of the basis. [max_nbases x max_nbases]
+        where: Signals product length of basis. [max_nbases x max_nbases]
 
     Returns:
         Extended fit matrix. [n x nbases]
         Extended mean of the bases. [nbases]
     """
-    ext_indices = active_base_indices(spec.where)[-nadditions:]
+    ext_indices = active_base_indices(where)[-nadditions:]
     if fit_matrix.size:
-        fit_matrix_ext, basis_mean_ext = data_matrix(x, ext_indices, spec)
+        fit_matrix_ext, basis_mean_ext = data_matrix(x, ext_indices, covariates, nodes,
+                                                     hinges, where)
         fit_matrix = np.hstack((
             fit_matrix,
             fit_matrix_ext
         ))
         basis_mean = np.append(basis_mean, basis_mean_ext)
     else:
-        fit_matrix, basis_mean = data_matrix(x, ext_indices, spec)
+        fit_matrix, basis_mean = data_matrix(x, ext_indices, covariates, nodes, hinges,
+                                             where)
 
     return fit_matrix, basis_mean
 
@@ -432,37 +419,6 @@ def update_covariance_matrix(covariance_matrix: np.ndarray,
     covariance_matrix[:, -1] += covariance_addition
 
     return covariance_addition
-
-
-@njit(cache=True, error_model="numpy", fastmath=True, parallel=False)  # Detrimental?
-def decompose_addition(covariance_addition: np.ndarray) \
-        -> tuple[list[float], list[np.ndarray]]:
-    """
-    Decompose the addition to the covariance matrix,
-    which was done by adding to the last row and column of the matrix,
-    into eigenvalues and eigenvectors to perform 2 rank-1 updates.
-
-    Args:
-        covariance_addition: Addition to the covariance matrix.
-        (the same vector is applied to the row and column) [nbases]
-
-    Returns:
-        Eigenvalues and eigenvectors of the addition.
-    """
-    eigenvalue_intermediate = np.sqrt(
-        covariance_addition[-1] ** 2 + 4 * np.sum(covariance_addition[:-1] ** 2))
-    eigenvalues = List([
-        (covariance_addition[-1] + eigenvalue_intermediate) / 2,
-        (covariance_addition[-1] - eigenvalue_intermediate) / 2,
-    ])
-    eigenvectors = List([
-        np.array([*(covariance_addition[:-1] / eigenvalues[0]), 1]),
-        np.array([*(covariance_addition[:-1] / eigenvalues[1]), 1]),
-    ])
-    eigenvectors[0] /= np.linalg.norm(eigenvectors[0])
-    eigenvectors[1] /= np.linalg.norm(eigenvectors[1])
-
-    return eigenvalues, eigenvectors
 
 
 @njit(cache=True, error_model="numpy", fastmath=True)
@@ -625,8 +581,8 @@ def fit(x: np.ndarray,
         Mean of the target values.
     """
     if nbases > 1:
-        spec = ModelSpec(covariates, nodes,hinges, where)
-        fit_matrix, basis_mean = calculate_fit_matrix(x, spec)
+        fit_matrix, basis_mean = calculate_fit_matrix(x, covariates, nodes, hinges,
+                                                      where)
         covariance_matrix = calculate_covariance_matrix(fit_matrix)
         right_hand_side, y_mean = calculate_right_hand_side(y, fit_matrix)
 
@@ -710,9 +666,8 @@ def extend_fit(x: np.ndarray,
         Mean of the fixed basis. [nbases-1]
         Mean of the candidate basis.
     """
-    spec = ModelSpec(covariates, nodes, hinges, where)
     fit_matrix, basis_mean = extend_fit_matrix(x, nadditions, fit_matrix, basis_mean,
-                                               spec)
+                                               covariates, nodes, hinges, where)
     covariance_matrix = extend_covariance_matrix(covariance_matrix, nadditions,
                                                  fit_matrix)
     right_hand_side, y_mean = extend_right_hand_side(right_hand_side, y, fit_matrix,
@@ -1283,7 +1238,10 @@ class OMARS:
 
     def __init__(self,
                  nbases: int,
-                 spec: ModelSpec,
+                 covariates: np.ndarray,
+                 nodes: np.ndarray,
+                 hinges: np.ndarray,
+                 where: np.ndarray,
                  coefficients: np.ndarray,
                  y_mean: float) -> None:
         """
@@ -1302,17 +1260,16 @@ class OMARS:
         assert coefficients.ndim == 1
 
         self.nbases = nbases
-        self.max_prod_len = np.max(np.sum(spec.where, axis=0)) + 1
+        self.max_prod_len = np.max(np.sum(where, axis=0)) + 1
 
-        self.spec = ModelSpec(
-            spec.covariates[:self.max_prod_len, :nbases],
-            spec.nodes[:self.max_prod_len, :nbases],
-            spec.hinges[:self.max_prod_len, :nbases],
-            spec.where[:self.max_prod_len, :nbases]
-        )
+        self.covariates = covariates[:self.max_prod_len, :nbases]
+        self.nodes = nodes[:self.max_prod_len, :nbases]
+        self.hinges = hinges[:self.max_prod_len, :nbases]
+        self.where = where[:self.max_prod_len, :nbases]
 
         self.coefficients = coefficients[:nbases - 1]
         self.y_mean = y_mean
+
 
     def __str__(self) -> str:
         """
@@ -1322,12 +1279,12 @@ class OMARS:
             Description of the basis.
         """
         desc = "Basis functions: \n"
-        for basis_idx in active_base_indices(self.spec.where):
+        for basis_idx in active_base_indices(self.where):
             for func_idx in range(self.max_prod_len):
-                if self.spec.where[func_idx, basis_idx]:
-                    cov = self.spec.covariates[func_idx, basis_idx]
-                    node = self.spec.nodes[func_idx, basis_idx]
-                    hinge = self.spec.hinges[func_idx, basis_idx]
+                if self.where[func_idx, basis_idx]:
+                    cov = self.covariates[func_idx, basis_idx]
+                    node = self.nodes[func_idx, basis_idx]
+                    hinge = self.hinges[func_idx, basis_idx]
                     desc += f"(x[{cov}] - {node}){u'\u208A' if hinge else ''}"
             desc += "\n"
         return desc
@@ -1344,7 +1301,8 @@ class OMARS:
         """
         assert x.ndim == 2
 
-        fit_matrix, _ = data_matrix(x, active_base_indices(self.spec.where), self.spec)
+        fit_matrix, _ = data_matrix(x, active_base_indices(self.where), self.covariates,
+                                    self.nodes, self.hinges, self.where)
         centered_y_pred = fit_matrix @ self.coefficients
         return centered_y_pred + self.y_mean
 
@@ -1371,12 +1329,16 @@ class OMARS:
         assert i < self.nbases
 
         nbases = 1
-        spec = self.spec[:, i:i + 1]
+        covariates = self.covariates[:, i:i + 1]
+        nodes = self.nodes[:, i:i + 1]
+        hinges = self.hinges[:, i:i + 1]
+        where = self.where[:, i:i + 1]
         if i != 0:
             coefficients = self.coefficients[i:i + 1]
         else:
             coefficients = [self.y_mean]
-        return OMARS(nbases, spec, coefficients, self.y_mean)
+        return OMARS(nbases, covariates, nodes, hinges, where, coefficients,
+                     self.y_mean)
 
     def __eq__(self, other: Self) -> bool:
         """
@@ -1388,17 +1350,8 @@ class OMARS:
         Returns:
             True if the models are equal, False otherwise.
         """
-        return self.nbases == other.nbases and self.spec == other.spec
-
-
-if __name__ == "__main__":
-    x, y, y_true, nbases, ref_covariates, ref_nodes, ref_hinges, ref_where = utils.data_generation_model_noop(
-        100, 2)
-
-    import os
-
-    os.environ["NUMBA_DEBUG"] = "0"
-    os.environ["NUMBA_DEBUG_FRONTEND"] = "0"
-    os.environ["NUMBA_DUMP_CFG"] = "0"
-
-    expansion_results = expand_bases(x, y, 11, 3, 11, 0.0)
+        return self.nbases == other.nbases and np.array_equal(self.covariates,
+                                                              other.covariates) and np.array_equal(
+            self.nodes, other.nodes) and np.array_equal(self.hinges,
+                                                        other.hinges) and np.array_equal(
+            self.where, other.where)

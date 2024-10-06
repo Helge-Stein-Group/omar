@@ -1,53 +1,9 @@
-from typing import Self, Tuple
+from typing import Self
 
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
-
-def update_cholesky(chol: np.ndarray,
-                    update_vectors: list[np.ndarray],
-                    multipliers: list[float]) -> np.ndarray:
-    """
-    Update the Cholesky decomposition by rank-1 matrices.
-    Args:
-        chol: Cholesky decomposition of the original matrix. [nbases x nbases]
-        update_vectors: List of update vectors. List of [nbases x 1].
-        multipliers: List of multipliers. List of [1]
-
-    Returns:
-        Updated Cholesky decomposition.
-
-    Notes: Algortihm according to [1] Oswin Krause. Christian Igel.
-    A More Efficient Rank-one Covariance Matrix Update for Evolution Strategies.
-    2015 ACM Conference. https://christian-igel.github.io/paper/AMERCMAUfES.pdf.
-    Adapted for computation speed and parallelization.
-    """
-
-    assert chol.shape[0] == chol.shape[1]
-    assert chol.shape[0] == len(update_vectors[0])
-    assert len(update_vectors) == len(multipliers)
-
-    for update_vec, multiplier in zip(update_vectors, multipliers):
-        diag = np.diag(chol).copy()
-        chol = chol / diag
-        diag **= 2
-
-        u = np.zeros((chol.shape[0], update_vec.shape[0]))
-        u[0, :] = update_vec
-        u[0, 1:] -= update_vec[0] * chol[1:, 0]
-        b = np.ones(chol.shape[0])
-        for i in range(1, chol.shape[0]):
-            u[i, :] = u[i - 1, :]
-            u[i, i + 1:] -= u[i - 1, i] * chol[i + 1:, i]
-            b[i] = b[i - 1] + multiplier * u[i - 1, i - 1] ** 2 / diag[i - 1]
-
-        for i in range(chol.shape[0]):
-            chol[i, i] = np.sqrt(diag[i] + multiplier / b[i] * u[i, i] ** 2)
-            chol[i + 1:, i] *= chol[i, i]
-            chol[i + 1:, i] += multiplier / b[i] * u[i, i] * u[i, i + 1:] / chol[i, i]
-
-    return chol
-
+from src.regression_numba import decompose_addition, update_cholesky
 
 class OMARS:
     """
@@ -137,7 +93,7 @@ class OMARS:
         """
         return np.where(np.any(self.where, axis=0))[0]
 
-    def _data_matrix(self, x: np.ndarray, basis_indices: np.ndarray) -> Tuple[
+    def _data_matrix(self, x: np.ndarray, basis_indices: np.ndarray) -> tuple[
         np.ndarray, np.ndarray]:
         """
         Calculate the data matrix for the given data and basis functions, which is the
@@ -228,6 +184,7 @@ class OMARS:
             sub_model.coefficients = self.coefficients[i:i + 1]
         else:
             sub_model.coefficients = [self.y_mean]
+
         return sub_model
 
     def __eq__(self, other: Self) -> bool:
@@ -448,36 +405,7 @@ class OMARS:
 
         return covariance_addition
 
-    def _decompose_addition(self, covariance_addition: np.ndarray) -> tuple[list[float],
-    list[np.ndarray]]:
-        """
-        Decompose the addition to the covariance matrix, which is done by adding
-        to the last row and column of the matrix, into eigenvalues and eigenvectors to
-        perform 2 rank-1 updates.
 
-        Args:
-            covariance_addition: Addition to the covariance matrix. [nbases]
-                                 (the same vector is applied to the row and column)
-
-        Returns:
-            Eigenvalues and eigenvectors of the addition.
-        """
-        assert covariance_addition.shape == self.covariance_matrix[-1, :].shape
-
-        eigenvalue_intermediate = np.sqrt(
-            covariance_addition[-1] ** 2 + 4 * np.sum(covariance_addition[:-1] ** 2))
-        eigenvalues = [
-            (covariance_addition[-1] + eigenvalue_intermediate) / 2,
-            (covariance_addition[-1] - eigenvalue_intermediate) / 2,
-        ]
-        eigenvectors = [
-            np.array([*(covariance_addition[:-1] / eigenvalues[0]), 1]),
-            np.array([*(covariance_addition[:-1] / eigenvalues[1]), 1]),
-        ]
-        eigenvectors[0] /= np.linalg.norm(eigenvectors[0])
-        eigenvectors[1] /= np.linalg.norm(eigenvectors[1])
-
-        return eigenvalues, eigenvectors
 
     def _calculate_right_hand_side(self, y: np.ndarray) -> None:
         """
@@ -626,7 +554,7 @@ class OMARS:
         covariance_addition = self._update_covariance_matrix()
 
         if covariance_addition.any():
-            eigenvalues, eigenvectors = self._decompose_addition(covariance_addition)
+            eigenvalues, eigenvectors = decompose_addition(covariance_addition)
             chol = update_cholesky(chol, eigenvectors, eigenvalues)
 
         self._update_right_hand_side(y)
