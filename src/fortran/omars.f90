@@ -9,7 +9,7 @@ contains
         real(8), intent(inout) :: chol(:, :)
 
         real(8) :: diag(size(chol, 1))
-        real(8) :: u(size(chol, 1), size(update_vectors, 1))
+        real(8) :: u(size(chol, 1), size(update_vectors, 2))
         real(8) :: b(size(chol, 1))
         integer :: i, update_idx
 
@@ -20,25 +20,25 @@ contains
             end do
             ! Divide chol by its diagonal elements (broadcast manually)
             do i = 1, size(chol, 1)
-                chol(i, :) = chol(i, :) / diag(i)
+                chol(:, i) = chol(:, i) / diag(i)
             end do
             diag = diag**2
 
             u = 0.0
-            u(:, 1) = update_vectors(:, update_idx)
-            u(2:, 1) = u(2:, 1) - update_vectors(1, update_idx) * chol(1, 2:)
+            u(1, :) = update_vectors(update_idx, :)
+            u(1, 2:) = u(1, 2:) - update_vectors(update_idx, 1) * chol(2:, 1)
             b = 1.0
 
             do i = 2, size(chol, 1)
-                u(:, i) = u(:, i - 1)
-                u(i + 1:, i) = u(i + 1:, i) - u(i, i - 1) * chol(i, i + 1:)
+                u(i, :) = u(i - 1, :)
+                u(i, i + 1:) = u(i, i + 1:) - u(i - 1, i) * chol(i + 1:, i)
                 b(i) = b(i - 1) + multipliers(update_idx) * u(i - 1, i - 1)**2 / diag(i - 1)
             end do
 
             do i = 1, size(chol, 1)
                 chol(i, i) = sqrt(diag(i) + multipliers(update_idx) / b(i) * u(i, i)**2)
-                chol(i, i + 1:) = chol(i, i + 1:) * chol(i, i)
-                chol(i, i + 1:) = chol(i, i + 1:) + multipliers(update_idx) / b(i) * u(i, i) * u(i + 1:, i) / chol(i, i)
+                chol(i + 1:, i) = chol(i + 1:, i) * chol(i, i)
+                chol(i + 1:, i) = chol(i + 1:, i) + multipliers(update_idx) / b(i) * u(i, i) * u(i, i + 1:) / chol(i, i)
             end do
         end do
     end subroutine update_cholesky
@@ -47,7 +47,7 @@ contains
         real(8), intent(in) :: covariance_addition(:)
 
         real(8), intent(out) :: eigenvalues(2)
-        real(8), intent(out) :: eigenvectors(size(covariance_addition), 2)
+        real(8), intent(out) :: eigenvectors(2, size(covariance_addition))
 
         real(8) :: eigenvalue_intermediate
         integer :: n, i
@@ -60,9 +60,9 @@ contains
         eigenvalues(2) = (covariance_addition(n) - eigenvalue_intermediate) / 2
 
         do i = 1, 2
-            eigenvectors(1:n - 1, i) = covariance_addition(1:n - 1) / eigenvalues(i)
-            eigenvectors(n, i) = 1.0d0
-            eigenvectors(:, i) = eigenvectors(:, i) / sqrt(sum(eigenvectors(:, i)**2))
+            eigenvectors(i, 1:n - 1) = covariance_addition(1:n - 1) / eigenvalues(i)
+            eigenvectors(i, n) = 1.0d0
+            eigenvectors(i, :) = eigenvectors(i,:) / sqrt(sum(eigenvectors(i, :)**2))
         end do
 
     end subroutine decompose_addition
@@ -139,9 +139,9 @@ contains
         real(8) :: new_node
 
         n_samples = size(x, 1)
-        prod_idx = count(where(:, nbases))
+        prod_idx = count(where(:, nbases)) + 1
         new_node = nodes(prod_idx, nbases)
-        covariate = covariates(prod_idx, nbases)
+        covariate = covariates(prod_idx, nbases) + 1
 
         update = x(:, covariate) - new_node
         where (x(:, covariate) >= old_node)
@@ -199,11 +199,11 @@ contains
 
         call active_base_indices(where, size(basis_mean), indices)
         if (size(basis_mean) > 0) then
-            call data_matrix(x, indices(size(indices) - nadditions:size(indices)), covariates, nodes, hinges, where, &
+            call data_matrix(x, indices(size(indices) - nadditions + 1:size(indices)), covariates, nodes, hinges, where, &
                     fit_matrix_ext, basis_mean_ext)
 
             fit_matrix_extended(:, 1:size(fit_matrix, 2)) = fit_matrix
-            fit_matrix_extended(:, size(fit_matrix, 2) + 1:size(indices)) = fit_matrix_ext
+            fit_matrix_extended(:, size(fit_matrix, 2) + 1:size(fit_matrix_extended, 2)) = fit_matrix_ext
 
             basis_mean_extended(1:size(basis_mean)) = basis_mean
             basis_mean_extended(size(basis_mean) + 1:size(indices)) = basis_mean_ext
@@ -246,23 +246,20 @@ contains
         real(8), intent(out) :: covariance_matrix_extended(size(covariance_matrix, 1) + nadditions, &
                 size(covariance_matrix, 1) + nadditions)
 
-        real(8) :: covariance_extension(size(covariance_matrix, 1), nadditions)
-        integer :: i, last
+        real(8) :: covariance_extension(size(covariance_matrix, 1) +nadditions, nadditions)
+        integer :: i, n_cov, n_ext
 
-        last = size(fit_matrix, 2)
-        covariance_extension = matmul(transpose(fit_matrix), fit_matrix(:, last - nadditions:last))
+        n_cov = size(covariance_matrix, 1)
+        n_ext = size(fit_matrix, 2)
+        covariance_extension = matmul(transpose(fit_matrix), fit_matrix(:, n_cov + 1:n_ext))
 
-        if (size(covariance_matrix, 1) > 0) then
-            covariance_matrix_extended(1:last - nadditions, 1:last - nadditions) = covariance_matrix
-
-            covariance_matrix_extended(1:last - nadditions, last - nadditions:last) = covariance_extension
-            covariance_matrix_extended(last - nadditions:last, :) = transpose(covariance_extension)
-        else
-            covariance_matrix_extended = covariance_extension
-        end if
+        covariance_matrix_extended = 0.0d0
+        covariance_matrix_extended(1:n_cov, 1:n_cov) = covariance_matrix
+        covariance_matrix_extended(1:n_cov, n_cov + 1:n_ext) = covariance_extension(1:n_cov, :)
+        covariance_matrix_extended(n_cov + 1:n_ext, :) = transpose(covariance_extension)
 
         do i = 0, nadditions - 1
-            covariance_matrix_extended(last - i, last - i) = covariance_matrix_extended(last - i, last - i) + 1.0d-8
+            covariance_matrix_extended(n_ext - i, n_ext - i) = covariance_matrix_extended(n_ext - i, n_ext - i) + 1.0d-8
         end do
 
     end subroutine extend_covariance_matrix
@@ -309,19 +306,13 @@ contains
         integer, intent(in) :: nadditions
         real(8), intent(out) :: extended_right_hand_side(size(right_hand_side) + nadditions)
 
-        integer :: last
         real(8) :: y_centred(size(y))
 
-        last = size(right_hand_side)
-
-        if (last == 0) then
-            y_mean = sum(y) / real(size(y, 1))
-        end if
-
+        y_mean = sum(y) / real(size(y, 1))
         y_centred = y - y_mean
-        extended_right_hand_side(1:last) = right_hand_side
-        extended_right_hand_side(last + 1:last + nadditions) = matmul(transpose(&
-                fit_matrix(:, last - nadditions:last)), y_centred)
+        extended_right_hand_side(1:size(right_hand_side)) = right_hand_side
+        extended_right_hand_side(size(right_hand_side) + 1:size(extended_right_hand_side)) = matmul(transpose(&
+                fit_matrix(:, size(extended_right_hand_side) - nadditions+1:size(extended_right_hand_side))), y_centred)
 
     end subroutine extend_right_hand_side
     subroutine update_right_hand_side(right_hand_side, y, y_mean, update)
@@ -382,7 +373,6 @@ contains
     end subroutine solve_triangular
     subroutine fit(x, y, nbases, covariates, nodes, hinges, where, smoothness, &
             lof, coefficients, fit_matrix, basis_mean, covariance_matrix, chol, right_hand_side, y_mean)
-        implicit none
         real(8), intent(in) :: x(:, :)               ! Data points
         real(8), intent(in) :: y(:)                  ! Target values
         integer, intent(in) :: nbases                ! Number of basis functions
@@ -508,7 +498,7 @@ contains
         real(8), intent(inout) :: chol(:, :)
 
         real(8), intent(out) :: lof
-        real(8), intent(out) :: coefficients(nbases-1)
+        real(8), intent(out) :: coefficients(nbases - 1)
 
         real(8) :: update(size(x, 1))
         real(8) :: update_mean
@@ -532,5 +522,79 @@ contains
 
         call generalised_cross_validation(y, y_mean, fit_matrix, coefficients, nbases, smoothness, lof)
     end subroutine update_fit
+    subroutine shrink_fit(y, y_mean, nbases, smoothness, removal_idx, &
+            fit_matrix, basis_mean, covariance_matrix, right_hand_side, &
+            lof, coefficients, fit_matrix_out, basis_mean_out, &
+            covariance_matrix_out, chol_out, right_hand_side_out)
 
+        real(8), intent(in) :: y(:)
+        real(8), intent(in) :: y_mean
+        integer, intent(in) :: nbases
+        integer, intent(in) :: smoothness
+        integer, intent(in) :: removal_idx
+        real(8), intent(inout) :: fit_matrix(:, :)
+        real(8), intent(inout) :: basis_mean(:)
+        real(8), intent(inout) :: covariance_matrix(:, :)
+        real(8), intent(inout) :: right_hand_side(:)
+
+        real(8), intent(out) :: lof
+        real(8), intent(out) :: coefficients(nbases)
+        real(8), intent(out) :: fit_matrix_out(size(fit_matrix, 1), nbases)
+        real(8), intent(out) :: basis_mean_out(nbases)
+        real(8), intent(out) :: covariance_matrix_out(nbases, nbases)
+        real(8), intent(out) :: chol_out(nbases, nbases)
+        real(8), intent(out) :: right_hand_side_out(nbases)
+
+        integer :: info
+
+        fit_matrix_out(:, 1:removal_idx - 1) = fit_matrix(:, 1:removal_idx - 1)
+        fit_matrix_out(:, removal_idx:nbases - 1) = fit_matrix(:, removal_idx + 1:nbases)
+
+        basis_mean_out(1:removal_idx - 1) = basis_mean(1:removal_idx - 1)
+        basis_mean_out(removal_idx:nbases - 1) = basis_mean(removal_idx + 1:nbases)
+
+        covariance_matrix_out(1:removal_idx - 1, 1:removal_idx - 1) = &
+                covariance_matrix(1:removal_idx - 1, 1:removal_idx - 1)
+        covariance_matrix_out(1:removal_idx - 1, removal_idx:nbases - 1) = &
+                covariance_matrix(1:removal_idx - 1, removal_idx + 1:nbases)
+
+        right_hand_side_out(1:removal_idx - 1) = right_hand_side(1:removal_idx - 1)
+        right_hand_side_out(removal_idx:nbases - 1) = right_hand_side(removal_idx + 1:nbases)
+
+        call dpotrf('L', nbases, chol_out, nbases, info)
+        if (info /= 0) then
+            print *, "Cholesky decomposition failed, info: ", info
+            stop
+        end if
+
+        call solve_triangular(chol_out, right_hand_side_out, coefficients)
+
+        ! Calculate the generalised cross-validation criterion
+        call generalised_cross_validation(y, y_mean, fit_matrix_out, coefficients, nbases, smoothness, lof)
+    end subroutine shrink_fit
+    subroutine setdiff1d(a, b, result, nresult)
+        integer, intent(in) :: a(:), b(:)
+        integer, intent(out) :: result(size(a))
+        integer, intent(out) :: nresult
+
+        integer :: i, j
+        logical :: found
+
+        nresult = 0
+
+        do i = 1, size(a)
+            found = .false.
+            do j = 1, size(b)
+                if (a(i) == b(j)) then
+                    found = .true.
+                    exit
+                end if
+            end do
+
+            if (.not. found) then
+                nresult = nresult + 1
+                result(nresult) = a(i)
+            end if
+        end do
+    end subroutine setdiff1d
 end module omars

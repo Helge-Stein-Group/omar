@@ -8,7 +8,7 @@ def test_data_matrix() -> None:
 
     basis_indices = regression_numba.active_base_indices(where)
     fit_matrix, basis_mean = regression_numba.data_matrix(x, basis_indices, covariates,
-                                                         nodes, hinges, where)
+                                                          nodes, hinges, where)
 
     suite_data_matrix(x, basis_mean, fit_matrix)
 
@@ -20,6 +20,7 @@ def test_fit() -> None:
     results = regression_numba.fit(x, y, nbases, covariates, nodes, hinges, where, 3)
 
     suite_fit(results[1], results[2], y, y_true, results[-1])
+
 
 def update_case(nbases: int,
                 covariates: np.ndarray,
@@ -65,9 +66,9 @@ def extend_case(nbases: int,
         additional_where[parent_depth, 1] = True
 
         nbases = regression_numba.add_bases(nbases, additional_covariates,
-                                           additional_nodes, additional_hinges,
-                                           additional_where, covariates, nodes, hinges,
-                                           where)
+                                            additional_nodes, additional_hinges,
+                                            additional_where, covariates, nodes, hinges,
+                                            where)
         fit_results = func(x, y, nbases, covariates, nodes, hinges, where, fit_results,
                            2)
 
@@ -94,8 +95,8 @@ def test_update_fit_matrix() -> None:
     def update_func(x, y, nbases, covariates, nodes, hinges, where, fit_results,
                     old_node, parent_idx):
         init_results = regression_numba.update_init(x, old_node, parent_idx, nbases,
-                                                   covariates, nodes, where,
-                                                   *fit_results[2:4])
+                                                    covariates, nodes, where,
+                                                    *fit_results[2:4])
         regression_numba.update_fit_matrix(*fit_results[2:4], *init_results)
         return fit_results
 
@@ -103,15 +104,15 @@ def test_update_fit_matrix() -> None:
                                                                         covariates,
                                                                         nodes, hinges,
                                                                         where, x, y,
-                                                                 update_func)
+                                                                        update_func)
     updated_basis_mean = fit_results[3]
     updated_fit_matrix = fit_results[2]
 
     full_fit_matrix, full_basis_mean = regression_numba.calculate_fit_matrix(x,
-                                                                            covariates,
-                                                                            nodes,
-                                                                            hinges,
-                                                                            where)
+                                                                             covariates,
+                                                                             nodes,
+                                                                             hinges,
+                                                                             where)
 
     assert np.allclose(updated_basis_mean, full_basis_mean)
     assert np.allclose(updated_fit_matrix, full_fit_matrix)
@@ -125,28 +126,28 @@ def test_extend_fit_matrix() -> None:
                     nadditions):
         fit_results = list(fit_results)
         fit_results[2], fit_results[3] = regression_numba.extend_fit_matrix(x,
-            nadditions,
-                                                                           *fit_results[
-                                                                            2:4],
-                                                                           covariates,
-                                                                           nodes,
-                                                                           hinges,
-                                                                           where)
+                                                                            nadditions,
+                                                                            *fit_results[
+                                                                             2:4],
+                                                                            covariates,
+                                                                            nodes,
+                                                                            hinges,
+                                                                            where)
         return fit_results
 
     nbases, covariates, nodes, hinges, where, fit_results = extend_case(nbases,
                                                                         covariates,
                                                                         nodes, hinges,
                                                                         where, x, y,
-                                                                 extend_func)
+                                                                        extend_func)
     extended_basis_mean = fit_results[3]
     extended_fit_matrix = fit_results[2]
 
     full_fit_matrix, full_basis_mean = regression_numba.calculate_fit_matrix(x,
-                                                                            covariates,
-                                                                            nodes,
-                                                                            hinges,
-                                                                            where)
+                                                                             covariates,
+                                                                             nodes,
+                                                                             hinges,
+                                                                             where)
 
     assert np.allclose(extended_basis_mean, full_basis_mean)
     assert np.allclose(extended_fit_matrix, full_fit_matrix)
@@ -159,27 +160,27 @@ def test_update_covariance_matrix() -> None:
     def update_func(x, y, nbases, covariates, nodes, hinges, where, fit_results,
                     old_node, parent_idx):
         init_results = regression_numba.update_init(x, old_node, parent_idx, nbases,
-                                                   covariates, nodes, where,
-                                                   fit_results[2], fit_results[3])
+                                                    covariates, nodes, where,
+                                                    fit_results[2], fit_results[3])
         fit_results = list(fit_results)
         regression_numba.update_fit_matrix(*fit_results[2:4], *init_results)
         covariance_addition = regression_numba.update_covariance_matrix(fit_results[4],
-                                                                       init_results[0],
-                                                                       fit_results[2])
+                                                                        init_results[0],
+                                                                        fit_results[2])
         return fit_results
 
     nbases, covariates, nodes, hinges, where, fit_results = update_case(nbases,
                                                                         covariates,
                                                                         nodes, hinges,
                                                                         where, x, y,
-                                                                 update_func)
+                                                                        update_func)
     updated_covariance = fit_results[4]
 
     full_fit_matrix, full_basis_mean = regression_numba.calculate_fit_matrix(x,
-                                                                            covariates,
-                                                                            nodes,
-                                                                            hinges,
-                                                                            where)
+                                                                             covariates,
+                                                                             nodes,
+                                                                             hinges,
+                                                                             where)
     full_covariance = regression_numba.calculate_covariance_matrix(full_fit_matrix)
 
     assert np.allclose(updated_covariance[:-1, :-1], full_covariance[:-1, :-1])
@@ -195,16 +196,16 @@ def test_extend_covariance_matrix() -> None:
                     nadditions):
         fit_results = list(fit_results)
         fit_results[2], fit_results[3] = regression_numba.extend_fit_matrix(x,
-            nadditions,
-                                                                           *fit_results[
-                                                                            2:4],
-                                                                           covariates,
-                                                                           nodes,
-                                                                           hinges,
-                                                                           where)
+                                                                            nadditions,
+                                                                            *fit_results[
+                                                                             2:4],
+                                                                            covariates,
+                                                                            nodes,
+                                                                            hinges,
+                                                                            where)
         fit_results[4] = regression_numba.extend_covariance_matrix(fit_results[4],
-            nadditions,
-                                                                  fit_results[2])
+                                                                   nadditions,
+                                                                   fit_results[2])
 
         return fit_results
 
@@ -212,14 +213,14 @@ def test_extend_covariance_matrix() -> None:
                                                                         covariates,
                                                                         nodes, hinges,
                                                                         where, x, y,
-                                                                 extend_func)
+                                                                        extend_func)
     extended_covariance = fit_results[4]
 
     full_fit_matrix, full_basis_mean = regression_numba.calculate_fit_matrix(x,
-                                                                            covariates,
-                                                                            nodes,
-                                                                            hinges,
-                                                                            where)
+                                                                             covariates,
+                                                                             nodes,
+                                                                             hinges,
+                                                                             where)
     full_covariance = regression_numba.calculate_covariance_matrix(full_fit_matrix)
 
     assert np.allclose(extended_covariance, full_covariance)
@@ -232,24 +233,24 @@ def test_update_right_hand_side() -> None:
     def update_func(x, y, nbases, covariates, nodes, hinges, where, fit_results,
                     old_node, parent_idx):
         init_results = regression_numba.update_init(x, old_node, parent_idx, nbases,
-                                                   covariates, nodes, where,
-                                                   fit_results[2], fit_results[3])
+                                                    covariates, nodes, where,
+                                                    fit_results[2], fit_results[3])
         regression_numba.update_right_hand_side(fit_results[6], y, y.mean(),
-                                               init_results[0])
+                                                init_results[0])
         return fit_results
 
     nbases, covariates, nodes, hinges, where, fit_results = update_case(nbases,
                                                                         covariates,
                                                                         nodes, hinges,
                                                                         where, x, y,
-                                                                 update_func)
+                                                                        update_func)
     updated_right_hand_side = fit_results[6]
 
     full_fit_matrix, full_basis_mean = regression_numba.calculate_fit_matrix(x,
-                                                                            covariates,
-                                                                            nodes,
-                                                                            hinges,
-                                                                            where)
+                                                                             covariates,
+                                                                             nodes,
+                                                                             hinges,
+                                                                             where)
     full_right_hand_side, _ = regression_numba.calculate_right_hand_side(y,
                                                                          full_fit_matrix)
 
@@ -264,31 +265,31 @@ def test_extend_right_hand_side() -> None:
                     nadditions):
         fit_results = list(fit_results)
         fit_results[2], fit_results[3] = regression_numba.extend_fit_matrix(x,
-            nadditions,
-                                                                           *fit_results[
-                                                                            2:4],
-                                                                           covariates,
-                                                                           nodes,
-                                                                           hinges,
-                                                                           where)
+                                                                            nadditions,
+                                                                            *fit_results[
+                                                                             2:4],
+                                                                            covariates,
+                                                                            nodes,
+                                                                            hinges,
+                                                                            where)
         fit_results[6], _ = regression_numba.extend_right_hand_side(fit_results[6], y,
-                                                                   fit_results[2],
-                                                                   y.mean(),
-            nadditions)
+                                                                    fit_results[2],
+                                                                    y.mean(),
+                                                                    nadditions)
         return fit_results
 
     nbases, covariates, nodes, hinges, where, fit_results = extend_case(nbases,
                                                                         covariates,
                                                                         nodes, hinges,
                                                                         where, x, y,
-                                                                 extend_func)
+                                                                        extend_func)
     extended_right_hand_side = fit_results[6]
 
     full_fit_matrix, full_basis_mean = regression_numba.calculate_fit_matrix(x,
-                                                                            covariates,
-                                                                            nodes,
-                                                                            hinges,
-                                                                            where)
+                                                                             covariates,
+                                                                             nodes,
+                                                                             hinges,
+                                                                             where)
     full_right_hand_side, _ = regression_numba.calculate_right_hand_side(y,
                                                                          full_fit_matrix)
 
@@ -307,13 +308,13 @@ def test_decompose() -> None:
     new_node = x[np.argmin(np.abs(x[:, 1] - 0.5)), 1]
     nodes[2, 2] = new_node
     init_results = regression_numba.update_init(x, old_node, 1, nbases, covariates,
-                                               nodes, where, *fit_results[2:4])
+                                                nodes, where, *fit_results[2:4])
 
     regression_numba.update_fit_matrix(*fit_results[2:4], *init_results)
 
     covariance_addition = regression_numba.update_covariance_matrix(fit_results[4],
-                                                                   init_results[0],
-                                                                   fit_results[2])
+                                                                    init_results[0],
+                                                                    fit_results[2])
 
     updated_covariance = fit_results[4]
 
@@ -333,29 +334,29 @@ def test_update_cholesky() -> None:
     def update_func(x, y, nbases, covariates, nodes, hinges, where, fit_results,
                     old_node, parent_idx):
         init_results = regression_numba.update_init(x, old_node, parent_idx, nbases,
-                                                   covariates, nodes, where,
-                                                   *fit_results[2:4])
+                                                    covariates, nodes, where,
+                                                    *fit_results[2:4])
         fit_results = list(fit_results)
         regression_numba.update_fit_matrix(*fit_results[2:4], *init_results)
         covariance_addition = regression_numba.update_covariance_matrix(fit_results[4],
-                                                                       init_results[0],
-                                                                       fit_results[2])
+                                                                        init_results[0],
+                                                                        fit_results[2])
         if covariance_addition.any():
             eigenvalues, eigenvectors = regression_numba.decompose_addition(
                 covariance_addition)
             fit_results[5] = regression_numba.update_cholesky(fit_results[5],
-                eigenvectors, eigenvalues)
+                                                              eigenvectors, eigenvalues)
         return fit_results
 
     nbases, covariates, nodes, hinges, where, fit_results = update_case(nbases,
                                                                         covariates,
                                                                         nodes, hinges,
                                                                         where, x, y,
-                                                                 update_func)
+                                                                        update_func)
     updated_cholesky = fit_results[5]
 
     full_fit_results = regression_numba.fit(x, y, nbases, covariates, nodes, hinges,
-                                           where, 3)
+                                            where, 3)
     full_cholesky = full_fit_results[5]
     assert np.allclose(np.tril(updated_cholesky), np.tril(full_cholesky))
 
@@ -368,24 +369,24 @@ def test_update_fit() -> None:
                     old_node, parent_idx):
         fit_results = list(fit_results)
         fit_results[:-1] = regression_numba.update_fit(x, y, nbases, covariates, nodes,
-                                                      where, 3, *fit_results[2:5],
-                                                      fit_results[6],
-                                                      fit_results[-1], old_node,
-                                                      parent_idx, fit_results[5])
+                                                       where, 3, *fit_results[2:5],
+                                                       fit_results[6],
+                                                       fit_results[-1], old_node,
+                                                       parent_idx, fit_results[5])
         return fit_results
 
     nbases, covariates, nodes, hinges, where, fit_results = update_case(nbases,
                                                                         covariates,
                                                                         nodes, hinges,
                                                                         where, x, y,
-                                                                 update_func)
+                                                                        update_func)
     updated_chol = fit_results[5]
     updated_rhs = fit_results[6]
     updated_coefficients = fit_results[1]
     updated_lof = fit_results[0]
 
     full_fit_results = regression_numba.fit(x, y, nbases, covariates, nodes, hinges,
-                                           where, 3)
+                                            where, 3)
     full_chol = full_fit_results[5]
     full_rhs = full_fit_results[6]
     full_coefficients = full_fit_results[1]
@@ -406,23 +407,23 @@ def test_extend_fit() -> None:
                     nadditions):
         fit_results = list(fit_results)
         fit_results[:-1] = regression_numba.extend_fit(x, y, nbases, covariates, nodes,
-                                                      hinges, where, 3, nadditions,
-                                                      *fit_results[2:5],
-                                                      fit_results[6], fit_results[-1])
+                                                       hinges, where, 3, nadditions,
+                                                       *fit_results[2:5],
+                                                       fit_results[6], fit_results[-1])
         return fit_results
 
     nbases, covariates, nodes, hinges, where, fit_results = extend_case(nbases,
                                                                         covariates,
                                                                         nodes, hinges,
                                                                         where, x, y,
-                                                                 extend_func)
+                                                                        extend_func)
     chol = fit_results[5]
     extended_rhs = fit_results[6]
     extended_coefficients = fit_results[1]
     extended_lof = fit_results[0]
 
     full_fit_results = regression_numba.fit(x, y, nbases, covariates, nodes, hinges,
-                                           where, 3)
+                                            where, 3)
     full_chol = full_fit_results[5]
     full_rhs = full_fit_results[6]
     full_coefficients = full_fit_results[1]
@@ -447,32 +448,32 @@ def test_shrink_fit() -> None:
     additional_nodes[2, :] = np.random.choice(x[:, 0], 7)
 
     nbases = regression_numba.add_bases(nbases,
-                                       additional_covariates,
-                                       additional_nodes,
-                                       additional_hinges,
-                                       additional_where, covariates, nodes, hinges,
-                                       where)
+                                        additional_covariates,
+                                        additional_nodes,
+                                        additional_hinges,
+                                        additional_where, covariates, nodes, hinges,
+                                        where)
 
     def shrink_func(x, y, nbases, covariates, nodes, hinges, where, fit_results,
                     removal_idx):
         fit_results = list(fit_results)
         fit_results[:-1] = regression_numba.shrink_fit(y, fit_results[-1], nbases, 3,
-                                                      removal_idx, *fit_results[2:5],
-                                                      fit_results[6])
+                                                       removal_idx, *fit_results[2:5],
+                                                       fit_results[6])
         return fit_results
 
     nbases, covariates, nodes, hinges, where, fit_results = shrink_case(nbases,
                                                                         covariates,
                                                                         nodes, hinges,
                                                                         where, x, y,
-                                                                 shrink_func)
+                                                                        shrink_func)
     chol = fit_results[5]
     shrunk_rhs = fit_results[6]
     shrunk_coefficients = fit_results[1]
     shrunk_lof = fit_results[0]
 
     full_fit_results = regression_numba.fit(x, y, nbases, covariates, nodes, hinges,
-                                           where, 3)
+                                            where, 3)
     full_chol = full_fit_results[5]
     full_rhs = full_fit_results[6]
     full_coefficients = full_fit_results[1]
@@ -483,6 +484,7 @@ def test_shrink_fit() -> None:
     assert np.allclose(shrunk_coefficients[0], full_coefficients[0], 0.05, 0.1)
     assert np.allclose(shrunk_coefficients[1], full_coefficients[1], 0.05, 0.05)
     assert np.allclose(shrunk_lof, full_lof, 0.01)
+
 
 # May fail but should be somewhat close
 def test_expand_bases() -> None:
