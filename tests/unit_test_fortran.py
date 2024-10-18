@@ -81,7 +81,7 @@ def shrink_case(nbases: int,
         where[:, nbases - 1] = False
         nbases -= 1
         fit_results = func(x, y, nbases, covariates, nodes, hinges, where, fit_results,
-                           nbases)
+                           nbases-1)
     return nbases, covariates, nodes, hinges, where, fit_results
 
 def test_update_fit_matrix() -> None:
@@ -347,3 +347,130 @@ def test_update_cholesky() -> None:
                                             where, 3)
     full_cholesky = full_fit_results[5]
     assert np.allclose(np.tril(updated_cholesky), np.tril(full_cholesky))
+
+def test_update_fit() -> None:
+    x, y, y_true, nbases, covariates, nodes, hinges, where = utils.generate_data_and_splines(
+        100, 2)
+
+    def update_func(x, y, nbases, covariates, nodes, hinges, where, fit_results,
+                    old_node, parent_idx):
+        fit_results = list(fit_results)
+        fit_results[:2] = fortran.omars.update_fit(x, y, nbases, covariates, nodes,
+                                                       where, 3, *fit_results[2:5],
+                                                       fit_results[6],
+                                                       fit_results[-1], old_node,
+                                                       parent_idx, fit_results[5])
+        return fit_results
+
+    nbases, covariates, nodes, hinges, where, fit_results = update_case(nbases,
+                                                                        covariates,
+                                                                        nodes, hinges,
+                                                                        where, x, y,
+                                                                        update_func)
+    updated_chol = fit_results[5]
+    updated_rhs = fit_results[6]
+    updated_coefficients = fit_results[1]
+    updated_lof = fit_results[0]
+
+    full_fit_results = fortran.omars.fit(x, y, nbases, covariates, nodes, hinges,
+                                            where, 3)
+    full_chol = full_fit_results[5]
+    full_rhs = full_fit_results[6]
+    full_coefficients = full_fit_results[1]
+    full_lof = full_fit_results[0]
+
+    assert np.allclose(np.tril(updated_chol), np.tril(full_chol))
+    assert np.allclose(updated_rhs, full_rhs)
+    assert np.allclose(updated_coefficients[0], full_coefficients[0], 0.05, 0.1)
+    assert np.allclose(updated_coefficients[1], full_coefficients[1], 0.05, 0.05)
+    assert np.allclose(updated_lof, full_lof, 0.01)
+
+def test_extend_fit() -> None:
+    x, y, y_true, nbases, covariates, nodes, hinges, where = utils.generate_data_and_splines(
+        100, 2)
+
+    def extend_func(x, y, nbases, covariates, nodes, hinges, where, fit_results,
+                    nadditions):
+        fit_results = list(fit_results)
+
+        temp_fit, temp_mean = fortran.omars.extend_fit_matrix(x, nadditions, *fit_results[2:4],
+                                                    covariates, nodes, hinges, where)
+        temp_cov = fortran.omars.extend_covariance_matrix(fit_results[4], nadditions,
+                                                            temp_fit)
+        temp_rhs = fortran.omars.extend_right_hand_side(fit_results[6], y, temp_fit,
+                                                            y.mean(), nadditions)
+        fit_results[:-1] = fortran.omars.extend_fit(x, y, nbases, covariates, nodes,
+                                                       hinges, where, 3, nadditions,
+                                                       *fit_results[2:5],
+                                                       fit_results[6], fit_results[-1])
+        return fit_results
+
+    nbases, covariates, nodes, hinges, where, fit_results = extend_case(nbases,
+                                                                        covariates,
+                                                                        nodes, hinges,
+                                                                        where, x, y,
+                                                                        extend_func)
+    chol = fit_results[5]
+    extended_rhs = fit_results[6]
+    extended_coefficients = fit_results[1]
+    extended_lof = fit_results[0]
+
+    full_fit_results = fortran.omars.fit(x, y, nbases, covariates, nodes, hinges,
+                                            where, 3)
+    full_chol = full_fit_results[5]
+    full_rhs = full_fit_results[6]
+    full_coefficients = full_fit_results[1]
+    full_lof = full_fit_results[0]
+    assert np.allclose(np.tril(chol), np.tril(full_chol))
+    assert np.allclose(extended_rhs, full_rhs)
+    assert np.allclose(extended_coefficients[0], full_coefficients[0], 0.05, 0.1)
+    assert np.allclose(extended_coefficients[1], full_coefficients[1], 0.05, 0.05)
+    assert np.allclose(extended_lof, full_lof, 0.01)
+
+def test_shrink_fit() -> None:
+    x, y, y_true, nbases, covariates, nodes, hinges, where = utils.generate_data_and_splines(
+        100, 2)
+
+    additional_covariates = np.tile(covariates[:, 1], (7, 1)).T
+    additional_nodes = np.tile(nodes[:, 1], (7, 1)).T
+    additional_hinges = np.tile(hinges[:, 1], (7, 1)).T
+    additional_where = np.tile(where[:, 1], (7, 1)).T
+
+    additional_nodes[2, :] = np.random.choice(x[:, 0], 7)
+
+    nbases += 7
+    covariates[:, nbases - 7:nbases] = additional_covariates
+    nodes[:, nbases - 7:nbases] = additional_nodes
+    hinges[:, nbases - 7:nbases] = additional_hinges
+    where[:, nbases - 7:nbases] = additional_where
+
+    def shrink_func(x, y, nbases, covariates, nodes, hinges, where, fit_results,
+                    removal_idx):
+        fit_results = list(fit_results)
+        fit_results[:-1] = fortran.omars.shrink_fit(y, fit_results[-1], nbases, 3,
+                                                       removal_idx, *fit_results[2:5],
+                                                       fit_results[6])
+        return fit_results
+
+    nbases, covariates, nodes, hinges, where, fit_results = shrink_case(nbases,
+                                                                        covariates,
+                                                                        nodes, hinges,
+                                                                        where, x, y,
+                                                                        shrink_func)
+    chol = fit_results[5]
+    shrunk_rhs = fit_results[6]
+    shrunk_coefficients = fit_results[1]
+    shrunk_lof = fit_results[0]
+
+    full_fit_results = fortran.omars.fit(x, y, nbases, covariates, nodes, hinges,
+                                            where, 3)
+    full_chol = full_fit_results[5]
+    full_rhs = full_fit_results[6]
+    full_coefficients = full_fit_results[1]
+    full_lof = full_fit_results[0]
+
+    assert np.allclose(np.tril(chol), np.tril(full_chol))
+    assert np.allclose(shrunk_rhs, full_rhs)
+    assert np.allclose(shrunk_coefficients[0], full_coefficients[0], 0.05, 0.1)
+    assert np.allclose(shrunk_coefficients[1], full_coefficients[1], 0.05, 0.05)
+    assert np.allclose(shrunk_lof, full_lof, 0.01)
