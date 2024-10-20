@@ -419,7 +419,6 @@ contains
         real(8), intent(in) :: right_hand_side(:)
         real(8), intent(in) :: y_mean
 
-
         real(8), intent(out) :: lof
         real(8), intent(out) :: coefficients(size(basis_mean) + nadditions)
         real(8), intent(out) :: fit_matrix_ext(size(x, 1), size(fit_matrix, 2) + nadditions)
@@ -567,6 +566,27 @@ contains
         ! Calculate the generalised cross-validation criterion
         call generalised_cross_validation(y, y_mean, fit_matrix_out, coefficients, nbases, smoothness, lof)
     end subroutine shrink_fit
+
+subroutine argsort(array, indices)
+        real(8), intent(in) :: array(:)
+        integer, intent(out) :: indices(size(array))
+        integer :: i, j, n
+        integer :: temp_idx
+
+        n = size(array)
+        indices = [(i, i = 1, n)]
+
+        do i = 1, n - 1
+            do j = 1, n - i
+                if (array(indices(j)) < array(indices(j + 1))) then
+                    temp_idx = indices(j)
+                    indices(j) = indices(j + 1)
+                    indices(j + 1) = temp_idx
+                end if
+            end do
+        end do
+    end subroutine argsort
+
     subroutine expand_bases(x, y, max_nbases, smoothness, max_ncandidates, aging_factor, nbases, covariates, nodes, &
             hinges, where, lof, coefficients, fit_matrix, basis_mean, covariance_matrix, right_hand_side, y_mean)
         real(8), intent(in) :: x(:, :)
@@ -589,13 +609,13 @@ contains
         real(8), intent(out) :: right_hand_side(max_nbases - 1)
         real(8), intent(out) :: y_mean
 
-        integer :: candidate_queue(max_ncandidates)
+        real(8) :: candidate_queue(max_nbases)
+        integer :: parent_indices(max_nbases)
         integer :: iteration
         integer :: i
         real(8) :: best_lof
         integer :: best_covariate
         real(8) :: best_node
-        integer :: candidate_idx
         integer :: parent_idx
         real(8) :: basis_lof
         integer :: parent_depth
@@ -608,6 +628,8 @@ contains
         real(8), allocatable :: covariance_matrix_a(:, :)
         real(8), allocatable :: chol_a(:, :)
         real(8), allocatable :: right_hand_side_a(:)
+        integer :: knot_idx
+        integer :: unselected_idx
 
         nbases = 1
         covariates = 0d0
@@ -621,10 +643,40 @@ contains
         candidate_queue(1) = 1
 
         do iteration = 1, max_nbases / 2
-            do i = 1, count(candidate_queue /= -1)
-                parent_idx = candidate_queue(i)
+            best_lof = 1d10
+            best_covariate = -1d0
+            if (nbases /= 1) then
+                deallocate(coefficients_a)
+                deallocate(fit_matrix_a)
+                deallocate(basis_mean_a)
+                deallocate(covariance_matrix_a)
+                deallocate(chol_a)
+                deallocate(right_hand_side_a)
+            end if
+            nbases = nbases + 2
+            allocate(coefficients_a(nbases - 1))
+            allocate(fit_matrix_a(size(x, 1), nbases - 1))
+            allocate(basis_mean_a(nbases - 1))
+            allocate(covariance_matrix_a(nbases - 1, nbases - 1))
+            allocate(chol_a(nbases - 1, nbases - 1))
+            allocate(right_hand_side_a(nbases - 1))
+
+            call argsort(candidate_queue, parent_indices)
+            do i = 1, max_ncandidates
+                parent_idx = parent_indices(i)
                 basis_lof = 1d10
                 parent_depth = count(where(:, parent_idx))
+
+                covariates(:, nbases - 1) = covariates(:, parent_idx)
+                covariates(:, nbases) = covariates(:, parent_idx)
+                nodes(:, nbases - 1) = nodes(:, parent_idx)
+                nodes(:, nbases) = nodes(:, parent_idx)
+                hinges(:, nbases - 1) = hinges(:, parent_idx)
+                hinges(:, nbases) = hinges(:, parent_idx)
+                hinges(parent_depth + 1, nbases) = .true.
+                where(:, nbases - 1) = where(:, parent_idx)
+                where(:, nbases) = where(:, parent_idx)
+                where(parent_depth + 1, nbases - 1:nbases) = .true.
                 do cov = 1, size(x, 2)
                     if (all(covariates(:, parent_idx) /= cov)) then
                         if (parent_idx == 0) then
@@ -632,7 +684,8 @@ contains
                             eligible_knots = x(:, cov)
                         else
                             allocate(eligible_knots(count(fit_matrix(:, parent_idx - 1) > 0)))
-                            eligible_knots = x(pack((/(i, i = 1, size(fit_matrix, 1))/), fit_matrix(:, parent_idx - 1) > 0), cov)
+                            eligible_knots = x(pack((/(i, i = 1, size(fit_matrix, 1))/), &
+                                    fit_matrix(:, parent_idx - 1) > 0), cov)
                         end if
                         ! Sort the array in descending order using LAPACK's dlasrt
                         call dlasrt('D', size(eligible_knots), eligible_knots, info)
@@ -641,32 +694,43 @@ contains
                             stop
                         end if
 
-                        covariates(:, nbases + 1) = covariates(:, parent_idx)
-                        covariates(:, nbases + 2) = covariates(:, parent_idx)
-                        covariates(parent_depth + 1, nbases + 1:nbases + 2) = cov
-                        nodes(:, nbases + 1) = nodes(:, parent_idx)
-                        nodes(:, nbases + 2) = nodes(:, parent_idx)
-                        nodes(parent_depth + 1, nbases + 2) = eligible_knots(1)
-                        hinges(:, nbases + 1) = hinges(:, parent_idx)
-                        hinges(:, nbases + 2) = hinges(:, parent_idx)
-                        hinges(parent_depth + 1, nbases + 2) = .true.
-                        where(:, nbases + 1) = where(:, parent_idx)
-                        where(:, nbases + 2) = where(:, parent_idx)
-                        where(parent_depth + 1, nbases + 1:nbases + 2) = .true.
-                        nbases = nbases + 2
+                        covariates(parent_depth + 1, nbases - 1:nbases) = cov
+                        nodes(parent_depth + 1, nbases) = eligible_knots(1)
+                        call fit(x, y, nbases, covariates, nodes, hinges, where, smoothness, lof, coefficients_a, &
+                                fit_matrix_a, basis_mean_a, covariance_matrix_a, chol_a, right_hand_side_a, y_mean)
 
-                        if (nbases == 3) then
-                            allocate(coefficients_a(nbases - 1))
-                            allocate(fit_matrix_a(size(x, 1), nbases - 1))
-                            allocate(basis_mean_a(nbases - 1))
-                            allocate(covariance_matrix_a(nbases - 1, nbases - 1))
-                            allocate(chol_a(nbases - 1, nbases - 1))
-                            allocate(right_hand_side_a(nbases - 1))
-                        end if
+                        do knot_idx = 2, size(eligible_knots)
+                            if (lof < basis_lof) then
+                                basis_lof = lof
+                            end if
+                            if (lof < best_lof) then
+                                best_lof = lof
+                                best_covariate = cov
+                                best_node = eligible_knots(knot_idx - 1)
+                            end if
+                            nodes(parent_depth + 1, nbases + 2) = eligible_knots(knot_idx)
+                            call update_fit(x, y, nbases, covariates, nodes, where, smoothness, fit_matrix_a, &
+                                    basis_mean_a, covariance_matrix_a, right_hand_side_a, y_mean, &
+                                    eligible_knots(knot_idx - 1), parent_idx, chol_a, lof, coefficients)
+                        end do
                     end if
                 end do
+                candidate_queue(i) = best_lof - basis_lof
             end do
+            do unselected_idx = max_ncandidates + 1, max_nbases
+                candidate_queue(unselected_idx) = candidate_queue(unselected_idx) + aging_factor
+            end do
+            if (best_covariate /= -1) then
+                covariates(parent_depth + 1, nbases - 1:nbases) = best_covariate
+                nodes(parent_depth + 1, nbases) = best_node
+                candidate_queue(nbases - 1) = 0
+                candidate_queue(nbases) = 0
+            end if
         end do
-
+        coefficients = coefficients_a
+        fit_matrix = fit_matrix_a
+        basis_mean = basis_mean_a
+        covariance_matrix = covariance_matrix_a
+        right_hand_side = right_hand_side_a
     end subroutine expand_bases
 end module omars
