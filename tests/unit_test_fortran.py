@@ -81,8 +81,9 @@ def shrink_case(nbases: int,
         where[:, nbases - 1] = False
         nbases -= 1
         fit_results = func(x, y, nbases, covariates, nodes, hinges, where, fit_results,
-                           nbases-1)
+                           nbases - 1)
     return nbases, covariates, nodes, hinges, where, fit_results
+
 
 def test_update_fit_matrix() -> None:
     x, y, y_true, nbases, covariates, nodes, hinges, where = utils.generate_data_and_splines(
@@ -91,8 +92,8 @@ def test_update_fit_matrix() -> None:
     def update_func(x, y, nbases, covariates, nodes, hinges, where, fit_results,
                     old_node, parent_idx):
         init_results = fortran.omars.update_init(x, old_node, parent_idx, nbases,
-                                                    covariates, nodes, where,
-                                                    *fit_results[2:4])
+                                                 covariates, nodes, where,
+                                                 *fit_results[2:4])
 
         fortran.omars.update_fit_matrix(*fit_results[2:4], *init_results)
         return fit_results
@@ -106,12 +107,13 @@ def test_update_fit_matrix() -> None:
     updated_fit_matrix = fit_results[2]
 
     full_fit_matrix, full_basis_mean = fortran.omars.calculate_fit_matrix(x, nbases,
-                                                                             covariates,
-                                                                             nodes,
-                                                                             hinges,
-                                                                             where)
+                                                                          covariates,
+                                                                          nodes,
+                                                                          hinges,
+                                                                          where)
     assert np.allclose(updated_basis_mean, full_basis_mean)
     assert np.allclose(updated_fit_matrix, full_fit_matrix)
+
 
 def test_extend_fit_matrix() -> None:
     x, y, y_true, nbases, covariates, nodes, hinges, where = utils.generate_data_and_splines(
@@ -121,13 +123,13 @@ def test_extend_fit_matrix() -> None:
                     nadditions):
         fit_results = list(fit_results)
         fit_results[2], fit_results[3] = fortran.omars.extend_fit_matrix(x,
-                                                                            nadditions,
-                                                                            *fit_results[
-                                                                             2:4],
-                                                                            covariates,
-                                                                            nodes,
-                                                                            hinges,
-                                                                            where)
+                                                                         nadditions,
+                                                                         *fit_results[
+                                                                          2:4],
+                                                                         covariates,
+                                                                         nodes,
+                                                                         hinges,
+                                                                         where)
         return fit_results
 
     nbases, covariates, nodes, hinges, where, fit_results = extend_case(nbases,
@@ -138,14 +140,15 @@ def test_extend_fit_matrix() -> None:
     extended_basis_mean = fit_results[3]
     extended_fit_matrix = fit_results[2]
 
-    full_fit_matrix, full_basis_mean = fortran.omars.calculate_fit_matrix(x,nbases,
-                                                                             covariates,
-                                                                             nodes,
-                                                                             hinges,
-                                                                             where)
+    full_fit_matrix, full_basis_mean = fortran.omars.calculate_fit_matrix(x, nbases,
+                                                                          covariates,
+                                                                          nodes,
+                                                                          hinges,
+                                                                          where)
 
     assert np.allclose(extended_basis_mean, full_basis_mean)
     assert np.allclose(extended_fit_matrix, full_fit_matrix)
+
 
 def test_update_covariance_matrix() -> None:
     x, y, y_true, nbases, covariates, nodes, hinges, where = utils.generate_data_and_splines(
@@ -154,13 +157,13 @@ def test_update_covariance_matrix() -> None:
     def update_func(x, y, nbases, covariates, nodes, hinges, where, fit_results,
                     old_node, parent_idx):
         init_results = fortran.omars.update_init(x, old_node, parent_idx, nbases,
-                                                    covariates, nodes, where,
-                                                    fit_results[2], fit_results[3])
+                                                 covariates, nodes, where,
+                                                 fit_results[2], fit_results[3])
         fit_results = list(fit_results)
         fortran.omars.update_fit_matrix(*fit_results[2:4], *init_results)
         covariance_addition = fortran.omars.update_covariance_matrix(fit_results[4],
-                                                                        init_results[0],
-                                                                        fit_results[2])
+                                                                     init_results[0],
+                                                                     fit_results[2])
         return fit_results
 
     nbases, covariates, nodes, hinges, where, fit_results = update_case(nbases,
@@ -171,15 +174,16 @@ def test_update_covariance_matrix() -> None:
     updated_covariance = fit_results[4]
 
     full_fit_matrix, full_basis_mean = fortran.omars.calculate_fit_matrix(x, nbases,
-                                                                             covariates,
-                                                                             nodes,
-                                                                             hinges,
-                                                                             where)
+                                                                          covariates,
+                                                                          nodes,
+                                                                          hinges,
+                                                                          where)
     full_covariance = fortran.omars.calculate_covariance_matrix(full_fit_matrix)
 
     assert np.allclose(updated_covariance[:-1, :-1], full_covariance[:-1, :-1])
     assert np.allclose(updated_covariance[-1, :-1], full_covariance[-1, :-1])
     assert np.allclose(updated_covariance, full_covariance)
+
 
 def test_extend_covariance_matrix() -> None:
     x, y, y_true, nbases, covariates, nodes, hinges, where = utils.generate_data_and_splines(
@@ -189,16 +193,16 @@ def test_extend_covariance_matrix() -> None:
                     nadditions):
         fit_results = list(fit_results)
         fit_results[2], fit_results[3] = fortran.omars.extend_fit_matrix(x,
-                                                                            nadditions,
-                                                                            *fit_results[
-                                                                             2:4],
-                                                                            covariates,
-                                                                            nodes,
-                                                                            hinges,
-                                                                            where)
+                                                                         nadditions,
+                                                                         *fit_results[
+                                                                          2:4],
+                                                                         covariates,
+                                                                         nodes,
+                                                                         hinges,
+                                                                         where)
         fit_results[4] = fortran.omars.extend_covariance_matrix(fit_results[4],
-                                                                   nadditions,
-                                                                   fit_results[2])
+                                                                nadditions,
+                                                                fit_results[2])
 
         return fit_results
 
@@ -209,14 +213,15 @@ def test_extend_covariance_matrix() -> None:
                                                                         extend_func)
     extended_covariance = fit_results[4]
 
-    full_fit_matrix, full_basis_mean = fortran.omars.calculate_fit_matrix(x,nbases,
-                                                                             covariates,
-                                                                             nodes,
-                                                                             hinges,
-                                                                             where)
+    full_fit_matrix, full_basis_mean = fortran.omars.calculate_fit_matrix(x, nbases,
+                                                                          covariates,
+                                                                          nodes,
+                                                                          hinges,
+                                                                          where)
     full_covariance = fortran.omars.calculate_covariance_matrix(full_fit_matrix)
 
     assert np.allclose(extended_covariance, full_covariance)
+
 
 def test_update_right_hand_side() -> None:
     x, y, y_true, nbases, covariates, nodes, hinges, where = utils.generate_data_and_splines(
@@ -225,10 +230,10 @@ def test_update_right_hand_side() -> None:
     def update_func(x, y, nbases, covariates, nodes, hinges, where, fit_results,
                     old_node, parent_idx):
         init_results = fortran.omars.update_init(x, old_node, parent_idx, nbases,
-                                                    covariates, nodes, where,
-                                                    fit_results[2], fit_results[3])
+                                                 covariates, nodes, where,
+                                                 fit_results[2], fit_results[3])
         fortran.omars.update_right_hand_side(fit_results[6], y, y.mean(),
-                                                init_results[0])
+                                             init_results[0])
         return fit_results
 
     nbases, covariates, nodes, hinges, where, fit_results = update_case(nbases,
@@ -238,15 +243,15 @@ def test_update_right_hand_side() -> None:
                                                                         update_func)
     updated_right_hand_side = fit_results[6]
 
-    full_fit_matrix, full_basis_mean = fortran.omars.calculate_fit_matrix(x,nbases,
-                                                                             covariates,
-                                                                             nodes,
-                                                                             hinges,
-                                                                             where)
-    full_right_hand_side, _ = fortran.omars.calculate_right_hand_side(y,
-                                                                         full_fit_matrix)
+    full_fit_matrix, full_basis_mean = fortran.omars.calculate_fit_matrix(x, nbases,
+                                                                          covariates,
+                                                                          nodes,
+                                                                          hinges,
+                                                                          where)
+    full_right_hand_side = fortran.omars.calculate_right_hand_side(y, y.mean(), full_fit_matrix)
 
     assert np.allclose(updated_right_hand_side, full_right_hand_side)
+
 
 def test_extend_right_hand_side() -> None:
     x, y, y_true, nbases, covariates, nodes, hinges, where = utils.generate_data_and_splines(
@@ -256,17 +261,17 @@ def test_extend_right_hand_side() -> None:
                     nadditions):
         fit_results = list(fit_results)
         fit_results[2], fit_results[3] = fortran.omars.extend_fit_matrix(x,
-                                                                            nadditions,
-                                                                            *fit_results[
-                                                                             2:4],
-                                                                            covariates,
-                                                                            nodes,
-                                                                            hinges,
-                                                                            where)
-        fit_results[6] = fortran.omars.extend_right_hand_side(fit_results[6], y,
-                                                                    fit_results[2],
-                                                                    y.mean(),
-                                                                    nadditions)
+                                                                         nadditions,
+                                                                         *fit_results[
+                                                                          2:4],
+                                                                         covariates,
+                                                                         nodes,
+                                                                         hinges,
+                                                                         where)
+        fit_results[6] = fortran.omars.extend_right_hand_side(fit_results[6], y, y.mean(),
+                                                              fit_results[2],
+
+                                                              nadditions)
         return fit_results
 
     nbases, covariates, nodes, hinges, where, fit_results = extend_case(nbases,
@@ -276,15 +281,16 @@ def test_extend_right_hand_side() -> None:
                                                                         extend_func)
     extended_right_hand_side = fit_results[6]
 
-    full_fit_matrix, full_basis_mean = fortran.omars.calculate_fit_matrix(x,nbases,
-                                                                             covariates,
-                                                                             nodes,
-                                                                             hinges,
-                                                                             where)
-    full_right_hand_side, _ = fortran.omars.calculate_right_hand_side(y,
-                                                                         full_fit_matrix)
+    full_fit_matrix, full_basis_mean = fortran.omars.calculate_fit_matrix(x, nbases,
+                                                                          covariates,
+                                                                          nodes,
+                                                                          hinges,
+                                                                          where)
+    full_right_hand_side = fortran.omars.calculate_right_hand_side(y, y.mean(),
+                                                                   full_fit_matrix)
 
     assert np.allclose(extended_right_hand_side, full_right_hand_side)
+
 
 def test_decompose() -> None:
     x, y, y_true, nbases, covariates, nodes, hinges, where = utils.generate_data_and_splines(
@@ -298,13 +304,13 @@ def test_decompose() -> None:
     new_node = x[np.argmin(np.abs(x[:, 1] - 0.5)), 1]
     nodes[2, 2] = new_node
     init_results = fortran.omars.update_init(x, old_node, 1, nbases, covariates,
-                                                nodes, where, *fit_results[2:4])
+                                             nodes, where, *fit_results[2:4])
 
     fortran.omars.update_fit_matrix(*fit_results[2:4], *init_results)
 
     covariance_addition = fortran.omars.update_covariance_matrix(fit_results[4],
-                                                                    init_results[0],
-                                                                    fit_results[2])
+                                                                 init_results[0],
+                                                                 fit_results[2])
 
     updated_covariance = fit_results[4]
 
@@ -316,6 +322,7 @@ def test_decompose() -> None:
 
     assert np.allclose(reconstructed_covariance, updated_covariance)
 
+
 def test_update_cholesky() -> None:
     x, y, y_true, nbases, covariates, nodes, hinges, where = utils.generate_data_and_splines(
         100, 2)
@@ -323,13 +330,13 @@ def test_update_cholesky() -> None:
     def update_func(x, y, nbases, covariates, nodes, hinges, where, fit_results,
                     old_node, parent_idx):
         init_results = fortran.omars.update_init(x, old_node, parent_idx, nbases,
-                                                    covariates, nodes, where,
-                                                    *fit_results[2:4])
+                                                 covariates, nodes, where,
+                                                 *fit_results[2:4])
         fit_results = list(fit_results)
         fortran.omars.update_fit_matrix(*fit_results[2:4], *init_results)
         covariance_addition = fortran.omars.update_covariance_matrix(fit_results[4],
-                                                                        init_results[0],
-                                                                        fit_results[2])
+                                                                     init_results[0],
+                                                                     fit_results[2])
         if covariance_addition.any():
             eigenvalues, eigenvectors = fortran.omars.decompose_addition(
                 covariance_addition)
@@ -344,9 +351,10 @@ def test_update_cholesky() -> None:
     updated_cholesky = fit_results[5]
 
     full_fit_results = fortran.omars.fit(x, y, nbases, covariates, nodes, hinges,
-                                            where, 3)
+                                         where, 3)
     full_cholesky = full_fit_results[5]
     assert np.allclose(np.tril(updated_cholesky), np.tril(full_cholesky))
+
 
 def test_update_fit() -> None:
     x, y, y_true, nbases, covariates, nodes, hinges, where = utils.generate_data_and_splines(
@@ -356,10 +364,10 @@ def test_update_fit() -> None:
                     old_node, parent_idx):
         fit_results = list(fit_results)
         fit_results[:2] = fortran.omars.update_fit(x, y, nbases, covariates, nodes,
-                                                       where, 3, *fit_results[2:5],
-                                                       fit_results[6],
-                                                       fit_results[-1], old_node,
-                                                       parent_idx, fit_results[5])
+                                                   where, 3, *fit_results[2:5],
+                                                   fit_results[6],
+                                                   fit_results[-1], old_node,
+                                                   parent_idx, fit_results[5])
         return fit_results
 
     nbases, covariates, nodes, hinges, where, fit_results = update_case(nbases,
@@ -373,7 +381,7 @@ def test_update_fit() -> None:
     updated_lof = fit_results[0]
 
     full_fit_results = fortran.omars.fit(x, y, nbases, covariates, nodes, hinges,
-                                            where, 3)
+                                         where, 3)
     full_chol = full_fit_results[5]
     full_rhs = full_fit_results[6]
     full_coefficients = full_fit_results[1]
@@ -385,6 +393,7 @@ def test_update_fit() -> None:
     assert np.allclose(updated_coefficients[1], full_coefficients[1], 0.05, 0.05)
     assert np.allclose(updated_lof, full_lof, 0.01)
 
+
 def test_extend_fit() -> None:
     x, y, y_true, nbases, covariates, nodes, hinges, where = utils.generate_data_and_splines(
         100, 2)
@@ -394,15 +403,15 @@ def test_extend_fit() -> None:
         fit_results = list(fit_results)
 
         temp_fit, temp_mean = fortran.omars.extend_fit_matrix(x, nadditions, *fit_results[2:4],
-                                                    covariates, nodes, hinges, where)
+                                                              covariates, nodes, hinges, where)
         temp_cov = fortran.omars.extend_covariance_matrix(fit_results[4], nadditions,
-                                                            temp_fit)
-        temp_rhs = fortran.omars.extend_right_hand_side(fit_results[6], y, temp_fit,
-                                                            y.mean(), nadditions)
+                                                          temp_fit)
+        temp_rhs = fortran.omars.extend_right_hand_side(fit_results[6], y, y.mean(), temp_fit,
+                                                        nadditions)
         fit_results[:-1] = fortran.omars.extend_fit(x, y, nbases, covariates, nodes,
-                                                       hinges, where, 3, nadditions,
-                                                       *fit_results[2:5],
-                                                       fit_results[6], fit_results[-1])
+                                                    hinges, where, 3, nadditions,
+                                                    *fit_results[2:5],
+                                                    fit_results[6], fit_results[-1])
         return fit_results
 
     nbases, covariates, nodes, hinges, where, fit_results = extend_case(nbases,
@@ -416,7 +425,7 @@ def test_extend_fit() -> None:
     extended_lof = fit_results[0]
 
     full_fit_results = fortran.omars.fit(x, y, nbases, covariates, nodes, hinges,
-                                            where, 3)
+                                         where, 3)
     full_chol = full_fit_results[5]
     full_rhs = full_fit_results[6]
     full_coefficients = full_fit_results[1]
@@ -426,6 +435,7 @@ def test_extend_fit() -> None:
     assert np.allclose(extended_coefficients[0], full_coefficients[0], 0.05, 0.1)
     assert np.allclose(extended_coefficients[1], full_coefficients[1], 0.05, 0.05)
     assert np.allclose(extended_lof, full_lof, 0.01)
+
 
 def test_shrink_fit() -> None:
     x, y, y_true, nbases, covariates, nodes, hinges, where = utils.generate_data_and_splines(
@@ -448,8 +458,8 @@ def test_shrink_fit() -> None:
                     removal_idx):
         fit_results = list(fit_results)
         fit_results[:-1] = fortran.omars.shrink_fit(y, fit_results[-1], nbases, 3,
-                                                       removal_idx, *fit_results[2:5],
-                                                       fit_results[6])
+                                                    removal_idx, *fit_results[2:5],
+                                                    fit_results[6])
         return fit_results
 
     nbases, covariates, nodes, hinges, where, fit_results = shrink_case(nbases,
@@ -463,7 +473,7 @@ def test_shrink_fit() -> None:
     shrunk_lof = fit_results[0]
 
     full_fit_results = fortran.omars.fit(x, y, nbases, covariates, nodes, hinges,
-                                            where, 3)
+                                         where, 3)
     full_chol = full_fit_results[5]
     full_rhs = full_fit_results[6]
     full_coefficients = full_fit_results[1]

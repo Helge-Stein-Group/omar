@@ -102,7 +102,6 @@ contains
         result = 1.0d0
 
         ! Perform the calculation
-        !$OMP PARALLEL DO PRIVATE(basis_idx, func_idx, temp)
         do i = 1, size(basis_indices)
             basis_idx = basis_indices(i)
             do func_idx = 1, size(where, 1)
@@ -117,7 +116,6 @@ contains
             result_mean(i) = sum(result(:, i)) / size(x, 1)
             result(:, i) = result(:, i) - result_mean(i)
         end do
-        !$OMP END PARALLEL DO
     end subroutine data_matrix
 
     subroutine update_init(x, old_node, parent_idx, nbases, covariates, nodes, where, fit_matrix, basis_mean, update, &
@@ -198,18 +196,14 @@ contains
         real(8) :: basis_mean_ext(nadditions)
 
         call active_base_indices(where, size(basis_mean), indices)
-        if (size(basis_mean) > 0) then
-            call data_matrix(x, indices(size(indices) - nadditions + 1:size(indices)), covariates, nodes, hinges, where, &
-                    fit_matrix_ext, basis_mean_ext)
+        call data_matrix(x, indices(size(indices) - nadditions + 1:size(indices)), covariates, nodes, hinges, where, &
+                fit_matrix_ext, basis_mean_ext)
 
-            fit_matrix_extended(:, 1:size(fit_matrix, 2)) = fit_matrix
-            fit_matrix_extended(:, size(fit_matrix, 2) + 1:size(fit_matrix_extended, 2)) = fit_matrix_ext
+        fit_matrix_extended(:, 1:size(fit_matrix, 2)) = fit_matrix
+        fit_matrix_extended(:, size(fit_matrix, 2) + 1:size(fit_matrix_extended, 2)) = fit_matrix_ext
 
-            basis_mean_extended(1:size(basis_mean)) = basis_mean
-            basis_mean_extended(size(basis_mean) + 1:size(indices)) = basis_mean_ext
-        else
-            call data_matrix(x, indices, covariates, nodes, hinges, where, fit_matrix_ext, basis_mean_ext)
-        end if
+        basis_mean_extended(1:size(basis_mean)) = basis_mean
+        basis_mean_extended(size(basis_mean) + 1:size(indices)) = basis_mean_ext
     end subroutine extend_fit_matrix
 
     subroutine update_fit_matrix(fit_matrix, basis_mean, update, update_mean)
@@ -284,31 +278,29 @@ contains
 
     end subroutine update_covariance_matrix
 
-    subroutine calculate_right_hand_side(y, fit_matrix, right_hand_side, y_mean)
+    subroutine calculate_right_hand_side(y, y_mean, fit_matrix, right_hand_side)
         real(8), intent(in) :: y(:)
+        real(8), intent(in) :: y_mean
         real(8), intent(in) :: fit_matrix(:, :)
 
         real(8), intent(out) :: right_hand_side(size(fit_matrix, 2))
-        real(8), intent(out) :: y_mean
         real(8) :: y_centred(size(y))
 
-        y_mean = sum(y) / real(size(y, 1))
         y_centred = y - y_mean
         right_hand_side = matmul(transpose(fit_matrix), y_centred)
 
     end subroutine calculate_right_hand_side
 
-    subroutine extend_right_hand_side(right_hand_side, y, fit_matrix, y_mean, nadditions, extended_right_hand_side)
+    subroutine extend_right_hand_side(right_hand_side, y, y_mean, fit_matrix, nadditions, extended_right_hand_side)
         real(8), intent(in) :: right_hand_side(:)
         real(8), intent(in) :: y(:)
+        real(8), intent(in) :: y_mean
         real(8), intent(in) :: fit_matrix(:, :)
-        real(8), intent(inout) :: y_mean
         integer, intent(in) :: nadditions
         real(8), intent(out) :: extended_right_hand_side(size(right_hand_side) + nadditions)
 
         real(8) :: y_centred(size(y))
 
-        y_mean = sum(y) / real(size(y, 1))
         y_centred = y - y_mean
         extended_right_hand_side(1:size(right_hand_side)) = right_hand_side
         extended_right_hand_side(size(right_hand_side) + 1:size(extended_right_hand_side)) = matmul(transpose(&
@@ -348,29 +340,6 @@ contains
         lof = mse / real(size(y, 1)) / (1.0d0 - c_m / real(size(y, 1)) + 1.0d-6) ** 2
 
     end subroutine generalised_cross_validation
-    subroutine solve_triangular(chol, right_hand_side, result)
-        real(8), intent(in) :: chol(:, :)
-        real(8), intent(in) :: right_hand_side(:)
-        real(8), intent(out) :: result(size(right_hand_side))
-
-        integer :: i, n
-        real(8) :: y(size(right_hand_side))
-
-        n = size(right_hand_side, 1)
-
-        ! Forward substitution
-        y = 0.0d0
-        do i = 1, n
-            y(i) = (right_hand_side(i) - sum(chol(i, 1:i - 1) * y(1:i - 1))) / chol(i, i)
-        end do
-
-        ! Backward substitution
-        result = 0.0d0
-        do i = n, 1, -1
-            result(i) = (y(i) - sum(chol(i + 1:n, i) * result(i + 1:n))) / chol(i, i)
-        end do
-
-    end subroutine solve_triangular
     subroutine fit(x, y, nbases, covariates, nodes, hinges, where, smoothness, &
             lof, coefficients, fit_matrix, basis_mean, covariance_matrix, chol, right_hand_side, y_mean)
         real(8), intent(in) :: x(:, :)               ! Data points
@@ -396,7 +365,7 @@ contains
         if (nbases > 1) then
             call calculate_fit_matrix(x, nbases, covariates, nodes, hinges, where, fit_matrix, basis_mean)
             call calculate_covariance_matrix(fit_matrix, covariance_matrix)
-            call calculate_right_hand_side(y, fit_matrix, right_hand_side, y_mean)
+            call calculate_right_hand_side(y, y_mean, fit_matrix, right_hand_side)
 
             ! Use LAPACK DPOTRF to compute the Cholesky decomposition
             chol = covariance_matrix
@@ -407,8 +376,14 @@ contains
                 stop
             end if
 
-            ! Solve the system using cho_solve_numpy subroutine
-            call solve_triangular(chol, right_hand_side, coefficients)
+            ! Solve the system using LAPACK's dpotrs
+            coefficients = right_hand_side
+            call dpotrs('L', size(chol, 1), 1, chol, size(chol, 1), coefficients, size(chol, 1), info)
+
+            if (info /= 0) then
+                print *, "Error during solving linear system with dpotrs, info = ", info
+                stop
+            end if
 
             call generalised_cross_validation(y, y_mean, fit_matrix, coefficients, nbases, smoothness, lof)
         else
@@ -442,8 +417,8 @@ contains
         real(8), intent(in) :: basis_mean(:)
         real(8), intent(in) :: covariance_matrix(:, :)
         real(8), intent(in) :: right_hand_side(:)
+        real(8), intent(in) :: y_mean
 
-        real(8), intent(inout) :: y_mean
 
         real(8), intent(out) :: lof
         real(8), intent(out) :: coefficients(size(basis_mean) + nadditions)
@@ -461,7 +436,7 @@ contains
 
         call extend_covariance_matrix(covariance_matrix, nadditions, fit_matrix_ext, covariance_matrix_ext)
 
-        call extend_right_hand_side(right_hand_side, y, fit_matrix_ext, y_mean, nadditions, right_hand_side_ext)
+        call extend_right_hand_side(right_hand_side, y, y_mean, fit_matrix_ext, nadditions, right_hand_side_ext)
 
         ! Cholesky decomposition using LAPACK
         chol = covariance_matrix_ext
@@ -472,7 +447,12 @@ contains
             stop
         end if
 
-        call solve_triangular(chol, right_hand_side_ext, coefficients)
+        coefficients = right_hand_side_ext
+        call dpotrs('L', size(chol, 1), 1, chol, size(chol, 1), coefficients, size(chol, 1), info)
+        if (info /= 0) then
+            print *, "Error during solving linear system with dpotrs, info = ", info
+            stop
+        end if
         call generalised_cross_validation(y, y_mean, fit_matrix_ext, coefficients, nbases, smoothness, lof)
 
     end subroutine extend_fit
@@ -499,6 +479,7 @@ contains
         real(8), intent(out) :: lof
         real(8), intent(out) :: coefficients(nbases - 1)
 
+        integer :: info
         real(8) :: update(size(x, 1))
         real(8) :: update_mean
         real(8) :: covariance_addition(size(chol, 1))
@@ -517,7 +498,12 @@ contains
 
         call update_right_hand_side(right_hand_side, y, y_mean, update)
 
-        call solve_triangular(chol, right_hand_side, coefficients)
+        coefficients = right_hand_side
+        call dpotrs('L', size(chol, 1), 1, chol, size(chol, 1), coefficients, size(chol, 1), info)
+        if (info /= 0) then
+            print *, "Error during solving linear system with dpotrs, info = ", info
+            stop
+        end if
 
         call generalised_cross_validation(y, y_mean, fit_matrix, coefficients, nbases, smoothness, lof)
     end subroutine update_fit
@@ -571,34 +557,116 @@ contains
             stop
         end if
 
-        call solve_triangular(chol_out, right_hand_side_out, coefficients)
+        coefficients = right_hand_side_out
+        call dpotrs('L', size(chol_out, 1), 1, chol_out, size(chol_out, 1), coefficients, size(chol_out, 1), info)
+        if (info /= 0) then
+            print *, "Error during solving linear system with dpotrs, info = ", info
+            stop
+        end if
 
         ! Calculate the generalised cross-validation criterion
         call generalised_cross_validation(y, y_mean, fit_matrix_out, coefficients, nbases, smoothness, lof)
     end subroutine shrink_fit
-    subroutine setdiff1d(a, b, result, nresult)
-        integer, intent(in) :: a(:), b(:)
-        integer, intent(out) :: result(size(a))
-        integer, intent(out) :: nresult
+    subroutine expand_bases(x, y, max_nbases, smoothness, max_ncandidates, aging_factor, nbases, covariates, nodes, &
+            hinges, where, lof, coefficients, fit_matrix, basis_mean, covariance_matrix, right_hand_side, y_mean)
+        real(8), intent(in) :: x(:, :)
+        real(8), intent(in) :: y(:)
+        integer, intent(in) :: max_nbases
+        integer, intent(in) :: smoothness
+        integer, intent(in) :: max_ncandidates
+        real(8), intent(in) :: aging_factor
 
-        integer :: i, j
-        logical :: found
+        integer, intent(out) :: nbases
+        integer, intent(out) :: covariates(max_nbases, max_nbases)
+        real(8), intent(out) :: nodes(max_nbases, max_nbases)
+        logical, intent(out) :: hinges(max_nbases, max_nbases)
+        logical, intent(out) :: where(max_nbases, max_nbases)
+        real(8), intent(out) :: lof
+        real(8), intent(out) :: coefficients(max_nbases - 1)
+        real(8), intent(out) :: fit_matrix(size(x, 1), max_nbases - 1)
+        real(8), intent(out) :: basis_mean(max_nbases - 1)
+        real(8), intent(out) :: covariance_matrix(max_nbases - 1, max_nbases - 1)
+        real(8), intent(out) :: right_hand_side(max_nbases - 1)
+        real(8), intent(out) :: y_mean
 
-        nresult = 0
+        integer :: candidate_queue(max_ncandidates)
+        integer :: iteration
+        integer :: i
+        real(8) :: best_lof
+        integer :: best_covariate
+        real(8) :: best_node
+        integer :: candidate_idx
+        integer :: parent_idx
+        real(8) :: basis_lof
+        integer :: parent_depth
+        integer :: cov
+        real(8), allocatable :: eligible_knots(:)
+        integer :: info
+        real(8), allocatable :: coefficients_a(:)
+        real(8), allocatable :: fit_matrix_a(:, :)
+        real(8), allocatable :: basis_mean_a(:)
+        real(8), allocatable :: covariance_matrix_a(:, :)
+        real(8), allocatable :: chol_a(:, :)
+        real(8), allocatable :: right_hand_side_a(:)
 
-        do i = 1, size(a)
-            found = .false.
-            do j = 1, size(b)
-                if (a(i) == b(j)) then
-                    found = .true.
-                    exit
-                end if
+        nbases = 1
+        covariates = 0d0
+        nodes = 0d0
+        hinges = .false.
+        where = .false.
+
+        lof = 0
+        y_mean = sum(y) / real(size(y, 1))
+        candidate_queue = -1d0
+        candidate_queue(1) = 1
+
+        do iteration = 1, max_nbases / 2
+            do i = 1, count(candidate_queue /= -1)
+                parent_idx = candidate_queue(i)
+                basis_lof = 1d10
+                parent_depth = count(where(:, parent_idx))
+                do cov = 1, size(x, 2)
+                    if (all(covariates(:, parent_idx) /= cov)) then
+                        if (parent_idx == 0) then
+                            allocate(eligible_knots(size(x, 1)))
+                            eligible_knots = x(:, cov)
+                        else
+                            allocate(eligible_knots(count(fit_matrix(:, parent_idx - 1) > 0)))
+                            eligible_knots = x(pack((/(i, i = 1, size(fit_matrix, 1))/), fit_matrix(:, parent_idx - 1) > 0), cov)
+                        end if
+                        ! Sort the array in descending order using LAPACK's dlasrt
+                        call dlasrt('D', size(eligible_knots), eligible_knots, info)
+                        if (info /= 0) then
+                            print *, "Sorting failed, info: ", info
+                            stop
+                        end if
+
+                        covariates(:, nbases + 1) = covariates(:, parent_idx)
+                        covariates(:, nbases + 2) = covariates(:, parent_idx)
+                        covariates(parent_depth + 1, nbases + 1:nbases + 2) = cov
+                        nodes(:, nbases + 1) = nodes(:, parent_idx)
+                        nodes(:, nbases + 2) = nodes(:, parent_idx)
+                        nodes(parent_depth + 1, nbases + 2) = eligible_knots(1)
+                        hinges(:, nbases + 1) = hinges(:, parent_idx)
+                        hinges(:, nbases + 2) = hinges(:, parent_idx)
+                        hinges(parent_depth + 1, nbases + 2) = .true.
+                        where(:, nbases + 1) = where(:, parent_idx)
+                        where(:, nbases + 2) = where(:, parent_idx)
+                        where(parent_depth + 1, nbases + 1:nbases + 2) = .true.
+                        nbases = nbases + 2
+
+                        if (nbases == 3) then
+                            allocate(coefficients_a(nbases - 1))
+                            allocate(fit_matrix_a(size(x, 1), nbases - 1))
+                            allocate(basis_mean_a(nbases - 1))
+                            allocate(covariance_matrix_a(nbases - 1, nbases - 1))
+                            allocate(chol_a(nbases - 1, nbases - 1))
+                            allocate(right_hand_side_a(nbases - 1))
+                        end if
+                    end if
+                end do
             end do
-
-            if (.not. found) then
-                nresult = nresult + 1
-                result(nresult) = a(i)
-            end if
         end do
-    end subroutine setdiff1d
+
+    end subroutine expand_bases
 end module omars
