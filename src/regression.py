@@ -5,6 +5,7 @@ from scipy.linalg import cho_factor, cho_solve
 
 from src.regression_numba import decompose_addition, update_cholesky
 
+
 class OMARS:
     """
     Open Multivariate Adaptive Regression Splines (OMARS) model.
@@ -25,7 +26,7 @@ class OMARS:
 
     def __init__(self,
                  max_nbases: int = 11,
-                 max_ncandidates: int = 5,
+                 max_ncandidates: int = 11,
                  aging_factor: float = 0.,
                  smoothness: float = 3):
         """
@@ -405,8 +406,6 @@ class OMARS:
 
         return covariance_addition
 
-
-
     def _calculate_right_hand_side(self, y: np.ndarray) -> None:
         """
         Calculate the right hand side of the least-squares problem.
@@ -632,8 +631,8 @@ class OMARS:
             best_node = None
             best_hinge = None
             best_where = None
-            for parent_idx in np.argsort(candidate_queue)[
-                              :-self.max_ncandidates - 1:-1]:
+            basis_lofs = {}
+            for parent_idx in np.argsort(candidate_queue)[:-self.max_ncandidates - 1:-1]:
                 eligible_covariates = covariates - set(
                     self.covariates[self.where[:, parent_idx], parent_idx])
                 basis_lof = np.inf
@@ -645,10 +644,8 @@ class OMARS:
                         eligible_knots = x[
                             np.where(self.fit_matrix[:, parent_idx - 1] > 0)[0], cov]
                     eligible_knots[::-1].sort()
-                    additional_covariates = np.tile(self.covariates[:, parent_idx],
-                                                    (2, 1)).T
-                    additional_nodes = np.tile(self.nodes[:, parent_idx],
-                                               (2, 1)).T
+                    additional_covariates = np.tile(self.covariates[:, parent_idx], (2, 1)).T
+                    additional_nodes = np.tile(self.nodes[:, parent_idx], (2, 1)).T
                     additional_hinges = np.tile(self.hinges[:, parent_idx], (2, 1)).T
                     additional_where = np.tile(self.where[:, parent_idx], (2, 1)).T
 
@@ -667,7 +664,8 @@ class OMARS:
                     )
                     chol = self._extend_fit(x, y, 2)
                     old_node = eligible_knots[0]
-
+                    if self.lof < basis_lof:
+                        basis_lof = self.lof
                     for new_node in eligible_knots[1:]:
                         updated_nodes = additional_nodes[:, 1]
                         updated_nodes[parent_depth + 1] = new_node
@@ -692,14 +690,16 @@ class OMARS:
                         self._remove_basis(self.nbases - 1)
                         # CARE remove basis decrements nbases
                         self._shrink_fit(x, y, self.nbases)
-                candidate_queue[parent_idx] = best_lof - basis_lof
+                basis_lofs[parent_idx] = basis_lof
+            for idx, lof in basis_lofs.items():
+                candidate_queue[idx] = best_lof - lof
             for unselected_idx in np.argsort(candidate_queue)[self.max_ncandidates:]:
                 candidate_queue[unselected_idx] += self.aging_factor
-            if best_covariate is not None: # and spec not in model (once cleaned up)
+            if best_covariate is not None:  # and spec not in model (once cleaned up)
                 self._add_basis(best_covariate, best_node, best_hinge, best_where)
                 self._extend_fit(x, y, 2)
                 candidate_queue.extend([0, 0])
-            else: # We achieved the best we can do
+            else:  # We achieved the best we can do
                 return
 
     def _prune_bases(self, x: np.ndarray, y: np.ndarray) -> None:

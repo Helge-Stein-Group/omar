@@ -491,9 +491,6 @@ def test_expand_bases() -> None:
     x, y, y_true, nbases, ref_covariates, ref_nodes, ref_hinges, ref_where = utils.generate_data_and_splines(
         100, 2)
 
-    import os
-    os.putenv("NUMBA_DEBUG", "1")
-
     expansion_results = regression_numba.expand_bases(x, y, 11, 3, 11, 0.0)
     nbases = expansion_results[0]
     covariates = expansion_results[1]

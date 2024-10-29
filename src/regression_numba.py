@@ -77,9 +77,11 @@ def update_cholesky(chol: float64[:, :],
 
     return chol
 
+
 @njit(cache=True, error_model="numpy", fastmath=True, parallel=False)
 def active_base_indices(where):
     return np.where(np.sum(where, axis=0) > 0)[0]
+
 
 @njit(cache=True, error_model="numpy", fastmath=True, parallel=False)
 def data_matrix(x: float64[:, :],
@@ -974,6 +976,7 @@ def expand_bases(x: np.ndarray,
         best_node = None
         best_hinge = None
         best_where = None
+        basis_lofs = {}
         for parent_idx in np.argsort(candidate_queue)[:-max_ncandidates - 1:-1]:
             eligible_covariates = setdiff1d(all_covariates, covariates[
                 where[:, parent_idx], parent_idx])
@@ -1048,7 +1051,8 @@ def expand_bases(x: np.ndarray,
                      right_hand_side) = shrink_fit(
                         y, y_mean, nbases, smoothness, nbases, fit_matrix,
                         basis_mean, covariance_matrix, right_hand_side)
-
+            basis_lofs[parent_idx] = basis_lof
+        for parent_idx, basis_lof in basis_lofs.items():
             candidate_queue[parent_idx] = best_lof - basis_lof
         for unselected_idx in np.argsort(candidate_queue)[max_ncandidates:]:
             candidate_queue[unselected_idx] += aging_factor
@@ -1269,7 +1273,6 @@ class OMARS:
 
         self.coefficients = coefficients[:nbases - 1]
         self.y_mean = y_mean
-
 
     def __str__(self) -> str:
         """
