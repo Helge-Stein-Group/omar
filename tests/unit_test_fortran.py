@@ -436,7 +436,7 @@ def test_extend_fit() -> None:
     assert np.allclose(extended_lof, full_lof, 0.01)
 
 
-def test_shrink_fit() -> None:
+def test_shrink_fit() -> None: # TODO deprecated since we are no longer  returning shrunk fit_results
     x, y, y_true, nbases, covariates, nodes, hinges, where = utils.generate_data_and_splines(
         100, 2)
 
@@ -536,3 +536,33 @@ def test_expand_bases() -> None:
     print(model)
     assert match1
     assert match2
+
+def test_prune_bases() -> None:
+    x, y, y_true, ref_nbases, ref_covariates, ref_nodes, ref_hinges, ref_where = utils.generate_data_and_splines(
+        100,
+        2)
+
+    nbases = ref_nbases
+    covariates = ref_covariates.copy()
+    nodes = ref_nodes.copy()
+    hinges = ref_hinges.copy()
+    where = ref_where.copy()
+
+    lof, coefficients_prev, fit_matrix, basis_mean, covariance_matrix, chol, right_hand_side = fortran.omars.fit(
+        x, y, y.mean(), nbases, covariates, nodes, hinges, where, 3
+    )
+
+    # Call the prune_bases subroutine with the correct arguments
+    coefficients, where = fortran.omars.prune_bases(
+        x, y, y.mean(), nbases, covariates, nodes, hinges, where,
+        lof, fit_matrix, basis_mean, covariance_matrix, right_hand_side, 3
+    )
+    coefficients = coefficients[:nbases]
+
+    import regression_numba
+    ref_model = regression_numba.OMARS(ref_nbases, ref_covariates, ref_nodes,
+                                       ref_hinges,
+                                       ref_where, coefficients_prev, y.mean())
+    test_model = regression_numba.OMARS(nbases, covariates, nodes, hinges, where,
+                                        coefficients, y.mean())
+    assert ref_model == test_model

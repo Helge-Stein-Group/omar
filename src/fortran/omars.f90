@@ -524,23 +524,24 @@ contains
         real(8) :: chol(size(covariance_matrix, 1) - 1, size(covariance_matrix, 2) - 1)
 
         integer :: info
-        if (removal_idx /= 0) then
-            fit_matrix_out(:, 1:removal_idx) = fit_matrix(:, 1:removal_idx)
-            basis_mean_out(1:removal_idx) = basis_mean(1:removal_idx)
-            covariance_matrix_out(1:removal_idx, 1:removal_idx) = covariance_matrix(1:removal_idx, 1:removal_idx)
 
-            right_hand_side_out(1:removal_idx) = right_hand_side(1:removal_idx)
+        if (removal_idx /= 1) then
+            fit_matrix_out(:, 1:removal_idx - 1) = fit_matrix(:, 1:removal_idx - 1)
+            basis_mean_out(1:removal_idx - 1) = basis_mean(1:removal_idx - 1)
+            covariance_matrix_out(1:removal_idx - 1, 1:removal_idx - 1) = covariance_matrix(1:removal_idx - 1, 1:removal_idx - 1)
+
+            right_hand_side_out(1:removal_idx - 1) = right_hand_side(1:removal_idx - 1)
         end if
-        if (removal_idx /= size(fit_matrix, 2) - 1) then
-            fit_matrix_out(:, removal_idx + 1:) = fit_matrix(:, removal_idx + 2:)
-            basis_mean_out(removal_idx + 1:) = basis_mean(removal_idx + 2:)
-            covariance_matrix_out(removal_idx + 1:, removal_idx + 1:) = covariance_matrix(removal_idx + 2:, removal_idx + 2:)
-            right_hand_side_out(removal_idx + 1:) = right_hand_side(removal_idx + 2:)
+        if (removal_idx /= size(fit_matrix, 2)) then
+            fit_matrix_out(:, removal_idx:) = fit_matrix(:, removal_idx + 1:)
+            basis_mean_out(removal_idx:) = basis_mean(removal_idx + 1:)
+            covariance_matrix_out(removal_idx:, removal_idx:) = covariance_matrix(removal_idx + 1:, removal_idx + 1:)
+            right_hand_side_out(removal_idx:) = right_hand_side(removal_idx + 1:)
         end if
 
-        if (removal_idx /= 0 .and. removal_idx /= size(fit_matrix, 2) - 1) then
-            covariance_matrix_out(1:removal_idx, removal_idx + 1:) = covariance_matrix(1:removal_idx, removal_idx + 2:)
-            covariance_matrix_out(removal_idx + 1:, 1:removal_idx) = covariance_matrix(removal_idx + 2:, 1:removal_idx)
+        if (removal_idx /= 1 .and. removal_idx /= size(fit_matrix, 2)) then
+            covariance_matrix_out(:removal_idx, removal_idx:) = covariance_matrix(:removal_idx, removal_idx + 1:)
+            covariance_matrix_out(removal_idx:, :removal_idx) = covariance_matrix(removal_idx + 1:, :removal_idx)
         end if
 
         chol = covariance_matrix_out
@@ -557,8 +558,7 @@ contains
             stop
         end if
 
-        ! Calculate the generalised cross-validation criterion
-        call generalised_cross_validation(y, y_mean, fit_matrix_out, coefficients, nbases, smoothness, lof)
+        call generalised_cross_validation(y, y_mean, fit_matrix_out, coefficients, nbases - 1, smoothness, lof)
     end subroutine shrink_fit
 
     subroutine argsort(array, indices)
@@ -764,34 +764,36 @@ contains
         end do
 
         call fit(x, y, y_mean, nbases, covariates, nodes, hinges, where, smoothness, lof, coefficients, &
-                                        fit_matrix, basis_mean, covariance_matrix, chol_a, right_hand_side)
+                fit_matrix, basis_mean, covariance_matrix, chol_a, right_hand_side)
     end subroutine expand_bases
-    subroutine prune_bases(x, y, y_mean, nbases, covariates, nodes, hinges, where, lof, fit_matrix_in, basis_mean_in, &
-            covariance_matrix_in, right_hand_side_in, smoothness, coefficents_out)
+    subroutine prune_bases(x, y, y_mean, nbases, covariates, nodes, hinges, where_in, lof_in, fit_matrix, basis_mean, &
+            covariance_matrix, right_hand_side, smoothness, coefficients_out, where)
         real(8), intent(in) :: x(:, :)
         real(8), intent(in) :: y(:)
         real(8), intent(in) :: y_mean
         integer, intent(in) :: covariates(:, :)
         real(8), intent(in) :: nodes(:, :)
-        logical, intent(in) :: hinges(:, :)
-        real(8), intent(in) :: lof
-        real(8), intent(in) :: fit_matrix_in(:, :)
-        real(8), intent(in) :: basis_mean_in(:)
-        real(8), intent(in) :: covariance_matrix_in(:, :)
-        real(8), intent(in) :: right_hand_side_in(:)
+        logical, intent(in) :: hinges(:, :) ! you cannot do inout with logical because stupid fortran expected 4 byte unint for a logical
+        logical, intent(in) :: where_in(:, :)
+        real(8), intent(in) :: lof_in
+        real(8), intent(in) :: fit_matrix(:, :)
+        real(8), intent(in) :: basis_mean(:)
+        real(8), intent(in) :: covariance_matrix(:, :)
+        real(8), intent(in) :: right_hand_side(:)
         integer, intent(in) :: smoothness
 
         integer, intent(inout) :: nbases
-        logical, intent(inout) :: where(:, :)
-        real(8), intent(out) :: coefficients(size(basis_mean))
+        real(8), intent(out) :: coefficients_out(size(basis_mean))
 
+        logical, intent(out) :: where(size(where_in, 1), size(where_in, 2))
+        real(8) :: lof
         integer :: best_nbases
-        logical :: best_where(size(where, 1), size(where, 2))
-        logical :: best_trimmed_where(size(where, 1), size(where, 2))
+        logical :: best_where(size(where_in, 1), size(where_in, 2))
+        logical :: best_trimmed_where(size(where_in, 1), size(where_in, 2))
         real(8) :: best_lof
         integer :: i
         real(8) :: best_trimmed_lof
-        logical :: previous_where(size(where, 1), size(where, 2))
+        logical :: previous_where(size(where_in, 1), size(where_in, 2))
         real(8), allocatable :: previous_fit(:, :)
         real(8), allocatable :: previous_basis_mean(:)
         real(8), allocatable :: previous_covariance_matrix(:, :)
@@ -799,13 +801,16 @@ contains
         integer :: basis_idx
         real(8), allocatable :: coefficients(:)
         real(8), allocatable :: chol(:, :)
+        real(8) :: mse
+
+        where = where_in
 
         best_nbases = nbases
         best_where = where
 
         best_trimmed_where = where
 
-        best_lof = lof
+        best_lof = lof_in
 
         allocate(previous_fit(size(x, 1), nbases - 1))
         allocate(previous_basis_mean(nbases - 1))
@@ -823,9 +828,13 @@ contains
 
             do basis_idx = 2, nbases
                 where(:, basis_idx) = .false.
-                call shrink_fit(y, y_mean, nbases - 1, smoothness, basis_idx, &
-                        prev_fit, previous_basis_mean, previous_covariance_matrix, previous_right_hand_side, &
-                        lof)
+                if (nbases > 2) then
+                    call shrink_fit(y, y_mean, nbases, smoothness, basis_idx - 1, &
+                            previous_fit, previous_basis_mean, previous_covariance_matrix, previous_right_hand_side, lof)
+                else
+                    mse = sum((y - y_mean) ** 2)
+                    lof = mse / real(size(y, 1)) / (1.0d0 - (3 + smoothness) / real(size(y, 1)) + 1.0d-6) ** 2
+                end if
                 if (lof < best_trimmed_lof) then
                     best_trimmed_lof = lof
                     best_trimmed_where = where
@@ -853,10 +862,24 @@ contains
             allocate(previous_right_hand_side(nbases - 1))
             call fit(x, y, y_mean, nbases, covariates, nodes, hinges, where, smoothness, lof, coefficients, &
                     previous_fit, previous_basis_mean, previous_covariance_matrix, chol, previous_right_hand_side)
+            deallocate(chol)
+            deallocate(coefficients)
         end do
         nbases = best_nbases
         where = best_where
-        coefficients_out = coefficients
+        deallocate(previous_fit)
+        deallocate(previous_basis_mean)
+        deallocate(previous_covariance_matrix)
+        deallocate(previous_right_hand_side)
+        allocate(coefficients(nbases - 1))
+        allocate(previous_fit(size(x, 1), nbases - 1))
+        allocate(previous_basis_mean(nbases - 1))
+        allocate(previous_covariance_matrix(nbases - 1, nbases - 1))
+        allocate(chol(nbases - 1, nbases - 1))
+        allocate(previous_right_hand_side(nbases - 1))
+        call fit(x, y, y_mean, nbases, covariates, nodes, hinges, where, smoothness, lof, coefficients, &
+                previous_fit, previous_basis_mean, previous_covariance_matrix, chol, previous_right_hand_side)
+        coefficients_out(:nbases - 1) = coefficients
 
     end subroutine prune_bases
     subroutine find_bases(x, y, y_mean, max_nbases, max_ncandidates, aging_factor, smoothness, &
@@ -882,10 +905,12 @@ contains
         real(8) :: covariance_matrix(max_nbases - 1, max_nbases - 1)
         real(8) :: right_hand_side(max_nbases - 1)
 
+        logical :: where_temp(max_nbases, max_nbases) ! fuck you fortran
+
         call expand_bases(x, y, y_mean, max_nbases, smoothness, max_ncandidates, aging_factor, nbases, covariates, nodes, &
-                hinges, where, lof, coefficients, fit_matrix, basis_mean, covariance_matrix, right_hand_side)
-        call prune_bases(x, y, y_mean, nbases, covariates, nodes, hinges, where, lof, fit_matrix, basis_mean, &
-                covariance_matrix, right_hand_side, smoothness, coefficients)
+                hinges, where_temp, lof, coefficients, fit_matrix, basis_mean, covariance_matrix, right_hand_side)
+        call prune_bases(x, y, y_mean, nbases, covariates, nodes, hinges, where_temp, lof, fit_matrix, basis_mean, &
+                covariance_matrix, right_hand_side, smoothness, coefficients, where)
     end subroutine find_bases
 
 end module omars
