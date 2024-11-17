@@ -538,10 +538,9 @@ contains
             covariance_matrix_out(removal_idx:, removal_idx:) = covariance_matrix(removal_idx + 1:, removal_idx + 1:)
             right_hand_side_out(removal_idx:) = right_hand_side(removal_idx + 1:)
         end if
-
         if (removal_idx /= 1 .and. removal_idx /= size(fit_matrix, 2)) then
-            covariance_matrix_out(:removal_idx, removal_idx:) = covariance_matrix(:removal_idx, removal_idx + 1:)
-            covariance_matrix_out(removal_idx:, :removal_idx) = covariance_matrix(removal_idx + 1:, :removal_idx)
+            covariance_matrix_out(removal_idx:, :removal_idx - 1) = covariance_matrix(removal_idx + 1:, :removal_idx - 1)
+            covariance_matrix_out(:removal_idx - 1, removal_idx:) = covariance_matrix(:removal_idx - 1, removal_idx + 1:)
         end if
 
         chol = covariance_matrix_out
@@ -802,6 +801,13 @@ contains
         real(8), allocatable :: coefficients(:)
         real(8), allocatable :: chol(:, :)
         real(8) :: mse
+        logical :: can_shrink
+        integer, allocatable :: alive_idx(:)
+        integer, allocatable :: alive_idx_temp(:)
+        integer :: dying_idx
+        integer :: mat_idx
+
+        coefficients_out = 0d0
 
         where = where_in
 
@@ -823,13 +829,18 @@ contains
         previous_covariance_matrix = covariance_matrix
         previous_right_hand_side = right_hand_side
 
-        do i = 1, nbases - 1
-            best_trimmed_lof = 1d10
+        allocate(alive_idx(nbases))
+        alive_idx = [(i, i = 1, nbases)]
 
-            do basis_idx = 2, nbases
+        outer: do i = 1, nbases - 1
+            best_trimmed_lof = 100 * best_lof
+            can_shrink = .false.
+            dying_idx = -1
+            do mat_idx = 2, nbases
+                basis_idx = alive_idx(mat_idx)
                 where(:, basis_idx) = .false.
                 if (nbases > 2) then
-                    call shrink_fit(y, y_mean, nbases, smoothness, basis_idx - 1, &
+                    call shrink_fit(y, y_mean, nbases, smoothness, mat_idx - 1, &
                             previous_fit, previous_basis_mean, previous_covariance_matrix, previous_right_hand_side, lof)
                 else
                     mse = sum((y - y_mean) ** 2)
@@ -838,33 +849,50 @@ contains
                 if (lof < best_trimmed_lof) then
                     best_trimmed_lof = lof
                     best_trimmed_where = where
+                    can_shrink = .true.
+                    dying_idx = mat_idx
                 end if
                 if (lof < best_lof) then
                     best_lof = lof
                     best_nbases = nbases - 1
                     best_where = where
+                    can_shrink = .true.
+                    dying_idx = mat_idx
                 end if
                 where = previous_where
             end do
-            nbases = nbases - 1
-            where = best_trimmed_where
+            if (can_shrink) then
+                nbases = nbases - 1
+                where = best_trimmed_where
+                previous_where = where
 
-            deallocate(previous_fit)
-            deallocate(previous_basis_mean)
-            deallocate(previous_covariance_matrix)
-            deallocate(previous_right_hand_side)
+                allocate(alive_idx_temp(size(alive_idx)-1))
+                alive_idx_temp(1:dying_idx-1) = alive_idx(1:dying_idx - 1)
+                alive_idx_temp(dying_idx:) = alive_idx(dying_idx + 1:)
+                deallocate(alive_idx)
+                allocate(alive_idx(size(alive_idx_temp)))
+                alive_idx = alive_idx_temp
+                deallocate(alive_idx_temp)
 
-            allocate(coefficients(nbases - 1))
-            allocate(previous_fit(size(x, 1), nbases - 1))
-            allocate(previous_basis_mean(nbases - 1))
-            allocate(previous_covariance_matrix(nbases - 1, nbases - 1))
-            allocate(chol(nbases - 1, nbases - 1))
-            allocate(previous_right_hand_side(nbases - 1))
-            call fit(x, y, y_mean, nbases, covariates, nodes, hinges, where, smoothness, lof, coefficients, &
-                    previous_fit, previous_basis_mean, previous_covariance_matrix, chol, previous_right_hand_side)
-            deallocate(chol)
-            deallocate(coefficients)
-        end do
+                deallocate(previous_fit)
+                deallocate(previous_basis_mean)
+                deallocate(previous_covariance_matrix)
+                deallocate(previous_right_hand_side)
+
+                allocate(coefficients(nbases - 1))
+                allocate(previous_fit(size(x, 1), nbases - 1))
+                allocate(previous_basis_mean(nbases - 1))
+                allocate(previous_covariance_matrix(nbases - 1, nbases - 1))
+                allocate(chol(nbases - 1, nbases - 1))
+                allocate(previous_right_hand_side(nbases - 1))
+                call fit(x, y, y_mean, nbases, covariates, nodes, hinges, where, smoothness, lof, coefficients, &
+                        previous_fit, previous_basis_mean, previous_covariance_matrix, chol, previous_right_hand_side)
+                deallocate(chol)
+                deallocate(coefficients)
+            else
+                exit outer
+            end if
+        end do outer
         nbases = best_nbases
         where = best_where
         deallocate(previous_fit)

@@ -1264,14 +1264,12 @@ class OMARS:
         assert coefficients.ndim == 1
 
         self.nbases = nbases
-        self.max_prod_len = np.max(np.sum(where, axis=0)) + 1
 
-        self.covariates = covariates[:self.max_prod_len, :nbases]
-        self.nodes = nodes[:self.max_prod_len, :nbases]
-        self.hinges = hinges[:self.max_prod_len, :nbases]
-        self.where = where[:self.max_prod_len, :nbases]
-
-        self.coefficients = coefficients[:nbases - 1]
+        self.covariates = covariates
+        self.nodes = nodes
+        self.hinges = hinges
+        self.where = where
+        self.coefficients = coefficients
         self.y_mean = y_mean
 
     def __str__(self) -> str:
@@ -1283,7 +1281,7 @@ class OMARS:
         """
         desc = "Basis functions: \n"
         for basis_idx in active_base_indices(self.where):
-            for func_idx in range(self.max_prod_len):
+            for func_idx in range(self.where.shape[0]):
                 if self.where[func_idx, basis_idx]:
                     cov = self.covariates[func_idx, basis_idx]
                     node = self.nodes[func_idx, basis_idx]
