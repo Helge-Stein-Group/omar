@@ -1,6 +1,4 @@
 import numpy as np
-from numba.core.typing.builtins import Print
-
 
 def suite_data_matrix(x, basis_mean, fit_matrix) -> None:
     x1 = x[np.argmin(np.abs(x[:, 0] - 1)), 0]

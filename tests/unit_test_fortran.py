@@ -570,12 +570,21 @@ def test_prune_bases() -> None:
 def test_find_bases() -> None:
     x, y, y_true = utils.generate_data(100, 2)
 
+    from regression import OMARS
+
+    from regression import OMARS as OMARS_numba
+
+    model_numba = OMARS_numba(11, 5, 0, 3)
+    model_numba.find_bases(x, y)
+
+    model_ref = OMARS()
+    model_ref.find_bases(x, y)
+
     nbases, covariates, nodes, hinges, where, coefficients = fortran.omars.find_bases(x, y, y.mean(), 11, 5, 0, 3)
     # TODO coefficients have the wrong size only the nbases first values are valid
-    coefficients = coefficients[:nbases-1]
+    coefficients = coefficients[:nbases - 1]
     hinges = hinges.astype(bool)
     where = where.astype(bool)
-    from regression import OMARS
     model = OMARS()
     model.nbases = nbases
     model.coefficients = coefficients
@@ -587,12 +596,9 @@ def test_find_bases() -> None:
     model._calculate_fit_matrix(x)
     model._generalised_cross_validation(y)
 
-    from regression import OMARS as OMARS_ref
-
-    model_ref = OMARS_ref(11, 5, 0, 3)
-    model_ref.find_bases(x, y)
-
     print(model)
     print(model_ref)
+    print(model_numba)
     print(model.lof)
     print(model_ref.lof)
+    print(model_numba.lof)

@@ -1,7 +1,6 @@
 module omars
-    !$ use omp_lib
+    use omp_lib
     implicit none
-    !f2py threadsafef
 contains
     subroutine update_cholesky(chol, update_vectors, multipliers)
         real(8), intent(in) :: update_vectors(:, :)
@@ -626,6 +625,10 @@ contains
         real(8), allocatable :: right_hand_side_a(:)
         integer :: knot_idx
         integer :: unselected_idx
+        integer :: temp
+
+        temp = omp_get_max_threads()
+        print  *, "Number of threads: ", temp
 
         allocate(eligible_knots(size(x, 1)))
 
@@ -664,6 +667,9 @@ contains
 
             allocate(parent_indices(size(candidate_queue)))
             call argsort(candidate_queue, parent_indices)
+            !$OMP PARALLEL DO DEFAULT(firstprivate) &
+            !$OMP& SHARED(parent_indices, nbases, x, y, y_mean, smoothness, &
+            !$OMP& best_lof, best_covariate, best_node, best_parent, basis_lofs)
             do i = 1, min(max_ncandidates, nbases - 2)
                 parent_idx = parent_indices(i)
                 basis_lof = 1d10
@@ -713,17 +719,22 @@ contains
                             if (lof < basis_lof) then
                                 basis_lof = lof
                             end if
+                            !$OMP CRITICAL
                             if (lof < best_lof) then
                                 best_lof = lof
                                 best_covariate = cov
                                 best_node = eligible_knots(knot_idx)
                                 best_parent = parent_idx
                             end if
+                            !$OMP END CRITICAL
                         end do
                     end if
                 end do
+                !$OMP CRITICAL
                 basis_lofs(i) = basis_lof
+                !$OMP END CRITICAL
             end do
+            !$OMP END PARALLEL DO
             allocate(candidate_queue_buffer(size(candidate_queue)))
             candidate_queue_buffer = candidate_queue
             deallocate(candidate_queue)
@@ -864,6 +875,7 @@ contains
             if (can_shrink) then
                 nbases = nbases - 1
                 where = best_trimmed_where
+
                 previous_where = where
 
                 allocate(alive_idx_temp(size(alive_idx)-1))
@@ -895,6 +907,7 @@ contains
         end do outer
         nbases = best_nbases
         where = best_where
+
         deallocate(previous_fit)
         deallocate(previous_basis_mean)
         deallocate(previous_covariance_matrix)
