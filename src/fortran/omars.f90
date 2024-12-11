@@ -625,10 +625,6 @@ contains
         real(8), allocatable :: right_hand_side_a(:)
         integer :: knot_idx
         integer :: unselected_idx
-        integer :: temp
-
-        temp = omp_get_max_threads()
-        print  *, "Number of threads: ", temp
 
         allocate(eligible_knots(size(x, 1)))
 
@@ -643,7 +639,7 @@ contains
         candidate_queue(1) = 0
 
         do iteration = 1, max_nbases / 2
-            best_lof = 1d10
+            best_lof = 1d20
             best_covariate = -1d0
             best_parent = -1d0
             if (nbases /= 1) then
