@@ -149,9 +149,12 @@ class OMARS:
         """
         assert x.ndim == 2
 
-        fit_matrix, _ = self._data_matrix(x, self._active_base_indices())
-        centered_y_pred = fit_matrix @ self.coefficients
-        return centered_y_pred + self.y_mean
+        pred = self.y_mean * np.ones(x.shape[0])
+        if self._active_base_indices().any():
+            fit_matrix, _ = self._data_matrix(x, self._active_base_indices())
+            centered_y_pred = fit_matrix @ self.coefficients
+            pred += centered_y_pred
+        return pred
 
     def __len__(self) -> int:
         """
@@ -177,15 +180,14 @@ class OMARS:
 
         sub_model = OMARS()
         sub_model.nbases = 1
-        sub_model.covariates = self.covariates[:, i:i + 1]
-        sub_model.nodes = self.nodes[:, i:i + 1]
-        sub_model.hinges = self.hinges[:, i:i + 1]
-        sub_model.where = self.where[:, i:i + 1]
+        sub_model.covariates[:, i:i + 1] = self.covariates[:, i:i + 1]
+        sub_model.nodes[:, i:i + 1] = self.nodes[:, i:i + 1]
+        sub_model.hinges[:, i:i + 1] = self.hinges[:, i:i + 1]
+        sub_model.where[:, i:i + 1] = self.where[:, i:i + 1]
         if i != 0:
             sub_model.coefficients = self.coefficients[i:i + 1]
-        else:
-            sub_model.coefficients = [self.y_mean]
 
+        sub_model.y_mean = self.y_mean
         return sub_model
 
     def __eq__(self, other: Self) -> bool:

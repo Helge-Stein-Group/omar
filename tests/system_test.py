@@ -1,7 +1,7 @@
 import numpy as np
 
 import regression
-import utils
+import tests.utils
 
 
 def sigmoid(x: np.ndarray) -> np.ndarray:

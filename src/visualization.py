@@ -19,6 +19,7 @@ def inspect_fit(
     assert x.shape[1] == 2
     assert isinstance(model, OMARS)
     assert isinstance(title, str)
+    model._fit(x,y)
 
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
@@ -56,13 +57,14 @@ if __name__ == "__main__":
     from regression import OMARS
     import sys
     sys.path.append("tests")
-    from utils import data_generation_model
-    from system_test import evaluate_prediction
+    from tests.utils import generate_data
+    from tests.system_test import evaluate_prediction
 
     n_samples = 100
     ndim = 2
 
-    x, y, y_true, ref_model = data_generation_model(n_samples, ndim)
+    x, y, y_true = generate_data(100, 2)
+
     model = OMARS()
     model.find_bases(x, y)
     y_pred = model(x)
@@ -73,6 +75,6 @@ if __name__ == "__main__":
     inspect_fit(x, y, model, "Full model")
     for i in range(len(model)):
         print(model[i])
-        print(model.coefficients[i])
+        if i !=0:
+            print(model.coefficients[i-1])
         inspect_fit(x, y_pred, model[i], str(i))
-    inspect_fit(x, y, model, "Full model")
