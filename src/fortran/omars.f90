@@ -612,7 +612,6 @@ contains
         real(8) :: best_node
         integer :: parent_idx
         real(8), allocatable :: basis_lofs(:)
-        real(8) :: basis_lof
         integer :: parent_depth
         integer :: cov
         real(8), allocatable :: eligible_knots(:)
@@ -625,6 +624,8 @@ contains
         real(8), allocatable :: right_hand_side_a(:)
         integer :: knot_idx
         integer :: unselected_idx
+        integer :: parent_cov_pairs(max_ncandidates* size(x, 2), 2)
+        integer :: num_pairs
 
         allocate(eligible_knots(size(x, 1)))
 
@@ -663,72 +664,82 @@ contains
 
             allocate(parent_indices(size(candidate_queue)))
             call argsort(candidate_queue, parent_indices)
-            !$OMP PARALLEL DO DEFAULT(firstprivate) &
-            !$OMP& SHARED(parent_indices, nbases, x, y, y_mean, smoothness, &
-            !$OMP& best_lof, best_covariate, best_node, best_parent, basis_lofs)
+
+            ! Collect all pairs of parents and covariates
+            num_pairs = 0
             do i = 1, min(max_ncandidates, nbases - 2)
                 parent_idx = parent_indices(i)
-                basis_lof = 1d10
+                do cov = 0, size(x, 2) - 1
+                    if (all(covariates(:, parent_idx) /= cov .or. .not. where(:, parent_idx))) then
+                        num_pairs = num_pairs + 1
+                        parent_cov_pairs(num_pairs, 1) = i
+                        parent_cov_pairs(num_pairs, 2) = cov
+                    end if
+                end do
+            end do
+
+            !$OMP PARALLEL DO DEFAULT(firstprivate) &
+            !$OMP& SHARED(parent_indices, parent_cov_pairs, nbases, x, y, y_mean, smoothness, &
+            !$OMP& best_lof, best_covariate, best_node, best_parent, basis_lofs)
+            do i = 1, num_pairs
+                parent_idx = parent_indices(parent_cov_pairs(i, 1))
+                cov = parent_cov_pairs(i, 2)
+
                 parent_depth = count(where(:, parent_idx))
 
                 covariates(:, nbases - 1) = covariates(:, parent_idx)
                 covariates(:, nbases) = covariates(:, parent_idx)
-                nodes(:, nbases - 1) = nodes(:, parent_idx)
-                nodes(:, nbases) = nodes(:, parent_idx)
+                covariates(parent_depth + 2, nbases - 1:nbases) = cov
+
                 hinges(:, nbases - 1) = hinges(:, parent_idx)
                 hinges(:, nbases) = hinges(:, parent_idx)
+                hinges(parent_depth + 2, nbases) = .true.
+
                 where(:, nbases - 1) = where(:, parent_idx)
                 where(:, nbases) = where(:, parent_idx)
-
-                hinges(parent_depth + 2, nbases) = .true.
                 where(parent_depth + 2, nbases - 1:nbases) = .true.
-                do cov = 0, size(x, 2) - 1
-                    if (all(covariates(:, parent_idx) /= cov .or. .not. where(:, parent_idx))) then
-                        covariates(parent_depth + 2, nbases - 1:nbases) = cov
 
-                        deallocate(eligible_knots)
-                        if (parent_idx == 1) then
-                            allocate(eligible_knots(size(x, 1)))
-                            eligible_knots = x(:, cov + 1)
-                        else
-                            allocate(eligible_knots(count(fit_matrix_a(:, parent_idx - 1) > 0)))
-                            eligible_knots = x(pack((/(j, j = 1, size(fit_matrix_a, 1))/), &
-                                    fit_matrix_a(:, parent_idx - 1) > 0), cov + 1)
-                        end if
-                        ! Sort the array in descending order using LAPACK's dlasrt
-                        call dlasrt('D', size(eligible_knots), eligible_knots, info)
-                        if (info /= 0) then
-                            print *, "Sorting failed, info: ", info
-                            stop
-                        end if
+                nodes(:, nbases - 1) = nodes(:, parent_idx)
+                nodes(:, nbases) = nodes(:, parent_idx)
 
-                        do knot_idx = 1, size(eligible_knots)
-                            nodes(parent_depth + 2, nbases) = eligible_knots(knot_idx)
-                            if (knot_idx == 1) then
-                                call fit(x, y, y_mean, nbases, covariates, nodes, hinges, where, smoothness, lof, coefficients_a, &
-                                        fit_matrix_a, basis_mean_a, covariance_matrix_a, chol_a, right_hand_side_a)
-                            else
-                                call update_fit(x, y, y_mean, nbases, covariates, nodes, where, smoothness, fit_matrix_a, &
-                                        basis_mean_a, covariance_matrix_a, right_hand_side_a, &
-                                        eligible_knots(knot_idx - 1), parent_idx - 1, chol_a, lof, coefficients_a)
-                            end if
-                            if (lof < basis_lof) then
-                                basis_lof = lof
-                            end if
-                            !$OMP CRITICAL
-                            if (lof < best_lof) then
-                                best_lof = lof
-                                best_covariate = cov
-                                best_node = eligible_knots(knot_idx)
-                                best_parent = parent_idx
-                            end if
-                            !$OMP END CRITICAL
-                        end do
+                deallocate(eligible_knots)
+                if (parent_idx == 1) then
+                    allocate(eligible_knots(size(x, 1)))
+                    eligible_knots = x(:, cov + 1)
+                else
+                    allocate(eligible_knots(count(fit_matrix_a(:, parent_idx - 1) > 0)))
+                    eligible_knots = x(pack((/(j, j = 1, size(fit_matrix_a, 1))/), &
+                            fit_matrix_a(:, parent_idx - 1) > 0), cov + 1)
+                end if
+                ! Sort the array in descending order using LAPACK's dlasrt
+                call dlasrt('D', size(eligible_knots), eligible_knots, info)
+                if (info /= 0) then
+                    print *, "Sorting failed, info: ", info
+                    stop
+                end if
+
+                do knot_idx = 1, size(eligible_knots)
+                    nodes(parent_depth + 2, nbases) = eligible_knots(knot_idx)
+                    if (knot_idx == 1) then
+                        call fit(x, y, y_mean, nbases, covariates, nodes, hinges, where, smoothness, lof, coefficients_a, &
+                                fit_matrix_a, basis_mean_a, covariance_matrix_a, chol_a, right_hand_side_a)
+                    else
+                        call update_fit(x, y, y_mean, nbases, covariates, nodes, where, smoothness, fit_matrix_a, &
+                                basis_mean_a, covariance_matrix_a, right_hand_side_a, &
+                                eligible_knots(knot_idx - 1), parent_idx - 1, chol_a, lof, coefficients_a)
                     end if
+                    !$OMP CRITICAL
+                    if (lof < basis_lofs(parent_cov_pairs(i, 1))) then
+                        basis_lofs(parent_cov_pairs(i, 1)) = lof
+                    end if
+                    if (lof < best_lof) then
+                        best_lof = lof
+                        best_covariate = cov
+                        best_node = eligible_knots(knot_idx)
+                        best_parent = parent_idx
+                    end if
+                    !$OMP END CRITICAL
                 end do
-                !$OMP CRITICAL
-                basis_lofs(i) = basis_lof
-                !$OMP END CRITICAL
             end do
             !$OMP END PARALLEL DO
             allocate(candidate_queue_buffer(size(candidate_queue)))
