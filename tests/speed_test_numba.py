@@ -21,8 +21,8 @@ def test_monitor_scaling_laws() -> None:
     monitor_scaling_laws(
         "import utils\nimport regression_numba\n" +
         "x, y, y_true = utils.generate_data(n_samples, dim)",
-        "nbases, covariates, nodes, hinges, where, coefficients = regression_numba.find_bases(x, y, max_nbases=m_max, max_ncandidates=m_max)",
-        "numba_scaling_laws.png"
+        "nbases, covariates, nodes, hinges, where, coefficients,y_mean = regression_numba.find_bases(x, y, max_nbases=m_max, max_ncandidates=m_max)",
+        "numba"
     )
 
 
@@ -57,7 +57,7 @@ def test_speed_data_matrix() -> None:
         number=1,
         n_samples=10 ** 5,
         dim=10,
-        m_max=10
+        m_max=11
     )
 
 

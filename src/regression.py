@@ -233,7 +233,6 @@ class OMARS:
         assert nodes.dtype == float
         assert hinges.dtype == bool
         assert where.dtype == bool
-        assert self.nbases + covariates.shape[1] <= self.max_nbases
 
         addition_slice = slice(self.nbases, self.nbases + covariates.shape[1])
         self.covariates[:, addition_slice] = covariates

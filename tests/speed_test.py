@@ -10,11 +10,11 @@ def test_speed_find_bases() -> None:
         "model.find_bases(x, y)",
         "oop",
         "../results/speeds_find_bases.txt",
-        repeat=100,
+        repeat=10,
         number=1,
-        n_samples=100,
-        dim=2,
-        m_max=10
+        n_samples=10000,
+        dim=10,
+        m_max=11
     )
 
 
@@ -22,9 +22,9 @@ def test_monitor_scaling_laws() -> None:
     monitor_scaling_laws(
         "import utils\nimport regression\n" +
         "x, y, y_true = utils.generate_data(n_samples, dim)\n" +
-        "model = regression.OMARS()",
+        "model = regression.OMARS(m_max, m_max)",
         "model.find_bases(x, y)",
-        "oop_scaling_laws.png"
+        "python"
     )
 
 
