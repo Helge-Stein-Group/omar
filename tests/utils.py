@@ -5,37 +5,76 @@ from datetime import datetime
 
 import numpy as np
 import matplotlib.pyplot as plt
+from jaxtyping import Float
+
+from omars import OMARS
+
+N_SAMPLES = 100
+DIM = 2
 
 
-def generate_data(n_samples: int, dim: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def generate_data(n_samples: int = N_SAMPLES, dim: int = DIM) \
+        -> tuple[
+            Float[np.ndarray, "{n_samples} {dim}"],
+            Float[np.ndarray, "{n_samples}"],
+            Float[np.ndarray, "{n_samples}"]
+        ]:
     x = np.random.normal(2, 1, size=(n_samples, dim))
-    zero = np.zeros(n_samples)
-    y_true = (np.maximum(zero, (x[:, 0] - 1)) +
-              np.maximum(zero, (x[:, 0] - 1)) * np.maximum(0, (x[:, 1] - 0.8)))
+    y_true = (x[:, 0] +
+              np.maximum(0, (x[:, 0] - 1)) +
+              np.maximum(0, (x[:, 0] - 1)) * x[:, 1]+
+              np.maximum(0, (x[:, 0] - 1)) * np.maximum(0, (x[:, 1] - 0.8)))
     y = y_true + 0.12 * np.random.normal(size=n_samples)
     return x, y, y_true
 
 
-def generate_data_and_splines(n_samples: int, dim: int) -> tuple[
-    np.ndarray, np.ndarray, np.ndarray, int, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    x, y, y_true = generate_data(n_samples, dim)
-
-    covariates = np.zeros((11, 11), dtype=int)
-    nodes = np.zeros((11, 11), dtype=float)
-    hinges = np.zeros((11, 11), dtype=bool)
-    where = np.zeros((11, 11), dtype=bool)
+def reference_model(x: Float[np.ndarray, "n_samples"]) -> OMARS:
+    model = OMARS()
 
     x1 = x[np.argmin(np.abs(x[:, 0] - 1)), 0]
     x08 = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]
-    covariates[1, 1] = 0
-    covariates[1:3, 2] = [0, 1]
-    nodes[1, 1] = x1
-    nodes[1:3, 2] = [x1, x08]
-    hinges[1, 1] = True
-    hinges[1:3, 2] = [True, True]
-    where[1, 1] = True
-    where[1:3, 2] = [True, True]
-    return x, y, y_true, 3, covariates, nodes, hinges, where
+
+    model.nbases = 5
+    model.mask[1, 1:3] = True
+    model.mask[1:3, 3:5] = [True, True]
+    model.truncated[1, 2:5] = True
+    model.truncated[2, 4] = True
+    model.cov[1, 1:5] = 0
+    model.cov[2, 3:5] = 1
+    model.root[1, 2:5] = x1
+    model.root[2, 4] = x08
+
+    return model
+
+
+def reference_data_matrix(x: Float[np.ndarray, "n_samples dim"]) \
+        -> tuple[Float[np.ndarray, "{n_samples} 4"], Float[np.ndarray, "4"]]:
+    x1 = x[np.argmin(np.abs(x[:, 0] - 1)), 0]
+    x08 = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]
+    ref_data_matrix = np.column_stack([
+        x[:, 0],
+        np.maximum(0, x[:, 0] - x1),
+        np.maximum(0, x[:, 0] - x1) * x[:, 1],
+        np.maximum(0, x[:, 0] - x1) * np.maximum(0, x[:, 1] - x08),
+    ])
+
+    ref_data_matrix_mean = ref_data_matrix.mean(axis=0)
+    ref_data_matrix -= ref_data_matrix_mean
+
+    return ref_data_matrix, ref_data_matrix_mean
+
+
+def reference_covariance_matrix(ref_data_matrix: Float[np.ndarray, "n_samples 4"]) -> Float[np.ndarray, "4 4"]:
+    ref_cov_matrix = ref_data_matrix.T @ ref_data_matrix + np.eye(ref_data_matrix.shape[1]) * 1e-8
+
+    return ref_cov_matrix
+
+
+def reference_rhs(y: Float[np.ndarray, "n_samples"], ref_data_matrix: Float[np.ndarray, "n_samples 4"]) -> Float[
+    np.ndarray, "n_samples"]:
+    ref_rhs = ref_data_matrix.T @ (y - y.mean())
+
+    return ref_rhs
 
 
 def speed_test(setup: str,
@@ -118,19 +157,19 @@ def monitor_scaling_laws(setup: str, cmd: str, filename: str) -> None:
     ax[0].set_yscale("log")
     ax[0].set_xlabel("N")
     ax[0].set_ylabel("Time (s)")
-    #ax[0].legend()
+    # ax[0].legend()
 
     scaling_M = np.polyfit(np.log(M), np.log(time_over_mmax), 1)[0]
     ax[1].plot(M, time_over_mmax, label=f"Time over m_max O(M^{scaling_M})", color="red")
     ax[1].set_xlabel("M_max")
     ax[1].set_ylabel("Time (s)")
-    #ax[1].legend()
+    # ax[1].legend()
 
     scaling_d = np.polyfit(np.log(d), np.log(time_over_dim), 1)[0]
     ax[2].plot(d, time_over_dim, label=f"Time over dim O(d^{scaling_d})", color="green")
     ax[2].set_xlabel("d")
     ax[2].set_ylabel("Time (s)")
-   #ax[2].legend()
+    # ax[2].legend()
 
     plt.savefig("../results/" + filename + ".png")
 

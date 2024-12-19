@@ -1,1 +1,0 @@
-f2py -c --fcompiler=gfortran --f90flags="-fopenmp" -m omars omars.f90 -lgomp -lblas -llapack

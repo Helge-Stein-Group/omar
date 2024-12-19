@@ -2,7 +2,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 
-from regression import OMARS
+from omars_pure_python import OMARS
 
 mpl.use("Qt5Agg")
 
@@ -54,7 +54,7 @@ def inspect_fit(
 
 
 if __name__ == "__main__":
-    from regression import OMARS
+    from omars_pure_python import OMARS
     import sys
     sys.path.append("tests")
     from tests.utils import generate_data
