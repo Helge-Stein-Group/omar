@@ -1,0 +1,1 @@
+f2py -c --fcompiler=gfortran --f90flags="-fopenmp" -m fortran_backend fortran_backend.f90 -lgomp -lblas -llapack
