@@ -110,6 +110,7 @@ def test_generalised_cross_validation():
     ref_data_matrix, ref_data_matrix_mean = utils.reference_data_matrix(x)
     ref_rhs = utils.reference_rhs(y, ref_data_matrix)
     ref_cov_matrix = ref_data_matrix.T @ ref_data_matrix
+    ref_chol = np.tril(cho_factor(ref_cov_matrix, lower=True)[0])
     ref_coefficients = np.linalg.solve(ref_cov_matrix, ref_rhs)
 
     model.y_mean = y.mean()
@@ -118,7 +119,7 @@ def test_generalised_cross_validation():
     gcv = {}
     for backend in omars.Backend:
         model.backend = backend
-        gcv[backend] = model._generalised_cross_validation(y, ref_data_matrix)
+        gcv[backend] = model._generalised_cross_validation(y, ref_data_matrix, ref_chol)
         assert gcv[backend] < 1.0, f"{backend} Backend"
 
     assert np.allclose(gcv[omars.Backend.FORTRAN], gcv[omars.Backend.PYTHON]), "Unaligned Backends"
@@ -187,7 +188,7 @@ def test_update():
             comp_covariance_matrix = model._covariance_matrix(comp_data_matrix)
             comp_rhs = model._rhs(y, comp_data_matrix)
             comp_coefficients, comp_chol = model._coefficients(comp_covariance_matrix, comp_rhs)
-            comp_lof = model._generalised_cross_validation(y, comp_data_matrix)
+            comp_lof = model._generalised_cross_validation(y, comp_data_matrix, comp_chol)
 
             assert np.allclose(data_matrix, comp_data_matrix), f"{backend} Backend {i}: Data matrix"
             assert np.allclose(data_matrix_mean, comp_data_matrix_mean), f"{backend} Backend {i}: Data matrix Mean"

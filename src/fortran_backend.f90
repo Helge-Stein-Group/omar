@@ -103,33 +103,47 @@ contains
         end if
     end subroutine coefficients
 
-    subroutine generalised_cross_validation(y, y_mean, data_matrix_in, coefficients_in, nbases, smoothness, lof)
+    subroutine generalised_cross_validation(y, y_mean, data_matrix_in, chol, coefficients_in, penalty, lof)
         real(8), intent(in) :: y(:)
         real(8), intent(in) :: y_mean
         real(8), intent(in) :: data_matrix_in(:, :)
+        real(8), intent(in) :: chol(:, :)
         real(8), intent(in) :: coefficients_in(:)
-        integer, intent(in) :: nbases
-        integer, intent(in) :: smoothness
+        integer, intent(in) :: penalty
 
         real(8), intent(out) :: lof
 
         real(8) :: y_pred(size(y))
         real(8) :: mse
+        integer :: rank
+        integer :: i
         real(8) :: c_m
 
-        if (size(data_matrix_in, 2) == 0) then
-            y_pred = y_mean
-        else
+        if (size(data_matrix_in, 2) /= 0) then
             y_pred = matmul(data_matrix_in, coefficients_in) + y_mean
-        end if
-        mse = sum((y - y_pred) ** 2)
+            rank = 0
+            do i = 1, size(chol, 1)
+                if (chol(i, i) /= 0.0d0) then
+                    rank = rank + 1
+                end if
+            end do
+            c_m = rank * (1 + penalty) + 1 - penalty
 
-        c_m = nbases + 1 + smoothness * (nbases - 1)
-        lof = mse / real(size(y, 1)) / (1.0d0 - c_m / real(size(y, 1)) + 1.0d-6) ** 2
+        else
+            y_pred = y_mean
+            c_m = 1 - penalty
+        end if
+        mse = sum((y - y_pred) ** 2) / real(size(y, 1))
+
+        if (c_m /= size(y)) then
+            lof = mse / (1 - c_m / size(y)) ** 2
+        else
+            lof = 10d20
+        end if
 
     end subroutine generalised_cross_validation
 
-    subroutine fit(x, y, y_mean, nbases, mask, truncated, cov, root, smoothness, &
+    subroutine fit(x, y, y_mean, nbases, mask, truncated, cov, root, penalty, &
             data_matrix_out, data_matrix_mean, covariance_matrix_out, rhs_out, chol, coefficients_out, lof)
         real(8), intent(in) :: x(:, :)
         real(8), intent(in) :: y(:)
@@ -139,7 +153,7 @@ contains
         logical, intent(in) :: truncated(:, :)
         integer, intent(in) :: cov(:, :)
         real(8), intent(in) :: root(:, :)
-        integer, intent(in) :: smoothness
+        integer, intent(in) :: penalty
 
         real(8), intent(out) :: data_matrix_out(size(x, 1), nbases - 1)
         real(8), intent(out) :: data_matrix_mean(nbases - 1)
@@ -156,7 +170,7 @@ contains
         call covariance_matrix(data_matrix_out, covariance_matrix_out)
         call rhs(y, y_mean, data_matrix_out, rhs_out)
         call coefficients(covariance_matrix_out, rhs_out, coefficients_out, chol)
-        call generalised_cross_validation(y, y_mean, data_matrix_out, coefficients_out, nbases, smoothness, lof)
+        call generalised_cross_validation(y, y_mean, data_matrix_out, chol, coefficients_out, penalty, lof)
     end subroutine fit
 
     subroutine update_init(x, data_matrix_in, data_matrix_mean, prev_root, parent_idx, nbases, mask, cov, root, &
@@ -330,7 +344,7 @@ contains
     end subroutine update_coefficients
 
     subroutine update_fit(data_matrix_in, data_matrix_mean, covariance_matrix_in, rhs_in, chol, coefficients_in, &
-            x, y, prev_root, parent_idx, y_mean, nbases, smoothness, mask, cov, root, lof)
+            x, y, prev_root, parent_idx, y_mean, nbases, penalty, mask, cov, root, lof)
         real(8), intent(inout) :: data_matrix_in(:, :)
         real(8), intent(inout) :: data_matrix_mean(:)
         real(8), intent(inout) :: covariance_matrix_in(:, :)
@@ -344,7 +358,7 @@ contains
         integer, intent(in) :: parent_idx
         real(8), intent(in) :: y_mean
         integer, intent(in) :: nbases
-        integer, intent(in) :: smoothness
+        integer, intent(in) :: penalty
         logical, intent(in) :: mask(:, :)
         integer, intent(in) :: cov(:, :)
         real(8), intent(in) :: root(:, :)
@@ -362,7 +376,7 @@ contains
         call update_rhs(rhs_in, update, y, y_mean)
         call update_coefficients(coefficients_in, chol, covariance_addition, rhs_in)
 
-        call generalised_cross_validation(y, y_mean, data_matrix_in, coefficients_in, nbases, smoothness, lof)
+        call generalised_cross_validation(y, y_mean, data_matrix_in, chol, coefficients_in, penalty, lof)
     end subroutine update_fit
 
     subroutine argsort(array, indices)
@@ -416,7 +430,7 @@ contains
         root(parent_depth + 2, nbases) = root_in
     end subroutine add_bases
 
-    subroutine expand_bases(x, y, y_mean, max_nbases, max_ncandidates, aging_factor, smoothness, &
+    subroutine expand_bases(x, y, y_mean, max_nbases, max_ncandidates, aging_factor, penalty, &
             lof, nbases, mask, truncated, cov, root, coefficients_out)
         real(8), intent(in) :: x(:, :)
         real(8), intent(in) :: y(:)
@@ -424,7 +438,7 @@ contains
         integer, intent(in) :: max_nbases
         integer, intent(in) :: max_ncandidates
         real(8), intent(in) :: aging_factor
-        integer, intent(in) :: smoothness
+        integer, intent(in) :: penalty
 
         real(8), intent(out) :: lof
         integer, intent(out) :: nbases
@@ -495,7 +509,7 @@ contains
 
             nbases = nbases + 2
             !$OMP PARALLEL DO DEFAULT(firstprivate) &
-            !$OMP& SHARED(parents, pairs, x, y, y_mean, smoothness, &
+            !$OMP& SHARED(parents, pairs, x, y, y_mean, penalty, &
             !$OMP& best_lof, best_cov, best_root, best_parent, basis_lofs)
             do i = 1, num_pairs
                 parent = parents(pairs(i, 1))
@@ -528,13 +542,13 @@ contains
                         allocate(a_rhs(nbases - 1))
                         allocate(a_chol(nbases - 1, nbases - 1))
                         allocate(a_coefficients(nbases - 1))
-                        call fit(x, y, y_mean, nbases, mask, truncated, cov, root, smoothness, &
+                        call fit(x, y, y_mean, nbases, mask, truncated, cov, root, penalty, &
                                 a_data_matrix, a_data_matrix_mean, a_covariance_matrix, a_rhs, a_chol, a_coefficients, &
                                 lof)
                     else
                         call update_fit(a_data_matrix, a_data_matrix_mean, a_covariance_matrix, a_rhs, a_chol, &
                                 a_coefficients, x, y, eligible_roots(root_idx - 1), parent, &
-                                y_mean, nbases, smoothness, mask, cov, root, lof)
+                                y_mean, nbases, penalty, mask, cov, root, lof)
                     end if
                     !$OMP CRITICAL
                     if (lof < basis_lofs(pairs(i, 1))) then
@@ -603,7 +617,7 @@ contains
         allocate(a_covariance_matrix(nbases - 1, nbases - 1))
         allocate(a_rhs(nbases - 1))
         allocate(a_chol(nbases - 1, nbases - 1))
-        call fit(x, y, y_mean, nbases, mask, truncated, cov, root, smoothness, &
+        call fit(x, y, y_mean, nbases, mask, truncated, cov, root, penalty, &
                 a_data_matrix, a_data_matrix_mean, a_covariance_matrix, a_rhs, a_chol, &
                 coefficients_out, lof)
         deallocate(a_data_matrix)
@@ -613,7 +627,7 @@ contains
         deallocate(a_chol)
     end subroutine expand_bases
 
-    subroutine prune_bases(x, y, y_mean, lof, nbases, mask_in, truncated, cov, root, smoothness, coefficients_out, &
+    subroutine prune_bases(x, y, y_mean, lof, nbases, mask_in, truncated, cov, root, penalty, coefficients_out, &
             mask)
         real(8), intent(in) :: x(:, :)
         real(8), intent(in) :: y(:)
@@ -624,7 +638,7 @@ contains
         logical, intent(in) :: truncated(:, :)
         integer, intent(in) :: cov(:, :)
         real(8), intent(in) :: root(:, :)
-        integer, intent(in) :: smoothness
+        integer, intent(in) :: penalty
 
         real(8), intent(out) :: coefficients_out(nbases - 1)
         logical, intent(out) :: mask(size(mask_in, 1), size(mask_in, 2)) ! Requires splititng since fortran expects 4 byte for a logical?!
@@ -671,9 +685,9 @@ contains
                 nbases = nbases - 1
 
                 if (nbases == 1) then
-                    call generalised_cross_validation(y, y_mean, a_data_matrix, a_coefficients, nbases, smoothness, lof)
+                    call generalised_cross_validation(y, y_mean, a_data_matrix, a_chol, a_coefficients, penalty, lof)
                 else
-                    call fit(x, y, y_mean, nbases, mask, truncated, cov, root, smoothness, &
+                    call fit(x, y, y_mean, nbases, mask, truncated, cov, root, penalty, &
                             a_data_matrix, a_data_matrix_mean, a_covariance_matrix, a_rhs, a_chol, a_coefficients, &
                             lof)
                 end if
@@ -712,7 +726,7 @@ contains
         allocate(a_rhs(nbases - 1))
         allocate(a_chol(nbases - 1, nbases - 1))
         allocate(a_coefficients(nbases - 1))
-        call fit(x, y, y_mean, nbases, mask, truncated, cov, root, smoothness, &
+        call fit(x, y, y_mean, nbases, mask, truncated, cov, root, penalty, &
                 a_data_matrix, a_data_matrix_mean, a_covariance_matrix, a_rhs, a_chol, a_coefficients, &
                 lof)
         coefficients_out(:nbases - 1) = a_coefficients
@@ -723,7 +737,7 @@ contains
         deallocate(a_chol)
     end subroutine prune_bases
 
-    subroutine find_bases(x, y, y_mean, max_nbases, max_ncandidates, aging_factor, smoothness, &
+    subroutine find_bases(x, y, y_mean, max_nbases, max_ncandidates, aging_factor, penalty, &
             lof, nbases, mask, truncated, cov, root, coefficients_out)
         real(8), intent(in) :: x(:, :)
         real(8), intent(in) :: y(:)
@@ -731,7 +745,7 @@ contains
         integer, intent(in) :: max_nbases
         integer, intent(in) :: max_ncandidates
         real(8), intent(in) :: aging_factor
-        integer, intent(in) :: smoothness
+        integer, intent(in) :: penalty
 
         real(8), intent(out) :: lof
         integer, intent(out) :: nbases
@@ -744,9 +758,9 @@ contains
         !logical :: where_temp(max_nbases, max_nbases) ! fuck you fortran
         logical :: mask_in(max_nbases, max_nbases)
 
-        call expand_bases(x, y, y_mean, max_nbases, max_ncandidates, aging_factor, smoothness, &
+        call expand_bases(x, y, y_mean, max_nbases, max_ncandidates, aging_factor, penalty, &
                 lof, nbases, mask_in, truncated, cov, root, coefficients_out)
-        call prune_bases(x, y, y_mean, lof, nbases, mask_in, truncated, cov, root, smoothness, coefficients_out, mask)
+        call prune_bases(x, y, y_mean, lof, nbases, mask_in, truncated, cov, root, penalty, coefficients_out, mask)
     end subroutine find_bases
 
 end module backend

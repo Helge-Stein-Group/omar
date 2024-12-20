@@ -38,7 +38,7 @@ class OMARS:
                  max_nbases: int = 11,
                  max_ncandidates: int = 11,
                  aging_factor: float = 0.,
-                 smoothness: float = 3,
+                 penalty: float = 3,
                  backend: Backend = Backend.FORTRAN):
         """
         Initialize the OMARS model.
@@ -46,7 +46,7 @@ class OMARS:
             max_nbases: Maximum number of basis functions. Since they are added in pairs, this number should be odd.
             max_ncandidates: Maximum queue length for parent candidates. (See Fast Mars paper)
             aging_factor: Determines how fast unused parent basis functions need recalculation. (See Fast Mars paper)
-            smoothness: Cost for each basis function optimization, parameter of the generalized cross validation.
+            penalty: Cost for each basis function optimization, parameter of the generalized cross validation.
             backend: Backend for the model. "Fortran" should be chosen most of the time since it's way faster.
 
         Other attributes:
@@ -69,7 +69,7 @@ class OMARS:
         self.max_nbases = max_nbases
         self.max_ncandidates = max_ncandidates
         self.aging_factor = aging_factor
-        self.smoothness = smoothness
+        self.penalty = penalty
         self.backend = backend
 
         self.nbases = 1
@@ -211,7 +211,7 @@ class OMARS:
         elif self.backend is Backend.FORTRAN:
             # Fortran indexes from 1
             data_matrix, data_matrix_mean = fortran.backend.data_matrix(x, basis_indices + 1, self.mask,
-                                                                                self.truncated, self.cov + 1, self.root)
+                                                                        self.truncated, self.cov + 1, self.root)
         else:
             raise NotImplementedError("Backend not implemented.")
 
@@ -294,13 +294,16 @@ class OMARS:
 
     def _generalised_cross_validation(self,
                                       y: Float[np.ndarray, "N"],
-                                      data_matrix: Float[np.ndarray, "N {self.nbases}-1"]) -> float:
+                                      data_matrix: Float[np.ndarray, "N {self.nbases}-1"],
+                                      chol: Float[np.ndarray, "{self.nbases}-1 {self.nbases}-1"]) -> float:
         """
-        Calculate the generalised cross validation criterion, the lack of fit criterion.
+        Calculate the generalised cross validation criterion, the lack of fit criterion. The rank can be computed
+        efficiently from the diagonal of the Cholesky decomposition(which is triangular).
 
         Args:
             y: Response variables.
             data_matrix: Centered data matrix.
+            chol: Cholesky decomposition of the covariance matrix.
 
         Returns:
             Lack of fit criterion.
@@ -308,15 +311,22 @@ class OMARS:
         if self.backend is Backend.PYTHON:
             if data_matrix.size != 0:
                 y_pred = data_matrix @ self.coefficients + self.y_mean
+                c_m = np.sum(np.abs(np.diag(chol)) != 0) * (1 + self.penalty) + 1 - self.penalty
             else:
                 y_pred = self.y_mean
-            mse = np.sum((y - y_pred) ** 2)
-            c_m = self.nbases + 1 + self.smoothness * (self.nbases - 1)
-            lof = mse / len(y) / (1 - c_m / len(y) + 1e-6) ** 2
+                c_m = 1 - self.penalty
+            mse = np.sum((y - y_pred) ** 2) / len(y)
+
+            if c_m != len(y):
+                lof = mse / (1 - c_m / len(y)) ** 2
+            else:
+                print("Infinite lack of fit criterion, as the rank of the covariance matrix is equal to the number of \
+                       response variables.")
+                lof = np.inf
+
         elif self.backend is Backend.FORTRAN:
-            lof = fortran.backend.generalised_cross_validation(y, self.y_mean, data_matrix,
-                                                                       self.coefficients, self.nbases,
-                                                                       self.smoothness)
+            lof = fortran.backend.generalised_cross_validation(y, self.y_mean, data_matrix, chol, self.coefficients,
+                                                               self.penalty)
         else:
             raise NotImplementedError("Backend not implemented.")
 
@@ -348,12 +358,12 @@ class OMARS:
             covariance_matrix = self._covariance_matrix(data_matrix)
             rhs = self._rhs(y, data_matrix)
             self.coefficients, chol = self._coefficients(covariance_matrix, rhs)
-            lof = self._generalised_cross_validation(y, data_matrix)
+            lof = self._generalised_cross_validation(y, data_matrix, chol)
         elif self.backend is Backend.FORTRAN:
             # Fortran indexes from 1
             data_matrix, data_matrix_mean, covariance_matrix, rhs, chol, self.coefficients, lof = \
                 fortran.backend.fit(x, y, self.y_mean, self.nbases, self.mask, self.truncated, self.cov + 1,
-                                            self.root, self.smoothness)
+                                    self.root, self.penalty)
             chol = np.tril(chol)
         else:
             raise NotImplementedError("Backend not implemented.")
@@ -396,8 +406,8 @@ class OMARS:
         elif self.backend is Backend.FORTRAN:
             # Fortran indexes from 1
             update, update_mean = fortran.backend.update_init(x, data_matrix, data_matrix_mean, prev_root,
-                                                                      parent_idx, self.nbases, self.mask, self.cov + 1,
-                                                                      self.root)
+                                                              parent_idx, self.nbases, self.mask, self.cov + 1,
+                                                              self.root)
         else:
             raise NotImplementedError("Backend not implemented.")
         return update, update_mean
@@ -464,7 +474,7 @@ class OMARS:
         elif self.backend is Backend.FORTRAN:
             # Fortran updates in place
             covariance_addition = fortran.backend.update_covariance_matrix(covariance_matrix, data_matrix,
-                                                                                   update)
+                                                                           update)
         else:
             raise NotImplementedError("Backend not implemented.")
 
@@ -570,7 +580,7 @@ class OMARS:
             rhs = self._update_rhs(rhs, update, y)
             self.coefficients, chol = self._update_coefficients(chol, covariance_addition, rhs)
 
-            lof = self._generalised_cross_validation(y, data_matrix)
+            lof = self._generalised_cross_validation(y, data_matrix, chol)
         elif self.backend is Backend.FORTRAN:
             # Fortran updates in place, and indexes from 1
             data_matrix = np.asfortranarray(data_matrix)
@@ -580,8 +590,8 @@ class OMARS:
             chol = np.asfortranarray(chol)
             self.coefficients = np.asfortranarray(self.coefficients)
             lof = fortran.backend.update_fit(data_matrix, data_matrix_mean, covariance_matrix, rhs, chol,
-                                                     self.coefficients, x, y, prev_root, parent_idx + 1, self.y_mean,
-                                                     self.nbases, self.smoothness, self.mask, self.cov + 1, self.root)
+                                             self.coefficients, x, y, prev_root, parent_idx + 1, self.y_mean,
+                                             self.nbases, self.penalty, self.mask, self.cov + 1, self.root)
             chol = np.tril(chol)
         else:
             raise NotImplementedError("Backend not implemented.")
@@ -613,7 +623,7 @@ class OMARS:
             self.root[parent_depth + 1, self.nbases - 1] = root
         elif self.backend is Backend.FORTRAN:
             fortran.backend.add_bases(parent, cov, root, self.nbases, self.mask, self.truncated, self.cov,
-                                              self.root)
+                                      self.root)
         else:
             raise NotImplementedError("Backend not implemented.")
 
@@ -702,9 +712,9 @@ class OMARS:
         elif self.backend is Backend.FORTRAN:
             (lof, self.nbases, self.mask, self.truncated, self.cov, self.root,
              self.coefficients) = fortran.backend.expand_bases(x, y, self.y_mean,
-                                                                       self.max_nbases, self.max_ncandidates,
-                                                                       self.aging_factor,
-                                                                       self.smoothness)
+                                                               self.max_nbases, self.max_ncandidates,
+                                                               self.aging_factor,
+                                                               self.penalty)
             # Fortran indexes from 1 and has a fixed output size, therefore requires trimming in case of early stopping
             self.cov -= 1
             self.coefficients = self.coefficients[:self.nbases]
@@ -748,7 +758,7 @@ class OMARS:
                         data_matrix, data_matrix_mean, covariance_matrix, rhs, chol, self.coefficients, lof = self._fit(
                             x, y)
                     else:
-                        lof = self._generalised_cross_validation(y, np.empty(0))
+                        lof = self._generalised_cross_validation(y, np.empty(0), np.empty((0, 0)))
 
                     if lof < best_lof_trim:
                         best_lof_trim = lof
@@ -776,13 +786,13 @@ class OMARS:
             lof = np.array(lof, dtype=float)
             self.nbases = np.array(self.nbases, dtype=int)
             self.coefficients, self.mask = fortran.backend.prune_bases(x, y, self.y_mean,
-                                                                               lof,
-                                                                               self.nbases,
-                                                                               self.mask,
-                                                                               self.truncated,
-                                                                               self.cov + 1,
-                                                                               self.root,
-                                                                               self.smoothness)
+                                                                       lof,
+                                                                       self.nbases,
+                                                                       self.mask,
+                                                                       self.truncated,
+                                                                       self.cov + 1,
+                                                                       self.root,
+                                                                       self.penalty)
             # Fortran has a fixed output size, therefore requires trimming in case of early stopping
             self.coefficients = self.coefficients[:self.nbases]
         else:
@@ -808,8 +818,8 @@ class OMARS:
         elif self.backend is Backend.FORTRAN:
             (lof, self.nbases, self.mask, self.truncated, self.cov, self.root,
              self.coefficients) = fortran.backend.find_bases(x, y, self.y_mean, self.max_nbases,
-                                                                     self.max_ncandidates,
-                                                                     self.aging_factor, self.smoothness)
+                                                             self.max_ncandidates,
+                                                             self.aging_factor, self.penalty)
             # Fortran indexes from 1 and has a fixed output size, therefore requires trimming in case of early stopping
             self.cov -= 1
             self.coefficients = self.coefficients[:self.nbases]
