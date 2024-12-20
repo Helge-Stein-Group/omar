@@ -509,6 +509,12 @@ contains
             basis_lofs = 1d20
 
             nbases = nbases + 2
+            allocate(a_data_matrix(size(x, 1), nbases - 1))
+            allocate(a_data_matrix_mean(nbases - 1))
+            allocate(a_covariance_matrix(nbases - 1, nbases - 1))
+            allocate(a_rhs(nbases - 1))
+            allocate(a_chol(nbases - 1, nbases - 1))
+            allocate(a_coefficients(nbases - 1))
             !$OMP PARALLEL DO DEFAULT(firstprivate) &
             !$OMP& SHARED(parents, pairs, x, y, y_mean, penalty, &
             !$OMP& best_lof, best_cov, best_root, best_parent, basis_lofs)
@@ -537,12 +543,6 @@ contains
                 do root_idx = 1, size(eligible_roots)
                     root(parent_depth + 2, nbases) = eligible_roots(root_idx)
                     if (root_idx == 1) then
-                        allocate(a_data_matrix(size(x, 1), nbases - 1))
-                        allocate(a_data_matrix_mean(nbases - 1))
-                        allocate(a_covariance_matrix(nbases - 1, nbases - 1))
-                        allocate(a_rhs(nbases - 1))
-                        allocate(a_chol(nbases - 1, nbases - 1))
-                        allocate(a_coefficients(nbases - 1))
                         call fit(x, y, y_mean, nbases, mask, truncated, cov, root, penalty, &
                                 a_data_matrix, a_data_matrix_mean, a_covariance_matrix, a_rhs, a_chol, a_coefficients, &
                                 lof)
@@ -565,14 +565,15 @@ contains
                 end do
 
                 deallocate(eligible_roots)
-                deallocate(a_data_matrix)
-                deallocate(a_data_matrix_mean)
-                deallocate(a_covariance_matrix)
-                deallocate(a_rhs)
-                deallocate(a_chol)
-                deallocate(a_coefficients)
             end do
             !$OMP END PARALLEL DO
+            deallocate(a_data_matrix)
+            deallocate(a_data_matrix_mean)
+            deallocate(a_covariance_matrix)
+            deallocate(a_rhs)
+            deallocate(a_chol)
+            deallocate(a_coefficients)
+
             do i = 1, size(candidate_queue)
                 if (i <= size(basis_lofs)) then
                     candidate_queue(parents(i)) = basis_lofs(i) - best_lof
@@ -756,7 +757,6 @@ contains
         real(8), intent(out) :: root(max_nbases, max_nbases)
         real(8), intent(out) :: coefficients_out(max_nbases - 1)
 
-        !logical :: where_temp(max_nbases, max_nbases) ! fuck you fortran
         logical :: mask_in(max_nbases, max_nbases)
 
         call expand_bases(x, y, y_mean, max_nbases, max_ncandidates, aging_factor, penalty, &

@@ -1,123 +1,83 @@
-from utils import speed_test, monitor_scaling_laws
+import csv
+import timeit
+
+from datetime import datetime
+
+import numpy as np
+
+import omars
+
+def test_speed():
+    setup = r"""
+import omars
+import tests.utils as utils
+            
+x, y, y_true = utils.generate_data(10000, 10)
+model = omars.OMARS(backend=backend)
+"""
+    command = "model.find_bases(x, y)"
+    results = []
+
+    for backend in omars.Backend:
+        time = np.mean(timeit.repeat(command, setup=setup, globals={"backend": backend}, repeat=10, number=1))
+        results.append([str(datetime.now()), "{:.6f}".format(time), backend])
 
 
-def test_speed_find_bases() -> None:
-    speed_test(
-        "import utils\n" +
-        "import regression\n" +
-        "x, y, y_true = utils.generate_data(n_samples, dim)\n" +
-        "model = regression.OMARS()",
-        "model.find_bases(x, y)",
-        "oop",
-        "../results/speeds_find_bases.txt",
-        repeat=10,
-        number=1,
-        n_samples=10000,
-        dim=10,
-        m_max=11
-    )
+    with open("../benchmark/speeds_find_bases.csv", "a", newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Timestamp", "Time", "Backend"])
+        writer.writerows(results)
 
+def test_scaling_laws() -> None:
+    setup = r"""
+import omars
+import tests.utils as utils
 
-def test_monitor_scaling_laws() -> None:
-    monitor_scaling_laws(
-        "import utils\nimport regression\n" +
-        "x, y, y_true = utils.generate_data(n_samples, dim)\n" +
-        "model = regression.OMARS(m_max, m_max)",
-        "model.find_bases(x, y)",
-        "python"
-    )
+x, y, y_true = utils.generate_data(n_samples, dim)
+model = omars.OMARS(max_nbases=max_nbases, max_ncandidates=5, backend=backend)
+"""
 
+    command = "model.find_bases(x, y)"
 
-def test_speed_update_cholesky() -> None:
-    speed_test(
-        "import utils\n" +
-        "import regression\n" +
-        "import numpy as np\n" +
-        "tri = np.triu(np.random.rand(100, 100))\n" +
-        "vecs = [np.random.rand(100)]\n" +
-        "vals = [2]",
-        "regression.update_cholesky(tri, vecs, vals)",
-        "oop",
-        "../results/speeds_update_cholesky.txt",
-        repeat=100,
-        number=1,
-        n_samples=100,
-        dim=2,
-        m_max=10
-    )
+    variables = {
+        "backend": None,
+        "n_samples": 10 ** 4,
+        "dim": 4,
+        "max_nbases": 11
+    }
 
+    results = {}
+    for backend in omars.Backend:
+        results[backend] = {}
+        variables["backend"] = backend
 
-def test_speed_data_matrix() -> None:
-    speed_test(
-        "import utils\n" +
-        "import regression\n" +
-        "x, y, y_true, model = utils.data_generation_model(n_samples, dim)",
-        "model.data_matrix(x, slice(model.nbases))",
-        "oop",
-        "../results/speeds_data_matrix.txt",
-        repeat=100,
-        number=1,
-        n_samples=10 ** 5,
-        dim=10,
-        m_max=10
-    )
+        N = np.logspace(1, 4, 20, dtype=int)
+        N_times = []
+        for n_samples in N:
+            variables["n_samples"] = n_samples
+            N_times += [np.mean(timeit.repeat(command, setup=setup, globals=variables, repeat=10, number=1))]
 
+        results[backend]["n_samples"] = np.array([[N], [N_times]])
 
-def test_speed_update_init() -> None:
-    speed_test(
-        "import utils\n" +
-        "import regression\n" +
-        "import numpy as np\n" +
-        "x, y, y_true, model = utils.data_generation_model(n_samples, dim)\n" +
-        "old_node = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]\n" +
-        "model.nodes[2,2] = x[np.argmin(np.abs(x[:, 1] - 0.6)), 1]\n" +
-        "parent_idx = 1",
-        "model.update_init(x, old_node, parent_idx)",
-        "oop",
-        "../results/speeds_update_init.txt",
-        repeat=100,
-        number=1,
-        n_samples=10 ** 5,
-        dim=10,
-        m_max=10
-    )
+        M = np.linspace(3, 17, 8, dtype=int)
+        M_times = []
+        for m_max in M:
+            variables["max_nbases"] = m_max
+            M_times += [np.mean(timeit.repeat(command, setup=setup, globals=variables, repeat=10, number=1))]
+        results[backend]["max_nbases"] = np.array([[M], [M_times]])
+        variables["max_nbases"] = 11
 
+        d = np.linspace(2, 10, 5, dtype=int)
+        d_times = []
+        for dim in d:
+            variables["dim"] = dim
+            d_times += [np.mean(timeit.repeat(command, setup=setup, globals=variables, repeat=10, number=1))]
+        results[backend]["dim"] = np.array([[d], [d_times]])
 
-def test_speed_covariance_update() -> None:
-    speed_test(
-        "import utils\n" +
-        "import regression\n" +
-        "import numpy as np\n" +
-        "x, y, y_true, model = utils.data_generation_model(n_samples, dim)\n" +
-        "old_node = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]\n" +
-        "model.nodes[2,2] = x[np.argmin(np.abs(x[:, 1] - 0.6)), 1]\n" +
-        "parent_idx = 1\n" +
-        "model.update_init(x, old_node, parent_idx)",
-        "model.update_covariance_matrix()",
-        "oop",
-        "../results/speeds_update_covariance_matrix.txt",
-        repeat=100,
-        number=1,
-        n_samples=10 ** 5,
-        dim=10,
-        m_max=10
-    )
-
-
-def test_speed_decompose_addition() -> None:
-    speed_test(
-        "import utils\n" +
-        "import regression\n" +
-        "import numpy as np\n" +
-        "x, y, y_true, model = utils.data_generation_model(n_samples, dim)\n" +
-        "model.covariance_matrix = np.zeros((10, 10))\n" +
-        "vec = np.arange(10)",
-        "model.decompose_addition(vec)",
-        "oop",
-        "../results/speeds_decompose_addition.txt",
-        repeat=100,
-        number=1,
-        n_samples=10 ** 5,
-        dim=10,
-        m_max=10
-    )
+    with open("../benchmark/scaling_laws.csv", "w", newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Backend", "Parameter", "Values", "Times"])
+        for backend, params in results.items():
+            for param, data in params.items():
+                values, times = data
+                writer.writerow([backend, param, values.tolist(), times.tolist()])

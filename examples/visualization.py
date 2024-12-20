@@ -1,17 +1,14 @@
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 
-from omars_pure_python import OMARS
-
-mpl.use("Qt5Agg")
-
+from omars import OMARS
 
 def inspect_fit(
         x: np.ndarray,
         y: np.ndarray,
         model: OMARS,
         title: str,
+        fit: bool = True
 ) -> None:
     assert x.ndim == 2
     assert y.ndim == 1
@@ -19,7 +16,8 @@ def inspect_fit(
     assert x.shape[1] == 2
     assert isinstance(model, OMARS)
     assert isinstance(title, str)
-    model._fit(x,y)
+    if fit:
+        model._fit(x,y)
 
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
@@ -54,27 +52,20 @@ def inspect_fit(
 
 
 if __name__ == "__main__":
-    from omars_pure_python import OMARS
-    import sys
-    sys.path.append("tests")
+    from omars import OMARS
     from tests.utils import generate_data
-    from tests.system_test import evaluate_prediction
 
-    n_samples = 100
-    ndim = 2
-
-    x, y, y_true = generate_data(100, 2)
+    x, y, y_true = generate_data()
 
     model = OMARS()
     model.find_bases(x, y)
-    y_pred = model(x)
-    print(evaluate_prediction(y_pred, y_true, y))
-    y_pred = y_pred * np.std(y) + np.mean(y)
 
     print(model)
     inspect_fit(x, y, model, "Full model")
-    for i in range(len(model)):
+    for j, i in enumerate(model._active_base_indices()):
         print(model[i])
         if i !=0:
-            print(model.coefficients[i-1])
-        inspect_fit(x, y_pred, model[i], str(i))
+            print(model.coefficients[j-1])
+            inspect_fit(x, y, model[i], str(i))
+        else:
+            inspect_fit(x, y, model[i], str(i), False)

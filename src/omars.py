@@ -138,8 +138,6 @@ class OMARS:
         Returns:
             Submodel with only the i-th basis function.
         """
-        assert i < self.nbases
-
         sub_model = OMARS()
         sub_model.nbases = 1
         sub_model.mask[:, i:i + 1] = self.mask[:, i:i + 1]
@@ -149,6 +147,7 @@ class OMARS:
 
         if i != 0:
             sub_model.coefficients = self.coefficients[i:i + 1]
+            sub_model.nbases = 2
 
         sub_model.y_mean = self.y_mean
         return sub_model
