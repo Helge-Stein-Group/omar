@@ -718,7 +718,7 @@ class OMARS:
                                                                self.penalty)
             # Fortran indexes from 1 and has a fixed output size, therefore requires trimming in case of early stopping
             self.cov -= 1
-            self.coefficients = self.coefficients[:self.nbases]
+            self.coefficients = self.coefficients[:self.nbases - 1]
         else:
             raise NotImplementedError("Backend not implemented.")
 
@@ -795,7 +795,7 @@ class OMARS:
                                                                        self.root,
                                                                        self.penalty)
             # Fortran has a fixed output size, therefore requires trimming in case of early stopping
-            self.coefficients = self.coefficients[:self.nbases]
+            self.coefficients = self.coefficients[:self.nbases -1]
         else:
             raise NotImplementedError("Backend not implemented.")
 
@@ -823,7 +823,7 @@ class OMARS:
                                                              self.aging_factor, self.penalty)
             # Fortran indexes from 1 and has a fixed output size, therefore requires trimming in case of early stopping
             self.cov -= 1
-            self.coefficients = self.coefficients[:self.nbases]
+            self.coefficients = self.coefficients[:self.nbases - 1]
         else:
             raise NotImplementedError("Backend not implemented.")
 
