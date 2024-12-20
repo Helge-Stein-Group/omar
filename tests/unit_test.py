@@ -248,7 +248,7 @@ def test_prune_bases():
         test_model.backend = backend
         test_lof = test_model._prune_bases(x, y, test_lof)
 
-        assert test_model == model, f"{backend} Backend"
+        assert test_model == model, f"{backend} Backend: \n {model} \n vs. \n {test_model}"
 
 def test_find_bases():
     x, y, y_true = utils.generate_data()

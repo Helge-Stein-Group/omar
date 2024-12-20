@@ -1,4 +1,4 @@
-module fortran_backend
+module backend
     use omp_lib
     implicit none
 contains
@@ -749,4 +749,4 @@ contains
         call prune_bases(x, y, y_mean, lof, nbases, mask_in, truncated, cov, root, smoothness, coefficients_out, mask)
     end subroutine find_bases
 
-end module fortran_backend
+end module backend

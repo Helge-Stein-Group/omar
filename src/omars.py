@@ -6,7 +6,7 @@ from numba import njit
 from jaxtyping import Float, Integer
 from scipy.linalg import cho_factor, cho_solve
 
-import fortran_backend as fortran
+import build.fortran_backend as fortran
 
 
 class Backend(Enum):
@@ -183,7 +183,7 @@ class OMARS:
             return np.where(np.any(self.mask, axis=0))[0]
         elif self.backend is Backend.FORTRAN:
             # Fortran indexes from 1
-            return fortran.fortran_backend.active_base_indices(self.mask, self.nbases) - 1
+            return fortran.backend.active_base_indices(self.mask, self.nbases) - 1
 
     def _data_matrix(self, x: Float[np.ndarray, "N d"], basis_indices: Integer[np.ndarray, "{self.nbases}-1"]) \
             -> tuple[
@@ -210,7 +210,7 @@ class OMARS:
             data_matrix -= data_matrix_mean
         elif self.backend is Backend.FORTRAN:
             # Fortran indexes from 1
-            data_matrix, data_matrix_mean = fortran.fortran_backend.data_matrix(x, basis_indices + 1, self.mask,
+            data_matrix, data_matrix_mean = fortran.backend.data_matrix(x, basis_indices + 1, self.mask,
                                                                                 self.truncated, self.cov + 1, self.root)
         else:
             raise NotImplementedError("Backend not implemented.")
@@ -238,7 +238,7 @@ class OMARS:
             covariance_matrix = data_matrix.T @ data_matrix
             covariance_matrix += np.eye(covariance_matrix.shape[0]) * 1e-8
         elif self.backend is Backend.FORTRAN:
-            covariance_matrix = fortran.fortran_backend.covariance_matrix(data_matrix)
+            covariance_matrix = fortran.backend.covariance_matrix(data_matrix)
         else:
             raise NotImplementedError("Backend not implemented.")
 
@@ -259,7 +259,7 @@ class OMARS:
         if self.backend is Backend.PYTHON:
             rhs = data_matrix.T @ (y - self.y_mean)
         elif self.backend is Backend.FORTRAN:
-            rhs = fortran.fortran_backend.rhs(y, self.y_mean, data_matrix)
+            rhs = fortran.backend.rhs(y, self.y_mean, data_matrix)
         else:
             raise NotImplementedError("Backend not implemented.")
 
@@ -286,7 +286,7 @@ class OMARS:
             chol, lower = cho_factor(covariance_matrix, lower=True)
             self.coefficients = cho_solve((chol, lower), rhs)
         elif self.backend is Backend.FORTRAN:
-            self.coefficients, chol = fortran.fortran_backend.coefficients(covariance_matrix, rhs)
+            self.coefficients, chol = fortran.backend.coefficients(covariance_matrix, rhs)
         else:
             raise NotImplementedError("Backend not implemented.")
 
@@ -314,7 +314,7 @@ class OMARS:
             c_m = self.nbases + 1 + self.smoothness * (self.nbases - 1)
             lof = mse / len(y) / (1 - c_m / len(y) + 1e-6) ** 2
         elif self.backend is Backend.FORTRAN:
-            lof = fortran.fortran_backend.generalised_cross_validation(y, self.y_mean, data_matrix,
+            lof = fortran.backend.generalised_cross_validation(y, self.y_mean, data_matrix,
                                                                        self.coefficients, self.nbases,
                                                                        self.smoothness)
         else:
@@ -352,7 +352,7 @@ class OMARS:
         elif self.backend is Backend.FORTRAN:
             # Fortran indexes from 1
             data_matrix, data_matrix_mean, covariance_matrix, rhs, chol, self.coefficients, lof = \
-                fortran.fortran_backend.fit(x, y, self.y_mean, self.nbases, self.mask, self.truncated, self.cov + 1,
+                fortran.backend.fit(x, y, self.y_mean, self.nbases, self.mask, self.truncated, self.cov + 1,
                                             self.root, self.smoothness)
             chol = np.tril(chol)
         else:
@@ -395,7 +395,7 @@ class OMARS:
             update -= update_mean
         elif self.backend is Backend.FORTRAN:
             # Fortran indexes from 1
-            update, update_mean = fortran.fortran_backend.update_init(x, data_matrix, data_matrix_mean, prev_root,
+            update, update_mean = fortran.backend.update_init(x, data_matrix, data_matrix_mean, prev_root,
                                                                       parent_idx, self.nbases, self.mask, self.cov + 1,
                                                                       self.root)
         else:
@@ -428,7 +428,7 @@ class OMARS:
             data_matrix_mean[-1] += update_mean
         elif self.backend is Backend.FORTRAN:
             # Fortran updates in place
-            fortran.fortran_backend.update_data_matrix(data_matrix, data_matrix_mean, update, update_mean)
+            fortran.backend.update_data_matrix(data_matrix, data_matrix_mean, update, update_mean)
         else:
             raise NotImplementedError("Backend not implemented.")
 
@@ -463,7 +463,7 @@ class OMARS:
             covariance_matrix[:, -1] += covariance_addition
         elif self.backend is Backend.FORTRAN:
             # Fortran updates in place
-            covariance_addition = fortran.fortran_backend.update_covariance_matrix(covariance_matrix, data_matrix,
+            covariance_addition = fortran.backend.update_covariance_matrix(covariance_matrix, data_matrix,
                                                                                    update)
         else:
             raise NotImplementedError("Backend not implemented.")
@@ -490,7 +490,7 @@ class OMARS:
             rhs[-1] += update.T @ (y - self.y_mean)
         elif self.backend is Backend.FORTRAN:
             # Fortran updates in place
-            fortran.fortran_backend.update_rhs(rhs, update, y, self.y_mean)
+            fortran.backend.update_rhs(rhs, update, y, self.y_mean)
         return rhs
 
     def _update_coefficients(self,
@@ -519,7 +519,7 @@ class OMARS:
             self.coefficients = cho_solve((chol, True), rhs)
         elif self.backend is Backend.FORTRAN:
             # Fortran updates in place
-            fortran.fortran_backend.update_coefficients(self.coefficients, chol, covariance_addition, rhs)
+            fortran.backend.update_coefficients(self.coefficients, chol, covariance_addition, rhs)
         else:
             raise NotImplementedError("Backend not implemented.")
 
@@ -579,7 +579,7 @@ class OMARS:
             rhs = np.asfortranarray(rhs)
             chol = np.asfortranarray(chol)
             self.coefficients = np.asfortranarray(self.coefficients)
-            lof = fortran.fortran_backend.update_fit(data_matrix, data_matrix_mean, covariance_matrix, rhs, chol,
+            lof = fortran.backend.update_fit(data_matrix, data_matrix_mean, covariance_matrix, rhs, chol,
                                                      self.coefficients, x, y, prev_root, parent_idx + 1, self.y_mean,
                                                      self.nbases, self.smoothness, self.mask, self.cov + 1, self.root)
             chol = np.tril(chol)
@@ -612,7 +612,7 @@ class OMARS:
             self.root[:, self.nbases - 2: self.nbases] = np.tile(self.root[:, parent:parent + 1], (1, 2))
             self.root[parent_depth + 1, self.nbases - 1] = root
         elif self.backend is Backend.FORTRAN:
-            fortran.fortran_backend.add_bases(parent, cov, root, self.nbases, self.mask, self.truncated, self.cov,
+            fortran.backend.add_bases(parent, cov, root, self.nbases, self.mask, self.truncated, self.cov,
                                               self.root)
         else:
             raise NotImplementedError("Backend not implemented.")
@@ -701,7 +701,7 @@ class OMARS:
 
         elif self.backend is Backend.FORTRAN:
             (lof, self.nbases, self.mask, self.truncated, self.cov, self.root,
-             self.coefficients) = fortran.fortran_backend.expand_bases(x, y, self.y_mean,
+             self.coefficients) = fortran.backend.expand_bases(x, y, self.y_mean,
                                                                        self.max_nbases, self.max_ncandidates,
                                                                        self.aging_factor,
                                                                        self.smoothness)
@@ -773,9 +773,9 @@ class OMARS:
             # Fortran indexes from 1
             self.mask = np.asfortranarray(self.mask)
             # Need mutable types for Fortran
-            lof = np.array([lof], dtype=float)
-            self.nbases = np.array([self.nbases], dtype=int)
-            self.coefficients, self.mask = fortran.fortran_backend.prune_bases(x, y, self.y_mean,
+            lof = np.array(lof, dtype=float)
+            self.nbases = np.array(self.nbases, dtype=int)
+            self.coefficients, self.mask = fortran.backend.prune_bases(x, y, self.y_mean,
                                                                                lof,
                                                                                self.nbases,
                                                                                self.mask,
@@ -784,8 +784,6 @@ class OMARS:
                                                                                self.root,
                                                                                self.smoothness)
             # Fortran has a fixed output size, therefore requires trimming in case of early stopping
-            self.nbases = self.nbases[0]
-            self.mask = self.mask[:, :self.nbases]
             self.coefficients = self.coefficients[:self.nbases]
         else:
             raise NotImplementedError("Backend not implemented.")
@@ -809,7 +807,7 @@ class OMARS:
             lof = self._prune_bases(x, y, lof)
         elif self.backend is Backend.FORTRAN:
             (lof, self.nbases, self.mask, self.truncated, self.cov, self.root,
-             self.coefficients) = fortran.fortran_backend.find_bases(x, y, self.y_mean, self.max_nbases,
+             self.coefficients) = fortran.backend.find_bases(x, y, self.y_mean, self.max_nbases,
                                                                      self.max_ncandidates,
                                                                      self.aging_factor, self.smoothness)
             # Fortran indexes from 1 and has a fixed output size, therefore requires trimming in case of early stopping
