@@ -329,11 +329,12 @@ contains
         real(8) :: eigenvectors(2, size(covariance_addition))
         integer :: i
         integer :: info
-
-        call decompose_addition(covariance_addition, eigenvalues, eigenvectors)
-        do i = 1, 2
-            call update_cholesky(chol, eigenvectors(i, :), eigenvalues(i))
-        end do
+        if (any(covariance_addition /= 0.0d0)) then
+            call decompose_addition(covariance_addition, eigenvalues, eigenvectors)
+            do i = 1, 2
+                call update_cholesky(chol, eigenvectors(i, :), eigenvalues(i))
+            end do
+        end if
 
         coefficients_in = rhs_in
         call dpotrs('L', size(chol, 1), 1, chol, size(chol, 1), coefficients_in, size(chol, 1), info)

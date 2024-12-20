@@ -523,9 +523,10 @@ class OMARS:
             Updated coefficients, updated Cholesky decomposition.
         """
         if self.backend is Backend.PYTHON:
-            eigenvalues, eigenvectors = decompose_addition(covariance_addition)
-            for val, vec in zip(eigenvalues, eigenvectors):
-                chol = update_cholesky(chol, vec, val)
+            if np.any(covariance_addition):
+                eigenvalues, eigenvectors = decompose_addition(covariance_addition)
+                for val, vec in zip(eigenvalues, eigenvectors):
+                    chol = update_cholesky(chol, vec, val)
             self.coefficients = cho_solve((chol, True), rhs)
         elif self.backend is Backend.FORTRAN:
             # Fortran updates in place
