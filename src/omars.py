@@ -893,6 +893,12 @@ def update_cholesky(chol: Float[np.ndarray, "{self.nbases} {self.nbases}"],
         u[i, i + 1:] -= u[i - 1, i] * chol[i + 1:, i]
         b[i] = b[i - 1] + multiplier * u[i - 1, i - 1] ** 2 / diag[i - 1]
 
+    # Check for singular matrix
+    updated_diag = diag + multiplier / b * np.diag(u) ** 2
+    if np.any(updated_diag < 0):
+        print("Singular Covariance Matrix! Increasing Regularisation drastically.")
+        diag = diag + (1e-6 - updated_diag)
+
     for i in range(chol.shape[0]):
         chol[i, i] = np.sqrt(diag[i] + multiplier / b[i] * u[i, i] ** 2)
         chol[i + 1:, i] *= chol[i, i]
