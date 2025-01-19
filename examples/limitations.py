@@ -1,9 +1,9 @@
-# This file aims to demonstrate the limitations of the modelling capabilities of OMARS.
+# This file aims to demonstrate the limitations of the modelling capabilities of OMAR.
 # Underscoring the expectations on the function to be modelled.
 
 
 import numpy as np
-import omars
+import omar
 import tests.utils as utils
 from jaxtyping import Float
 
@@ -43,7 +43,7 @@ def evaluate_prediction(y_pred: Float[np.ndarray, "N"],
 
 def train_and_evaluate(x: np.ndarray, y: np.ndarray, y_true: np.ndarray, description: str, ref: bool = True):
     """
-    Trains the OMARS model and evaluates its performance.
+    Trains the OMAR model and evaluates its performance.
 
     Args:
         x: Input features.
@@ -52,8 +52,8 @@ def train_and_evaluate(x: np.ndarray, y: np.ndarray, y_true: np.ndarray, descrip
         description: Description of the data.
         ref: Whether to use the reference
     """
-    print(f"Training OMARS model on {description} data...")
-    model = omars.OMARS()
+    print(f"Training OMAR model on {description} data...")
+    model = omar.OMAR()
     model.find_bases(x, y)
 
     if ref:

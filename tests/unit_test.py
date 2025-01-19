@@ -2,26 +2,26 @@ import numpy as np
 from scipy.linalg import cho_factor
 from copy import deepcopy
 
-import omars
+import omar
 import tests.utils as utils
 
 
 def test_init():
-    model = omars.OMARS()
+    model = omar.OMAR()
 
-    assert isinstance(model, omars.OMARS)
+    assert isinstance(model, omar.OMAR)
 
 
 def test_len():
-    model = omars.OMARS()
+    model = omar.OMAR()
 
     assert len(model) == 1
 
 
 def test_eq():
-    model1 = omars.OMARS()
-    model2 = omars.OMARS()
-    model3 = omars.OMARS()
+    model1 = omar.OMAR()
+    model2 = omar.OMAR()
+    model3 = omar.OMAR()
     model3.nbases += 1
 
     assert model1 == model2
@@ -29,7 +29,7 @@ def test_eq():
 
 
 def test_getitem():
-    model = omars.OMARS()
+    model = omar.OMAR()
 
     assert model[0] == model
 
@@ -37,7 +37,7 @@ def test_getitem():
 def test_active_base_indices():
     model = utils.reference_model(utils.generate_data()[0])
 
-    for backend in omars.Backend:
+    for backend in omar.Backend:
         model.backend = backend
         assert np.all(model._active_base_indices() == [1, 2, 3, 4]), f"{backend} Backend"
 
@@ -54,7 +54,7 @@ def test_data_matrix() -> None:
     model = utils.reference_model(x)
     ref_data_matrix, ref_data_matrix_mean = utils.reference_data_matrix(x)
 
-    for backend in omars.Backend:
+    for backend in omar.Backend:
         model.backend = backend
         assert np.allclose(ref_data_matrix,
                            model._data_matrix(x, model._active_base_indices())[0]), f"{backend} Backend: Data matrix"
@@ -69,7 +69,7 @@ def test_covariance_matrix():
     ref_data_matrix, ref_data_matrix_mean = utils.reference_data_matrix(x)
     ref_cov_matrix = ref_data_matrix.T @ ref_data_matrix
 
-    for backend in omars.Backend:
+    for backend in omar.Backend:
         model.backend = backend
         assert np.allclose(ref_cov_matrix, model._covariance_matrix(ref_data_matrix)), f"{backend} Backend"
 
@@ -82,7 +82,7 @@ def test_rhs():
 
     model.y_mean = y.mean()
 
-    for backend in omars.Backend:
+    for backend in omar.Backend:
         model.backend = backend
         assert np.allclose(ref_rhs, model._rhs(y, ref_data_matrix)), f"{backend} Backend"
 
@@ -96,7 +96,7 @@ def test_coefficients():
     ref_chol = np.tril(cho_factor(ref_cov_matrix, lower=True)[0])
     ref_coefficients = np.linalg.solve(ref_cov_matrix, ref_rhs)
 
-    for backend in omars.Backend:
+    for backend in omar.Backend:
         model.backend = backend
         assert np.allclose(ref_coefficients,
                            model._coefficients(ref_cov_matrix, ref_rhs)[0]), f"{backend} Backend: Coefficients"
@@ -117,12 +117,12 @@ def test_generalised_cross_validation():
     model.coefficients = ref_coefficients
 
     gcv = {}
-    for backend in omars.Backend:
+    for backend in omar.Backend:
         model.backend = backend
         gcv[backend] = model._generalised_cross_validation(y, ref_data_matrix, ref_chol)
         assert gcv[backend] < 1.0, f"{backend} Backend"
 
-    assert np.allclose(gcv[omars.Backend.FORTRAN], gcv[omars.Backend.PYTHON]), "Unaligned Backends"
+    assert np.allclose(gcv[omar.Backend.FORTRAN], gcv[omar.Backend.PYTHON]), "Unaligned Backends"
 
 
 def test_fit():
@@ -136,7 +136,7 @@ def test_fit():
 
     model.y_mean = y.mean()
 
-    for backend in omars.Backend:
+    for backend in omar.Backend:
         model.backend = backend
         data_matrix, data_matrix_mean, covariance_matrix, rhs, chol, coefficients, lof = model._fit(x, y)
         assert np.allclose(ref_data_matrix, data_matrix), f"{backend} Backend: Data matrix"
@@ -158,7 +158,7 @@ def test_update():
 
     model.y_mean = y.mean()
 
-    for backend in omars.Backend:
+    for backend in omar.Backend:
         model.backend = backend
 
         prev_root = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]
@@ -212,8 +212,8 @@ def test_expand_bases():
     ref_first_lof = model._fit(x, y)[-1]
 
     models = {}
-    for backend in omars.Backend:
-        models[backend] = omars.OMARS(backend=backend)
+    for backend in omar.Backend:
+        models[backend] = omar.OMAR(backend=backend)
         models[backend].y_mean = y.mean()
         models[backend]._expand_bases(x, y)
 
@@ -227,7 +227,7 @@ def test_expand_bases():
         assert full_lof < 1, f"{backend} Backend: Full LOF"
         assert first_lof <= ref_first_lof, f"{backend} Backend: First LOF"
 
-    assert models[omars.Backend.FORTRAN].nbases == models[omars.Backend.PYTHON].nbases, "Unaligned Backends"
+    assert models[omar.Backend.FORTRAN].nbases == models[omar.Backend.PYTHON].nbases, "Unaligned Backends"
 
 def test_prune_bases():
     x, y, y_true = utils.generate_data()
@@ -236,7 +236,7 @@ def test_prune_bases():
 
     ref_lof = model._fit(x, y)[-1]
 
-    for backend in omars.Backend:
+    for backend in omar.Backend:
         test_model = deepcopy(model)
 
         test_model.mask[:, 5:] = np.random.choice(a=[False, True], size=test_model.mask[:, 5:].shape)
@@ -262,8 +262,8 @@ def test_find_bases():
     ref_first_lof = model._fit(x, y)[-1]
 
     models = {}
-    for backend in omars.Backend:
-        models[backend] = omars.OMARS(backend=backend)
+    for backend in omar.Backend:
+        models[backend] = omar.OMAR(backend=backend)
         full_lof = models[backend].find_bases(x, y)
 
         models[backend].mask = np.zeros_like(model.mask)
@@ -274,4 +274,4 @@ def test_find_bases():
         assert full_lof < 1, f"{backend} Backend: Full LOF"
         assert first_lof <= ref_first_lof, f"{backend} Backend: First LOF"
 
-    assert models[omars.Backend.FORTRAN].nbases == models[omars.Backend.PYTHON].nbases, "Unaligned Backends"
+    assert models[omar.Backend.FORTRAN].nbases == models[omar.Backend.PYTHON].nbases, "Unaligned Backends"

@@ -11,15 +11,15 @@ import build.fortran_backend as fortran
 
 class Backend(Enum):
     """
-    Backend for the OMARS model.
+    Backend for the OMAR model.
     """
     FORTRAN = 1
     PYTHON = 2
 
 
-class OMARS:
+class OMAR:
     """
-    Open Multivariate Adaptive Regression Splines (OMARS) model.
+    Open Multivariate Adaptive Regression Splines (OMAR) model.
     Use it to find localised, linear relationships in your data.
     Based on:
     - Friedman, J. (1991). Multivariate adaptive regression splines.
@@ -41,7 +41,7 @@ class OMARS:
                  penalty: float = 3,
                  backend: Backend = Backend.FORTRAN):
         """
-        Initialize the OMARS model.
+        Initialize the OMAR model.
         Args:
             max_nbases: Maximum number of basis functions. Since they are added in pairs, this number should be odd.
             max_ncandidates: Maximum queue length for parent candidates. (See Fast Mars paper)
@@ -104,9 +104,9 @@ class OMARS:
         Returns:
             Description of the basis functions.
         """
-        desc = "OMARS (Open Multivariate Adaptive Splines Regression) Model\n"
+        desc = "OMAR (Open Multivariate Adaptive Splines Regression) Model\n"
         desc += "Basis functions: \n"
-        desc += f"1 * {self.y_mean} + \n"
+        desc += f"{self.y_mean} * 1 + \n"
         for basis_idx in self._active_base_indices():
             for func_idx in range(self.max_nbases):
                 if self.mask[func_idx, basis_idx]:
@@ -114,10 +114,10 @@ class OMARS:
                     cov = self.cov[func_idx, basis_idx]
                     root = self.root[func_idx, basis_idx]
 
-                    desc += f"(x[{cov}] - {root}){u'\u208A' if truncated else ''}"
+                    desc += f"{self.coefficients[basis_idx]:.2f} * (x[{cov}] - {root}){u'\u208A' if truncated else ''}"
             if np.any(self.mask[:, basis_idx]):
                 desc += " + \n"
-        return desc
+        return desc[:-4]
 
     def __len__(self) -> int:
         """
@@ -138,7 +138,7 @@ class OMARS:
         Returns:
             Submodel with only the i-th basis function.
         """
-        sub_model = OMARS()
+        sub_model = OMAR()
         sub_model.nbases = 1
         sub_model.mask[:, i:i + 1] = self.mask[:, i:i + 1]
         sub_model.truncated[:, i:i + 1] = self.truncated[:, i:i + 1]

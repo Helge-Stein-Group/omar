@@ -1,12 +1,12 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from omars import OMARS
+from omar import OMAR
 
 def inspect_fit(
         x: np.ndarray,
         y: np.ndarray,
-        model: OMARS,
+        model: OMAR,
         title: str,
         fit: bool = True
 ) -> None:
@@ -14,7 +14,7 @@ def inspect_fit(
     assert y.ndim == 1
     assert x.shape[0] == y.shape[0]
     assert x.shape[1] == 2
-    assert isinstance(model, OMARS)
+    assert isinstance(model, OMAR)
     assert isinstance(title, str)
     if fit:
         model._fit(x,y)
@@ -52,12 +52,12 @@ def inspect_fit(
 
 
 if __name__ == "__main__":
-    from omars import OMARS
+    from omar import OMAR
     from tests.utils import generate_data
 
     x, y, y_true = generate_data()
 
-    model = OMARS()
+    model = OMAR()
     model.find_bases(x, y)
 
     print(model)

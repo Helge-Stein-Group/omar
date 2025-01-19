@@ -2,7 +2,7 @@ import numpy as np
 
 from jaxtyping import Float
 
-from omars import OMARS
+from omar import OMAR
 
 N_SAMPLES = 100
 DIM = 2
@@ -23,8 +23,8 @@ def generate_data(n_samples: int = N_SAMPLES, dim: int = DIM) \
     return x, y, y_true
 
 
-def reference_model(x: Float[np.ndarray, "n_samples"]) -> OMARS:
-    model = OMARS()
+def reference_model(x: Float[np.ndarray, "n_samples"]) -> OMAR:
+    model = OMAR()
 
     x1 = x[np.argmin(np.abs(x[:, 0] - 1)), 0]
     x08 = x[np.argmin(np.abs(x[:, 1] - 0.8)), 1]
@@ -38,6 +38,8 @@ def reference_model(x: Float[np.ndarray, "n_samples"]) -> OMARS:
     model.cov[2, 3:5] = 1
     model.root[1, 2:5] = x1
     model.root[2, 4] = x08
+
+    model.coefficients = np.array([1, 1, 1, 1, 1])
 
     return model
 

@@ -5,20 +5,20 @@ from datetime import datetime
 
 import numpy as np
 
-import omars
+import omar
 
 def test_speed():
     setup = r"""
-import omars
+import omar
 import tests.utils as utils
             
 x, y, y_true = utils.generate_data(10000, 10)
-model = omars.OMARS(backend=backend)
+model = omar.OMAR(backend=backend)
 """
     command = "model.find_bases(x, y)"
     results = []
 
-    for backend in omars.Backend:
+    for backend in omar.Backend:
         time = np.mean(timeit.repeat(command, setup=setup, globals={"backend": backend}, repeat=10, number=1))
         results.append([str(datetime.now()), "{:.6f}".format(time), backend])
 
@@ -30,11 +30,11 @@ model = omars.OMARS(backend=backend)
 
 def test_scaling_laws() -> None:
     setup = r"""
-import omars
+import omar
 import tests.utils as utils
 
 x, y, y_true = utils.generate_data(n_samples, dim)
-model = omars.OMARS(max_nbases=max_nbases, max_ncandidates=5, backend=backend)
+model = omar.OMAR(max_nbases=max_nbases, max_ncandidates=5, backend=backend)
 """
 
     command = "model.find_bases(x, y)"
@@ -47,7 +47,7 @@ model = omars.OMARS(max_nbases=max_nbases, max_ncandidates=5, backend=backend)
     }
 
     results = {}
-    for backend in omars.Backend:
+    for backend in omar.Backend:
         results[backend] = {}
         variables["backend"] = backend
 
