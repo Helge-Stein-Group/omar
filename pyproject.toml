@@ -1,18 +1,39 @@
+[build-system]
+build-backend = "mesonpy"
+requires = [
+    "meson-python>=0.15.0",
+    "Cython>=3.0.6",  # keep in sync with version check in meson.build
+    "numpy>=2.2.2"
+]
+
+
 [project]
-name = "omars"
+name = "omar"
 version = "0.0.1"
 authors = [
   { name="Tim Walter", email="tim.walter@tum.de" },
 ]
-description = "Open Multivariate Adaptive Regression Splines"
+description = "Open Multivariate Adaptive Regression"
 readme = "README.md"
+license = {file = 'LICENSE.txt'}
 requires-python = ">=3.12"
 classifiers = [
     "Programming Language :: Python :: 3",
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3 :: Only',
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    'Intended Audience :: Science/Research',
+    'Intended Audience :: Developers',
+    'Topic :: Software Development',
+    'Topic :: Scientific/Engineering',
+    'Typing :: Typed',
+    'Operating System :: Microsoft :: Windows',
+    'Operating System :: Unix',
+    'Operating System :: MacOS',
 ]
 
 [project.urls]
-Homepage = "https://github.com/Helge-Stein-Group/OMARS"
-Issues = "https://github.com/Helge-Stein-Group/OMARS/issues"
+Homepage = "https://github.com/Helge-Stein-Group/OMAR"
+Issues = "https://github.com/Helge-Stein-Group/OMAR/issues"
