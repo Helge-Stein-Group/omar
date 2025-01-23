@@ -52,7 +52,6 @@ py.extension_module('fortran_backend',
                      dependencies : [
                      py_dep,
                      quadmath_dep,
-                     dependency('lapack'),
                      gomp,
                                           blas,
                                           lapack,
