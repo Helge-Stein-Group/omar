@@ -20,6 +20,10 @@ jobs:
           brew install gfortran
           echo "$(brew --prefix gcc)/bin" >> $GITHUB_PATH
 
+      - name: Set macOS deployment target
+        if: runner.os == 'macOS'
+        run: echo "MACOSX_DEPLOYMENT_TARGET=14.0" >> $GITHUB_ENV
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.22.0
         # env:
