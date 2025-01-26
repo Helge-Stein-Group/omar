@@ -20,6 +20,9 @@ jobs:
         with:
           python-version: '>=3.12'
           architecture: 'x64'
+      - name: Set PYTHON environment variable
+        if: runner.os == 'Windows'
+        run: echo "PYTHON=${{ env.pythonLocation }}\\python.exe" >> $GITHUB_ENV
       - name: Install gfortran on macOS
         if: runner.os == 'macOS'
         run: |
