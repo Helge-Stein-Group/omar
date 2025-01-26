@@ -38,6 +38,8 @@ jobs:
         run: echo "MACOSX_DEPLOYMENT_TARGET=14.0" >> $GITHUB_ENV
 
       - name: Build wheels
+        env:
+          PYTHON: ${{ env.pythonLocation }}\\python.exe
         uses: pypa/cibuildwheel@v2.22.0
         # env:
         #   CIBW_SOME_OPTION: value
