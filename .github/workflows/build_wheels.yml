@@ -23,6 +23,9 @@ jobs:
       - name: Set PYTHON environment variable
         if: runner.os == 'Windows'
         run: echo "PYTHON=${{ env.pythonLocation }}\\python.exe" >> $GITHUB_ENV
+      - name: Add Python to PATH
+        if: runner.os == 'Windows'
+        run: echo "${{ env.pythonLocation }}\\Scripts" >> $GITHUB_PATH
       - name: Install gfortran on macOS
         if: runner.os == 'macOS'
         run: |
