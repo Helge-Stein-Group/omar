@@ -8,7 +8,7 @@ project('omar',
                           ])
 fc = meson.get_compiler('fortran')
 
-py = import('python').find_installation('''/home/tim/venv/OMARS/bin/python''', pure: false)
+py = import('python').find_installation(get_option('python') or 'python3', required: true)
 py_dep = py.dependency()
 
 incdir_numpy = run_command(py,
