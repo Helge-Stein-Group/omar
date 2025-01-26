@@ -13,6 +13,13 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Python
+        if: runner.os == 'Windows'
+        uses: actions/setup-python@v4
+        with:
+          python-version: '>=3.12'
+          architecture: 'x64'
       - name: Install gfortran on macOS
         if: runner.os == 'macOS'
         run: |
