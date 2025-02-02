@@ -27,12 +27,10 @@ jobs:
           git clone https://github.com/microsoft/vcpkg.git
           ./vcpkg/bootstrap-vcpkg.bat
           ./vcpkg/vcpkg install openblas:x64-windows
-      - name: Set PYTHON environment variable
-        if: runner.os == 'Windows'
-        run: echo "PYTHON=${{ env.pythonLocation }}\\python.exe" >> $GITHUB_ENV
-      - name: Add Python to PATH
-        if: runner.os == 'Windows'
-        run: echo "${{ env.pythonLocation }}\\Scripts" >> $GITHUB_PATH
+          echo "VCPKG_ROOT=$(pwd)/vcpkg" >> $GITHUB_ENV
+          echo "$(pwd)/vcpkg/packages/openblas_x64-windows/lib" >> $GITHUB_PATH
+          echo "LIB=$(pwd)/vcpkg/packages/openblas_x64-windows/lib;$LIB" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=$(pwd)/vcpkg/packages/openblas_x64-windows/lib/pkgconfig;$PKG_CONFIG_PATH" >> $GITHUB_ENV
       - name: Install Visual Studio Build Tools
         if: runner.os == 'Windows'
         run: |
