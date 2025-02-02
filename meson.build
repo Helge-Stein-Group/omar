@@ -33,10 +33,14 @@ inc_np = include_directories(incdir_numpy, incdir_f2py)
 quadmath_dep = fc.find_library('quadmath', required: false)
 
 gomp = declare_dependency(link_args : ['-lgomp'])
-blas = declare_dependency(link_args : ['-lblas'])
-lapack = declare_dependency(link_args : ['-llapack'])
 
-
+if host_machine.system() == 'windows'
+  blas = declare_dependency(link_args : ['-lopenblas'])
+  lapack = declare_dependency(link_args : ['-lopenblas'])
+else
+  blas = declare_dependency(link_args : ['-lblas'])
+  lapack = declare_dependency(link_args : ['-llapack'])
+endif
 
 py.extension_module('fortran_backend',
                      [
@@ -53,8 +57,8 @@ py.extension_module('fortran_backend',
                      py_dep,
                      quadmath_dep,
                      gomp,
-                                          blas,
-                                          lapack,
+                     blas,
+                     lapack,
                      ],
 
                      install : true)
