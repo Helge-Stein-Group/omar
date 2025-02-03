@@ -13,23 +13,17 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Install gfortran on Windows (MinGW)
+        if: runner.os == 'Windows'
+        run: |
+          choco install mingw --version=8.1.0 --force --params "/InstallDir:C:\mingw"
+          echo "C:\mingw\bin" >>
       - name: Install OpenBLAS
         if: runner.os == 'Windows'
         run: |
           git clone https://github.com/microsoft/vcpkg.git
           ./vcpkg/bootstrap-vcpkg.bat
           ./vcpkg/vcpkg install openblas:x64-windows
-          echo "VCPKG_ROOT=$(pwd)/vcpkg" >> $GITHUB_ENV
-          echo "$(pwd)/vcpkg/packages/openblas_x64-windows/lib" >> $GITHUB_PATH
-          echo "LIB=$(pwd)/vcpkg/packages/openblas_x64-windows/lib;$LIB" >> $GITHUB_ENV
-          echo "PKG_CONFIG_PATH=$(pwd)/vcpkg/packages/openblas_x64-windows/lib/pkgconfig;$PKG_CONFIG_PATH" >> $GITHUB_ENV
-          echo "PKG_CONFIG_PATH=$(pwd)/vcpkg/packages/openblas_x64-windows/lib/pkgconfig" >> $GITHUB_ENV
-          echo "PKG_CONFIG=$(pwd)/vcpkg/downloads/tools/pkg-config-wrapper.bat" >> $GITHUB_ENV
-      - name: Install gfortran on Windows (MinGW)
-        if: runner.os == 'Windows'
-        run: |
-          choco install mingw --version=8.1.0 --force --params "/InstallDir:C:\mingw"
-          echo "C:\mingw\bin" >> $GITHUB_PATH
       - name: Install gfortran on macOS
         if: runner.os == 'macOS'
         run: |
@@ -45,6 +39,8 @@ jobs:
       - name: Build wheels
         env:
           PYTHON: ${{ env.pythonLocation }}\\python.exe
+          MESON_ARGS: >-
+            -Dopenblas_root=D:/a/OMAR/OMAR/vcpkg/packages/openblas_x64-windows
         uses: pypa/cibuildwheel@v2.22.0
         # env:
         #   CIBW_SOME_OPTION: value

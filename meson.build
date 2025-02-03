@@ -35,8 +35,11 @@ quadmath_dep = fc.find_library('quadmath', required: false)
 gomp = declare_dependency(link_args : ['-lgomp'])
 
 if host_machine.system() == 'windows'
-  # Explicitly set paths for OpenBLAS on Windows
-  openblas_root = 'D:/a/OMAR/OMAR/vcpkg/packages/openblas_x64-windows'
+  # Use environment variables set by vcpkg in the GitHub Actions workflow
+  openblas_root = get_option('openblas_root')
+  if openblas_root == ''
+    error('OpenBLAS root path must be set for Windows builds')
+  endif
 
   blas_inc = include_directories(
     openblas_root / 'include',
@@ -50,6 +53,7 @@ if host_machine.system() == 'windows'
       '-lopenblas'
     ]
   )
+
   lapack = blas  # OpenBLAS typically includes LAPACK functionality
 else
   blas = declare_dependency(link_args : ['-lblas'])
