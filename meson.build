@@ -35,11 +35,11 @@ quadmath_dep = fc.find_library('quadmath', required: false)
 gomp = declare_dependency(link_args : ['-lgomp'])
 
 if host_machine.system() == 'windows'
-  blas = declare_dependency(link_args : ['-lopenblas'])
-  lapack = declare_dependency(link_args : ['-lopenblas'])
-else
-  lapack = dependency('openblas', required: true, method: 'pkg-config')
   blas = dependency('openblas', required: true, method: 'pkg-config')
+  lapack = dependency('openblas', required: true, method: 'pkg-config')
+else
+  blas = declare_dependency(link_args : ['-lblas'])
+  lapack = declare_dependency(link_args : ['-llapack'])
 endif
 
 py.extension_module('fortran_backend',
