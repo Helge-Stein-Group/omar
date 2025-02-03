@@ -1,6 +1,6 @@
 name: Build
 
-on: [push, pull_request]
+on: [ push, pull_request ]
 
 jobs:
   build_wheels:
@@ -9,7 +9,7 @@ jobs:
     strategy:
       matrix:
         # macos-13 is an intel runner, macos-14 is apple silicon
-        os: [ubuntu-latest, windows-latest, macos-13, macos-14]
+        os: [ ubuntu-latest, windows-latest, macos-13, macos-14 ]
 
     steps:
       - uses: actions/checkout@v4
@@ -23,11 +23,15 @@ jobs:
           echo "$(pwd)/vcpkg/packages/openblas_x64-windows/lib" >> $GITHUB_PATH
           echo "LIB=$(pwd)/vcpkg/packages/openblas_x64-windows/lib;$LIB" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH=$(pwd)/vcpkg/packages/openblas_x64-windows/lib/pkgconfig;$PKG_CONFIG_PATH" >> $GITHUB_ENV
+      - name: Install gfortran on Windows (MinGW)
+        if: runner.os == 'Windows'
+        run: |
+          choco install mingw --version=8.1.0 --force --params "/InstallDir:C:\mingw"
+          echo "C:\mingw\bin" >> $GITHUB_PATH
       - name: Install gfortran on macOS
         if: runner.os == 'macOS'
         run: |
-          brew update
-          brew install gfortran
+          brew link --overwrite gcc
           echo "$(brew --prefix gcc)/bin" >> $GITHUB_PATH
       - name: Set macOS deployment target
         if: runner.os == 'macOS'
