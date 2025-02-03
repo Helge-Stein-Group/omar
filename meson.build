@@ -35,7 +35,21 @@ quadmath_dep = fc.find_library('quadmath', required: false)
 gomp = declare_dependency(link_args : ['-lgomp'])
 
 if host_machine.system() == 'windows'
-  blas = dependency('OpenBLAS', method: 'cmake', required: true)
+  # Explicitly set paths for OpenBLAS on Windows
+  openblas_root = 'D:/a/OMAR/OMAR/vcpkg/packages/openblas_x64-windows'
+
+  blas_inc = include_directories(
+    openblas_root / 'include',
+    openblas_root / 'include/openblas'
+  )
+
+  blas = declare_dependency(
+    include_directories: blas_inc,
+    link_args: [
+      '-L' + openblas_root / 'lib',
+      '-lopenblas'
+    ]
+  )
   lapack = blas  # OpenBLAS typically includes LAPACK functionality
 else
   blas = declare_dependency(link_args : ['-lblas'])
