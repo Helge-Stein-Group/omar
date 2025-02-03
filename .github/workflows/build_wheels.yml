@@ -14,13 +14,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        if: runner.os == 'Windows'
-        uses: actions/setup-python@v4
-        with:
-          python-version: '>=3.12'
-          architecture: 'x64'
-
       - name: Install OpenBLAS
         if: runner.os == 'Windows'
         run: |
@@ -31,18 +24,6 @@ jobs:
           echo "$(pwd)/vcpkg/packages/openblas_x64-windows/lib" >> $GITHUB_PATH
           echo "LIB=$(pwd)/vcpkg/packages/openblas_x64-windows/lib;$LIB" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH=$(pwd)/vcpkg/packages/openblas_x64-windows/lib/pkgconfig;$PKG_CONFIG_PATH" >> $GITHUB_ENV
-      - name: Install Visual Studio Build Tools
-        if: runner.os == 'Windows'
-        run: |
-          choco install visualstudio2019buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --includeOptional --quiet --norestart"
-          choco install mingw --version=8.1.0 --force --params "/InstallDir:C:\mingw"
-          echo "C:\mingw\bin" >> $GITHUB_PATH
-      - name: Install gfortran on macOS
-        if: runner.os == 'macOS'
-        run: |
-          brew update
-          brew install gfortran
-          echo "$(brew --prefix gcc)/bin" >> $GITHUB_PATH
 
       - name: Set macOS deployment target
         if: runner.os == 'macOS'
