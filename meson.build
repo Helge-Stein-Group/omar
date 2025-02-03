@@ -38,8 +38,8 @@ if host_machine.system() == 'windows'
   blas = declare_dependency(link_args : ['-lopenblas'])
   lapack = declare_dependency(link_args : ['-lopenblas'])
 else
-  blas = declare_dependency(link_args : ['-lblas'])
-  lapack = declare_dependency(link_args : ['-llapack'])
+  lapack = dependency('openblas', required: true, method: 'pkg-config')
+  blas = dependency('openblas', required: true, method: 'pkg-config')
 endif
 
 py.extension_module('fortran_backend',
