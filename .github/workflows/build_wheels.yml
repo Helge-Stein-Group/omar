@@ -23,6 +23,8 @@ jobs:
           echo "$(pwd)/vcpkg/packages/openblas_x64-windows/lib" >> $GITHUB_PATH
           echo "LIB=$(pwd)/vcpkg/packages/openblas_x64-windows/lib;$LIB" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH=$(pwd)/vcpkg/packages/openblas_x64-windows/lib/pkgconfig;$PKG_CONFIG_PATH" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=$(pwd)/vcpkg/packages/openblas_x64-windows/lib/pkgconfig" >> $GITHUB_ENV
+          echo "PKG_CONFIG=$(pwd)/vcpkg/downloads/tools/pkg-config-wrapper.bat" >> $GITHUB_ENV
       - name: Install gfortran on Windows (MinGW)
         if: runner.os == 'Windows'
         run: |
@@ -31,8 +33,11 @@ jobs:
       - name: Install gfortran on macOS
         if: runner.os == 'macOS'
         run: |
-          brew link --overwrite gcc
-          echo "$(brew --prefix gcc)/bin" >> $GITHUB_PATH
+          if ! command -v gfortran &> /dev/null; then
+            brew update
+            brew install gfortran
+            echo "$(brew --prefix gcc)/bin" >> $GITHUB_PATH
+          fi
       - name: Set macOS deployment target
         if: runner.os == 'macOS'
         run: echo "MACOSX_DEPLOYMENT_TARGET=14.0" >> $GITHUB_ENV
