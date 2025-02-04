@@ -13,17 +13,19 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-activate-base: true
+          python-version: "3.12"
       - name: Install gfortran on Windows (MinGW)
         if: runner.os == 'Windows'
         run: |
           choco install mingw --version=8.1.0 --force --params "/InstallDir:C:\mingw"
           echo "C:\mingw\bin" >> $GITHUB_PATH
-      - name: Install OpenBLAS
+      - name: Openblas via conda
         if: runner.os == 'Windows'
         run: |
-          git clone https://github.com/microsoft/vcpkg.git
-          ./vcpkg/bootstrap-vcpkg.bat
-          ./vcpkg/vcpkg install openblas:x64-windows
+          conda install -c conda-forge openblas
       - name: Install gfortran on macOS
         if: runner.os == 'macOS'
         run: |
@@ -39,9 +41,7 @@ jobs:
       - name: Build wheels
         env:
           PYTHON: ${{ env.pythonLocation }}\\python.exe
-          MESON_ARGS: >-
-            -Dopenblas_root=D:/a/OMAR/OMAR/vcpkg/packages/openblas_x64-windows
-        uses: pypa/cibuildwheel@v2.22.0
+        uses: pypa/cibuildwheel[uv]@v2.22.0
         # env:
         #   CIBW_SOME_OPTION: value
         #    ...
