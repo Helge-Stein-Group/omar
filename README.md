@@ -13,3 +13,9 @@ regression splines from Jerome H. Friedman.
    Springer Series in Statistic
 4. Oswin Krause. Christian Igel. A More Efficient Rank-one Covariance Matrix Update for Evolution Strategies. 
    2015 ACM Conference. https://christian-igel.github.io/paper/AMERCMAUfES.pdf
+
+
+For Windows make sure to install https://www.intel.com/content/www/us/en/developer/tools/oneapi/hpc-toolkit-download.html?packages=fortran-essentials&fortran-essentials-os=windows&fortran-essentials-win=offline
+and follow https://numpy.org/doc/stable/f2py/windows/intel.html to compile fortran
+
+on linux sudo apt-get install gfortran

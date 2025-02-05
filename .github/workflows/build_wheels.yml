@@ -24,9 +24,6 @@ jobs:
           choco install msys2 --no-progress
           C:\msys64\usr\bin\bash -lc "pacman -Syu --noconfirm"
           C:\msys64\usr\bin\bash -lc "pacman -S --noconfirm mingw-w64-x86_64-openblas mingw-w64-x86_64-lapack"
-      - name: Set up environment variables for BLAS and LAPACK
-        if: runner.os == 'Windows'
-        run: |
           echo "C:\msys64\mingw64\bin" >> $GITHUB_PATH
       - name: Install gfortran on macOS
         if: runner.os == 'macOS'
