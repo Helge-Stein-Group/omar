@@ -13,10 +13,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: conda-incubator/setup-miniconda@v3
-        with:
-          auto-activate-base: true
-          python-version: "3.12"
       - name: Install gfortran on Windows (MinGW)
         if: runner.os == 'Windows'
         run: |
