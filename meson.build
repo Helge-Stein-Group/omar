@@ -35,7 +35,7 @@ quadmath_dep = fc.find_library('quadmath', required: false)
 gomp = declare_dependency(link_args : ['-lgomp'])
 
 if host_machine.system() == 'windows'
-  blas = fc.find_library('openblas', required: true)
+    blas = fc.find_library('openblas', dirs: ['C:/msys64/mingw64/lib'], required: true)
   lapack = blas  # OpenBLAS typically includes LAPACK functionality
 else
   blas = declare_dependency(link_args : ['-lblas'])
