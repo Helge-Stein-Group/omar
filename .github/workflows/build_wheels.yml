@@ -22,10 +22,16 @@ jobs:
         run: |
           choco install mingw --version=8.1.0 --force --params "/InstallDir:C:\mingw"
           echo "C:\mingw\bin" >> $GITHUB_PATH
-      - name: Openblas via conda
+      - name: Install BLAS and LAPACK on Windows
         if: runner.os == 'Windows'
         run: |
-          conda install "libblas=*=*openblas"
+          choco install msys2 --no-progress
+          C:\msys64\usr\bin\bash -lc "pacman -Syu --noconfirm"
+          C:\msys64\usr\bin\bash -lc "pacman -S --noconfirm mingw-w64-x86_64-openblas mingw-w64-x86_64-lapack"
+      - name: Set up environment variables for BLAS and LAPACK
+        if: runner.os == 'Windows'
+        run: |
+          echo "C:\msys64\mingw64\bin" >> $GITHUB_PATH
       - name: Install gfortran on macOS
         if: runner.os == 'macOS'
         run: |
