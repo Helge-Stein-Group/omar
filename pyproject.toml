@@ -52,19 +52,5 @@ skip = "cp36-* cp37-* cp-38* pp37-* *-manylinux_i686 *_ppc64le *_s390x *_univers
 before-all = "yum -y update && yum -y install blas-devel lapack-devel freetype-devel"
 before-test = "yum -y update && yum -y install openblas-devel lapack freetype && pip install packaging"
 
-[build-system]
-build-backend = "mesonpy"
-requires = [
-    "meson-python>=0.17.1",
-    "numpy>=2.1.0",
-    "scipy>=1.14.0",
-    "numba>=0.61.0",
-    "jaxtyping>=0.2.36",
-    "beartype>=0.19.0",
-    "matplotlib>=3.8.3",
-    "scipy>=1.14.0",
-    "numba>=0.61.0"
-]
-
 [tool.mesonpy]
 module = "omar"
