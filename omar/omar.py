@@ -11,7 +11,7 @@ import build.fortran_backend as fortran
 
 class Backend(Enum):
     """
-    Backend for the OMAR model.
+    Backend for the omar model.
     """
     FORTRAN = 1
     PYTHON = 2
@@ -19,7 +19,7 @@ class Backend(Enum):
 
 class OMAR:
     """
-    Open Multivariate Adaptive Regression Splines (OMAR) model.
+    Open Multivariate Adaptive Regression Splines (omar) model.
     Use it to find localised, linear relationships in your data.
     Based on:
     - Friedman, J. (1991). Multivariate adaptive regression splines.
@@ -41,7 +41,7 @@ class OMAR:
                  penalty: float = 3,
                  backend: Backend = Backend.FORTRAN):
         """
-        Initialize the OMAR model.
+        Initialize the omar model.
         Args:
             max_nbases: Maximum number of basis functions. Since they are added in pairs, this number should be odd.
             max_ncandidates: Maximum queue length for parent candidates. (See Fast Mars paper)
@@ -104,7 +104,7 @@ class OMAR:
         Returns:
             Description of the basis functions.
         """
-        desc = "OMAR (Open Multivariate Adaptive Splines Regression) Model\n"
+        desc = "omar (Open Multivariate Adaptive Splines Regression) Model\n"
         desc += "Basis functions: \n"
         desc += f"{self.y_mean} * 1 + \n"
         for basis_idx in self._active_base_indices():
