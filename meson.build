@@ -63,4 +63,4 @@ py.extension_module('fortran_backend',
 
                      install : true)
 
-py.install_sources('omar.py', subdir: 'omar')
+py.install_sources('omar.py', subdir: 'OMAR')
