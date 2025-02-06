@@ -13,7 +13,7 @@ import omar
 import tests.utils as utils
             
 x, y, y_true = utils.generate_data(10000, 10)
-model = omar.OMAR(backend=backend)
+model = omar.omar(backend=backend)
 """
     command = "model.find_bases(x, y)"
     results = []
@@ -34,7 +34,7 @@ import omar
 import tests.utils as utils
 
 x, y, y_true = utils.generate_data(n_samples, dim)
-model = omar.OMAR(max_nbases=max_nbases, max_ncandidates=5, backend=backend)
+model = omar.omar(max_nbases=max_nbases, max_ncandidates=5, backend=backend)
 """
 
     command = "model.find_bases(x, y)"

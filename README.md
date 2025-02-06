@@ -1,4 +1,4 @@
-# OMAR
+# omar
 
 This is a for now naive implementation of the multivariate adaptive
 regression splines from Jerome H. Friedman.
