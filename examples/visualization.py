@@ -53,7 +53,7 @@ def inspect_fit(
 
 if __name__ == "__main__":
     from omar import OMAR
-    from tests.utils import generate_data
+    from omar.tests.utils import generate_data
 
     x, y, y_true = generate_data()
 

@@ -23,7 +23,7 @@ model = omar.omar(backend=backend)
         results.append([str(datetime.now()), "{:.6f}".format(time), backend])
 
 
-    with open("../benchmark/speeds_find_bases.csv", "a", newline='') as file:
+    with open("../../benchmark/speeds_find_bases.csv", "a", newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["Timestamp", "Time", "Backend"])
         writer.writerows(results)
@@ -74,7 +74,7 @@ model = omar.omar(max_nbases=max_nbases, max_ncandidates=5, backend=backend)
             d_times.append(np.mean(timeit.repeat(command, setup=setup, globals=variables, repeat=10, number=1)))
         results[backend]["dim"] = (d, d_times)
 
-    with open("../benchmark/scaling_laws.csv", "w", newline='') as file:
+    with open("../../benchmark/scaling_laws.csv", "w", newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["Backend", "Parameter", "Values", "Times"])
         for backend, params in results.items():

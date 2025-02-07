@@ -34,6 +34,7 @@ class OMAR:
       In Proceedings of the 2015 ACM Conference on Foundations of Genetic Algorithms XIII (FOGA ‘15). (2015).
       Association for Computing Machinery, New York, NY, USA, 129–136. https://doi.org/10.1145/2725494.2725496
     """
+
     @jaxtyped(typechecker=beartype)
     def __init__(self,
                  max_nbases: np.int64 | int = 11,
@@ -818,7 +819,7 @@ class OMAR:
                                                                        self.root,
                                                                        self.penalty)
             # Fortran has a fixed output size, therefore requires trimming in case of early stopping
-            self.coefficients = self.coefficients[:self.nbases -1]
+            self.coefficients = self.coefficients[:self.nbases - 1]
             lof = float(lof)
         else:
             raise NotImplementedError("Backend not implemented.")
@@ -853,6 +854,7 @@ class OMAR:
             raise NotImplementedError("Backend not implemented.")
 
         return lof
+
 
 @njit(cache=True, fastmath=True, error_model="numpy")
 def decompose_addition(covariance_addition: Float[np.ndarray, "{self.nbases}-1"]) \

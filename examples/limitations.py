@@ -4,7 +4,7 @@
 
 import numpy as np
 import omar
-import tests.utils as utils
+import omar.tests.utils as utils
 from jaxtyping import Float
 
 

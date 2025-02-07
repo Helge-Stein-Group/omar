@@ -3,7 +3,7 @@ from scipy.linalg import cho_factor
 from copy import deepcopy
 
 import omar
-import tests.utils as utils
+import omar.tests.utils as utils
 
 
 def test_init():
