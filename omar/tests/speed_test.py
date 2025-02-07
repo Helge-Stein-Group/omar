@@ -9,11 +9,11 @@ import omar
 
 def test_speed():
     setup = r"""
-import omar
+from omar import OMAR
 import omar.tests.utils as utils
             
 x, y, y_true = utils.generate_data(10000, 10)
-model = omar.omar(backend=backend)
+model = OMAR(backend=backend)
 """
     command = "model.find_bases(x, y)"
     results = []
@@ -30,11 +30,11 @@ model = omar.omar(backend=backend)
 
 def test_scaling_laws() -> None:
     setup = r"""
-import omar
+from omar import OMAR
 import omar.tests.utils as utils
 
 x, y, y_true = utils.generate_data(n_samples, dim)
-model = omar.omar(max_nbases=max_nbases, max_ncandidates=5, backend=backend)
+model = OMAR(max_nbases=max_nbases, max_ncandidates=5, backend=backend)
 """
 
     command = "model.find_bases(x, y)"
