@@ -1,12 +1,13 @@
 from enum import Enum
-from typing import Self
 
 import numpy as np
+from beartype import beartype
 from numba import njit
-from jaxtyping import Float, Integer
+from jaxtyping import Float, Integer, jaxtyped
+from beartype import beartype
 from scipy.linalg import cho_factor, cho_solve
 
-import build.fortran_backend as fortran
+import fortran_backend as fortran
 
 
 class Backend(Enum):
@@ -33,10 +34,10 @@ class OMAR:
       In Proceedings of the 2015 ACM Conference on Foundations of Genetic Algorithms XIII (FOGA ‘15). (2015).
       Association for Computing Machinery, New York, NY, USA, 129–136. https://doi.org/10.1145/2725494.2725496
     """
-
+    @jaxtyped(typechecker=beartype)
     def __init__(self,
-                 max_nbases: int = 11,
-                 max_ncandidates: int = 11,
+                 max_nbases: np.int64 | int = 11,
+                 max_ncandidates: np.int64 | int = 11,
                  aging_factor: float = 0.,
                  penalty: float = 3,
                  backend: Backend = Backend.FORTRAN):
@@ -80,6 +81,7 @@ class OMAR:
         self.coefficients = np.empty(0, dtype=float)
         self.y_mean = float()
 
+    @jaxtyped(typechecker=beartype)
     def __call__(self, x: Float[np.ndarray, "N d"]) -> Float[np.ndarray, "N"]:
         """
         Predict the response variables for the given predictor variables.
@@ -97,6 +99,7 @@ class OMAR:
             pred += centered_y_pred
         return pred
 
+    @jaxtyped(typechecker=beartype)
     def __str__(self) -> str:
         """
         Describes the basis functions of the model.
@@ -119,7 +122,8 @@ class OMAR:
                 desc += " + \n"
         return desc[:-4]
 
-    def __len__(self) -> int:
+    @jaxtyped(typechecker=beartype)
+    def __len__(self) -> np.int64 | int:
         """
         Number of basis functions.
 
@@ -128,7 +132,9 @@ class OMAR:
         """
         return self.nbases
 
-    def __getitem__(self, i: int) -> Self:
+    @beartype
+    @jaxtyped(typechecker=beartype)
+    def __getitem__(self, i: np.int64 | int) -> "OMAR":
         """
         Return a submodel with only the i-th basis function.
 
@@ -152,7 +158,9 @@ class OMAR:
         sub_model.y_mean = self.y_mean
         return sub_model
 
-    def __eq__(self, other: Self) -> bool:
+    @beartype
+    @jaxtyped(typechecker=beartype)
+    def __eq__(self, other: "OMAR") -> bool:
         """
         Check if two models are equal. Equality is defined by equal bases.
 
@@ -171,6 +179,7 @@ class OMAR:
             np.array_equal(self.cov[*self_idx], other.cov[*other_idx]) and \
             np.array_equal(self.root[*self_idx], other.root[*other_idx])
 
+    @jaxtyped(typechecker=beartype)
     def _active_base_indices(self) -> Integer[np.ndarray, "{self.nbases}-1"]:
         """
         Get the indices of the active basis functions.
@@ -184,6 +193,7 @@ class OMAR:
             # Fortran indexes from 1
             return fortran.backend.active_base_indices(self.mask, self.nbases) - 1
 
+    @jaxtyped(typechecker=beartype)
     def _data_matrix(self, x: Float[np.ndarray, "N d"], basis_indices: Integer[np.ndarray, "{self.nbases}-1"]) \
             -> tuple[
                 Float[np.ndarray, "N {self.nbases}-1"],
@@ -216,6 +226,7 @@ class OMAR:
 
         return data_matrix, data_matrix_mean
 
+    @jaxtyped(typechecker=beartype)
     def _covariance_matrix(self, data_matrix: Float[np.ndarray, "N {self.nbases}-1"]) \
             -> Float[np.ndarray, "{self.nbases}-1 {self.nbases}-1"]:
         """
@@ -243,8 +254,9 @@ class OMAR:
 
         return covariance_matrix
 
+    @jaxtyped(typechecker=beartype)
     def _rhs(self, y: Float[np.ndarray, "N"], data_matrix: Float[np.ndarray, "N {self.nbases}-1"]) \
-            -> Float[np.ndarray, "N"]:
+            -> Float[np.ndarray, "{self.nbases}-1"]:
         """
         Calculate the right hand side of the normal equations.
 
@@ -264,6 +276,7 @@ class OMAR:
 
         return rhs
 
+    @jaxtyped(typechecker=beartype)
     def _coefficients(self,
                       covariance_matrix: Float[np.ndarray, "{self.nbases}-1 {self.nbases}-1"],
                       rhs: Float[np.ndarray, "{self.nbases}-1"]) \
@@ -291,6 +304,7 @@ class OMAR:
 
         return self.coefficients, np.tril(chol)
 
+    @jaxtyped(typechecker=beartype)
     def _generalised_cross_validation(self,
                                       y: Float[np.ndarray, "N"],
                                       data_matrix: Float[np.ndarray, "N {self.nbases}-1"],
@@ -331,6 +345,7 @@ class OMAR:
 
         return lof
 
+    @jaxtyped(typechecker=beartype)
     def _fit(self, x: Float[np.ndarray, "N d"], y: Float[np.ndarray, "N"]) \
             -> tuple[
                 Float[np.ndarray, "N {self.nbases}-1"],
@@ -369,11 +384,12 @@ class OMAR:
 
         return data_matrix, data_matrix_mean, covariance_matrix, rhs, chol, self.coefficients, lof
 
+    @jaxtyped(typechecker=beartype)
     def _update_init(self,
                      x: Float[np.ndarray, "N d"],
                      data_matrix: Float[np.ndarray, "N {self.nbases}-1"],
                      data_matrix_mean: Float[np.ndarray, "{self.nbases}-1"],
-                     prev_root: float, parent_idx: int) -> tuple[Float[np.ndarray, "N"], float]:
+                     prev_root: float, parent_idx: np.int64 | int) -> tuple[Float[np.ndarray, "N"], float]:
         """
         Initialize the update of the fit by precomputing the necessary update values, that allow for a fast update of
         the cholesky decomposition and therefore a faster least-squares fit.
@@ -411,6 +427,7 @@ class OMAR:
             raise NotImplementedError("Backend not implemented.")
         return update, update_mean
 
+    @jaxtyped(typechecker=beartype)
     def _update_data_matrix(self,
                             data_matrix: Float[np.ndarray, "N {self.nbases}-1"],
                             data_matrix_mean: Float[np.ndarray, "{self.nbases}-1"],
@@ -443,13 +460,14 @@ class OMAR:
 
         return data_matrix, data_matrix_mean
 
+    @jaxtyped(typechecker=beartype)
     def _update_covariance_matrix(self,
                                   covariance_matrix: Float[np.ndarray, "{self.nbases}-1 {self.nbases}-1"],
                                   data_matrix: Float[np.ndarray, "N {self.nbases}-1"],
                                   update: Float[np.ndarray, "N"]) \
             -> tuple[
                 Float[np.ndarray, "{self.nbases}-1 {self.nbases}-1"],
-                Float[np.ndarray, "{self.nbases}-1}"]
+                Float[np.ndarray, "{self.nbases}-1"]
             ]:
         """
         Update the covariance matrix to the latest root location.
@@ -479,6 +497,7 @@ class OMAR:
 
         return covariance_matrix, covariance_addition
 
+    @jaxtyped(typechecker=beartype)
     def _update_rhs(self,
                     rhs: Float[np.ndarray, "{self.nbases}-1"],
                     update: Float[np.ndarray, "N"],
@@ -502,6 +521,7 @@ class OMAR:
             fortran.backend.update_rhs(rhs, update, y, self.y_mean)
         return rhs
 
+    @jaxtyped(typechecker=beartype)
     def _update_coefficients(self,
                              chol: Float[np.ndarray, "{self.nbases}-1 {self.nbases}-1"],
                              covariance_addition: Float[np.ndarray, "{self.nbases}-1"],
@@ -535,6 +555,7 @@ class OMAR:
 
         return self.coefficients, np.tril(chol)
 
+    @jaxtyped(typechecker=beartype)
     def _update_fit(self,
                     data_matrix: Float[np.ndarray, "N {self.nbases}-1"],
                     data_matrix_mean: Float[np.ndarray, "{self.nbases}-1"],
@@ -544,7 +565,7 @@ class OMAR:
                     x: Float[np.ndarray, "N d"],
                     y: Float[np.ndarray, "N"],
                     prev_root: float,
-                    parent_idx: int) \
+                    parent_idx: np.int64 | int) \
             -> tuple[
                 Float[np.ndarray, "N {self.nbases}-1"],
                 Float[np.ndarray, "{self.nbases}-1"],
@@ -598,7 +619,8 @@ class OMAR:
 
         return data_matrix, data_matrix_mean, covariance_matrix, rhs, chol, self.coefficients, lof
 
-    def _add_bases(self, parent: int, cov: int, root: float) -> None:
+    @jaxtyped(typechecker=beartype)
+    def _add_bases(self, parent: np.int64 | int, cov: np.int64 | int, root: float) -> None:
         """
         Add two bases functions to model, one truncated and one linear.
 
@@ -627,6 +649,7 @@ class OMAR:
         else:
             raise NotImplementedError("Backend not implemented.")
 
+    @jaxtyped(typechecker=beartype)
     def _expand_bases(self, x: Float[np.ndarray, "N d"], y: Float[np.ndarray, "N"]) -> float:
         """
         Grow the model to the maximum number of basis functions by iteratively adding the basis that reduces
@@ -666,7 +689,7 @@ class OMAR:
                 self.nbases += 2
                 for i, cov_idx in pairs:
                     parent = parents[i]
-                    self._add_bases(parent, cov_idx, 0)
+                    self._add_bases(parent, cov_idx, 0.0)
 
                     if parent == 0:  # constant function
                         eligible_roots = x[:, cov_idx].copy()  # copy is important!
@@ -723,6 +746,7 @@ class OMAR:
 
         return lof
 
+    @jaxtyped(typechecker=beartype)
     def _prune_bases(self,
                      x: Float[np.ndarray, "N d"],
                      y: Float[np.ndarray, "N"],
@@ -758,7 +782,7 @@ class OMAR:
                         data_matrix, data_matrix_mean, covariance_matrix, rhs, chol, self.coefficients, lof = self._fit(
                             x, y)
                     else:
-                        lof = self._generalised_cross_validation(y, np.empty(0), np.empty((0, 0)))
+                        lof = self._generalised_cross_validation(y, np.zeros((100, 0)), np.empty((0, 0)))
 
                     if lof < best_lof_trim:
                         best_lof_trim = lof
@@ -795,11 +819,13 @@ class OMAR:
                                                                        self.penalty)
             # Fortran has a fixed output size, therefore requires trimming in case of early stopping
             self.coefficients = self.coefficients[:self.nbases -1]
+            lof = float(lof)
         else:
             raise NotImplementedError("Backend not implemented.")
 
         return lof
 
+    @jaxtyped(typechecker=beartype)
     def find_bases(self, x: Float[np.ndarray, "N d"], y: Float[np.ndarray, "N"]) -> float:
         """
         Find the best fitting basis functions for the given data.
@@ -828,7 +854,6 @@ class OMAR:
 
         return lof
 
-
 @njit(cache=True, fastmath=True, error_model="numpy")
 def decompose_addition(covariance_addition: Float[np.ndarray, "{self.nbases}-1"]) \
         -> tuple[Float[np.ndarray, "2"], Float[np.ndarray, "2 {self.nbases}-1"]]:
@@ -842,6 +867,8 @@ def decompose_addition(covariance_addition: Float[np.ndarray, "{self.nbases}-1"]
 
     Returns:
         Eigenvalues and eigenvectors of the addition.
+
+    Notes: Cant type annotate this, since numba & jaxtyping don't vibe
     """
     eigenvalue_intermediate = np.sqrt(
         covariance_addition[-1] ** 2 + 4 * np.sum(covariance_addition[:-1] ** 2))
@@ -859,7 +886,7 @@ def decompose_addition(covariance_addition: Float[np.ndarray, "{self.nbases}-1"]
     return eigenvalues, eigenvectors
 
 
-@njit(cache=True, error_model="numpy", fastmath=True, parallel=False)
+@njit(cache=False, error_model="numpy", fastmath=True, parallel=False)
 def update_cholesky(chol: Float[np.ndarray, "{self.nbases} {self.nbases}"],
                     update_vector: Float[np.ndarray, "{self.nbases}"],
                     multiplier: float) -> Float[np.ndarray, "{self.nbases} {self.nbases}"]:
@@ -875,10 +902,13 @@ def update_cholesky(chol: Float[np.ndarray, "{self.nbases} {self.nbases}"],
     Returns:
         Updated Cholesky decomposition.
 
-    Notes: Algorithm according to [1] Oswin Krause. Christian Igel.
-    A More Efficient Rank-one Covariance Matrix Update for Evolution Strategies.
-    2015 ACM Conference. https://christian-igel.github.io/paper/AMERCMAUfES.pdf.
-    Adapted for computation speed and parallelization.
+    Notes:
+        Algorithm according to [1] Oswin Krause. Christian Igel.
+        A More Efficient Rank-one Covariance Matrix Update for Evolution Strategies.
+        2015 ACM Conference. https://christian-igel.github.io/paper/AMERCMAUfES.pdf.
+        Adapted for computation speed and parallelization.
+        Cant typecheck this, since numba & jaxtyping don't vibe
+
     """
     diag = np.diag(chol).copy()
     chol = chol / diag
