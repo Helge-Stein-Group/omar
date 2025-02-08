@@ -161,7 +161,7 @@ class OMAR:
 
     @beartype
     @jaxtyped(typechecker=beartype)
-    def __eq__(self, other: "OMAR") -> bool:
+    def __eq__(self, other: "OMAR") -> bool | np.bool:
         """
         Check if two models are equal. Equality is defined by equal bases.
 
