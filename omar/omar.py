@@ -783,7 +783,7 @@ class OMAR:
                         data_matrix, data_matrix_mean, covariance_matrix, rhs, chol, self.coefficients, lof = self._fit(
                             x, y)
                     else:
-                        lof = self._generalised_cross_validation(y, np.zeros((100, 0)), np.empty((0, 0)))
+                        lof = self._generalised_cross_validation(y, np.zeros((y.shape[0], 0)), np.empty((0, 0)))
 
                     if lof < best_lof_trim:
                         best_lof_trim = lof
