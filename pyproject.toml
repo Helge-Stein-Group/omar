@@ -69,7 +69,7 @@ before-test = "yum -y update && yum -y install openblas-devel lapack freetype &&
 
 [tool.cibuildwheel.windows]
 before-test = """
-choco install mingw --version=8.1.0 --force --params "/InstallDir:C:\mingw"
+choco install mingw --version=8.1.0 --force --params "/InstallDir:C:\\mingw"
 echo "C:\\mingw\\bin" >> %GITHUB_PATH%
 choco install msys2 --no-progress
 C:\\msys64\\usr\bin\\bash -lc "pacman -Syu --noconfirm"
