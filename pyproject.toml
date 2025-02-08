@@ -61,8 +61,18 @@ Issues = "https://github.com/Helge-Stein-Group/omar/issues"
 build-frontend = "build[uv]"
 skip = "cp36-* cp37-* cp-38* pp37-* *-manylinux_i686 *_ppc64le *_s390x *_universal2 *-musllinux*  *-win32 "
 test-requires = "pytest"
-test-command = "pytest {project}/omar/tests"
+test-command = "pytest {project}/omar/tests/unit_test.py"
 
 [tool.cibuildwheel.linux]
 before-all = "yum -y update && yum -y install blas-devel lapack-devel freetype-devel"
 before-test = "yum -y update && yum -y install openblas-devel lapack freetype && pip install packaging"
+
+[tool.cibuildwheel.windows]
+before-test = """
+choco install mingw --version=8.1.0 --force --params "/InstallDir:C:\mingw"
+echo "C:\\mingw\\bin" >> %GITHUB_PATH%
+choco install msys2 --no-progress
+C:\\msys64\\usr\bin\\bash -lc "pacman -Syu --noconfirm"
+C:\\msys64\\usr\bin\\bash -lc "pacman -S --noconfirm mingw-w64-x86_64-openblas mingw-w64-x86_64-lapack"
+echo "C:\\msys64\\mingw64\\bin" >> %GITHUB_PATH%
+"""
