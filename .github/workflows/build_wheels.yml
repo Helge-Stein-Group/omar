@@ -35,7 +35,12 @@ jobs:
           fi
       - name: Set macOS deployment target
         if: runner.os == 'macOS'
-        run: echo "MACOSX_DEPLOYMENT_TARGET=14.0" >> $GITHUB_ENV
+        run: |
+          if [[ "$(sw_vers -productVersion)" == 13.* ]]; then
+            echo "MACOSX_DEPLOYMENT_TARGET=13.0" >> $GITHUB_ENV
+          else
+            echo "MACOSX_DEPLOYMENT_TARGET=14.0" >> $GITHUB_ENV
+          fi
       - name: Install cibuildwheel with uv support
         run: |
           pip install cibuildwheel[uv]
