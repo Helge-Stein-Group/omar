@@ -112,13 +112,14 @@ class OMAR:
         desc += "Basis functions: \n"
         desc += f"{self.y_mean} * 1 + \n"
         for basis_idx in self._active_base_indices():
+            desc += f"{self.coefficients[basis_idx]:.2f} * "
             for func_idx in range(self.max_nbases):
                 if self.mask[func_idx, basis_idx]:
                     truncated = self.truncated[func_idx, basis_idx]
                     cov = self.cov[func_idx, basis_idx]
                     root = self.root[func_idx, basis_idx]
 
-                    desc += f"{self.coefficients[basis_idx]:.2f} * (x[{cov}] - {root}){u'\u208A' if truncated else ''}"
+                    desc += f"(x[{cov}] - {root}){u'\u208A' if truncated else ''}"
             if np.any(self.mask[:, basis_idx]):
                 desc += " + \n"
         return desc[:-4]

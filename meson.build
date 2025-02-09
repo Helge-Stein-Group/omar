@@ -6,7 +6,11 @@ project('omar',
                             'warning_level=1',
                             'buildtype=release'
                           ])
-fc = meson.get_compiler('fortran')
+if host_machine.system() == 'windows'
+  fc = meson.get_compiler('fortran', native: true, required: true, for_machine: 'mingw64')
+else
+  fc = meson.get_compiler('fortran')
+endif
 
 py = import('python').find_installation('''/home/tim/venv/OMARS/bin/python''', pure: false)
 py_dep = py.dependency()
