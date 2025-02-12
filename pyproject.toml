@@ -69,6 +69,8 @@ before-test = "yum -y update && yum -y install openblas-devel lapack freetype &&
 
 [tool.cibuildwheel.windows]
 before-test = """
+choco install rtools -y --no-progress --force --version=4.0.0.20220206
+echo "c:\\rtools40\\ucrt64\\bin;" >> $env:GITHUB_PATH
 choco install mingw --version=8.1.0 --force --params "/InstallDir:C:\\mingw"
 echo "C:\\mingw\\bin" >> %GITHUB_PATH%
 choco install msys2 --no-progress
