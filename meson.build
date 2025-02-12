@@ -6,11 +6,7 @@ project('omar',
                             'warning_level=1',
                             'buildtype=release'
                           ])
-if host_machine.system() == 'windows'
-  fc = meson.get_compiler('fortran', native: true, required: true, for_machine: 'mingw64')
-else
-  fc = meson.get_compiler('fortran')
-endif
+fc = meson.get_compiler('fortran')
 
 py = import('python').find_installation('''/home/tim/venv/OMARS/bin/python''', pure: false)
 py_dep = py.dependency()
@@ -39,6 +35,9 @@ quadmath_dep = fc.find_library('quadmath', required: false)
 gomp = declare_dependency(link_args : ['-lgomp'])
 
 if host_machine.system() == 'windows'
+  gcc_link_args = ['-lucrt', '-static']
+  add_project_link_arguments(gcc_link_args, language: ['c', 'cpp', 'fortran'])
+  
   blas = fc.find_library('openblas', dirs: ['C:/msys64/mingw64/lib'], required: true)
   lapack = blas  # OpenBLAS typically includes LAPACK functionality
 else

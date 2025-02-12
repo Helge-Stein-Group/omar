@@ -7,7 +7,6 @@ py.extension_module('fortran_backend',
                      ],
                      include_directories: [
                      inc_np,
-
                      ],
                      dependencies : [
                      py_dep,
