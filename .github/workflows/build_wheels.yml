@@ -17,6 +17,8 @@ jobs:
       - name: Install gfortran on Windows (MinGW)
         if: runner.os == 'Windows'
         run: |
+          choco install rtools -y --no-progress --force --version=4.0.0.20220206
+          echo "c:\rtools40\ucrt64\bin;" >> $env:GITHUB_PATH
           choco install mingw --version=8.1.0 --force --params "/InstallDir:C:\mingw"
           echo "C:\mingw\bin" >> $GITHUB_PATH
       - name: Install BLAS and LAPACK on Windows
