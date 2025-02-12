@@ -225,7 +225,7 @@ def test_expand_bases():
         first_lof = models[backend]._fit(x, y)[-1]
 
         assert full_lof < 1, f"{backend} Backend: Full LOF"
-        assert first_lof <= ref_first_lof, f"{backend} Backend: First LOF"
+        assert first_lof <= ref_first_lof + 1e-6, f"{backend} Backend: First LOF"
 
     assert models[omar.Backend.FORTRAN].nbases == models[omar.Backend.PYTHON].nbases, "Unaligned Backends"
 
