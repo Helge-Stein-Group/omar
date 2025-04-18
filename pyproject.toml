@@ -66,25 +66,3 @@ test-command = "pytest {project}/omar/tests/unit_test.py"
 [tool.cibuildwheel.linux]
 before-all = "yum -y update && yum -y install blas-devel lapack-devel freetype-devel"
 before-test = "yum -y update && yum -y install openblas-devel lapack freetype && pip install packaging"
-
-[tool.cibuildwheel.windows]
-before-all = """
-choco install rtools -y --no-progress --force --version=4.0.0.20220206
-echo "c:\\rtools40\\ucrt64\\bin;" >> $env:GITHUB_PATH
-choco install mingw --version=8.1.0 --force --params "/InstallDir:C:\\mingw"
-echo "C:\\mingw\\bin" >> %GITHUB_PATH%
-choco install msys2 --no-progress
-C:\\msys64\\usr\bin\\bash -lc "pacman -Syu --noconfirm"
-C:\\msys64\\usr\bin\\bash -lc "pacman -S --noconfirm mingw-w64-x86_64-openblas mingw-w64-x86_64-lapack"
-echo "C:\\msys64\\mingw64\\lib" >> %GITHUB_PATH%
-"""
-before-test = """
-choco install rtools -y --no-progress --force --version=4.0.0.20220206
-echo "c:\\rtools40\\ucrt64\\bin;" >> $env:GITHUB_PATH
-choco install mingw --version=8.1.0 --force --params "/InstallDir:C:\\mingw"
-echo "C:\\mingw\\bin" >> %GITHUB_PATH%
-choco install msys2 --no-progress
-C:\\msys64\\usr\bin\\bash -lc "pacman -Syu --noconfirm"
-C:\\msys64\\usr\bin\\bash -lc "pacman -S --noconfirm mingw-w64-x86_64-openblas mingw-w64-x86_64-lapack"
-echo "C:\\msys64\\mingw64\\lib" >> %GITHUB_PATH%
-"""
