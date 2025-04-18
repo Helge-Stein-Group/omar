@@ -41,6 +41,8 @@ jobs:
             && C:\msys64\usr\bin\bash -lc "pacman -S --noconfirm mingw-w64-x86_64-openblas mingw-w64-x86_64-lapack"
             && echo "C:\\msys64\\mingw64\\lib" >> %GITHUB_PATH%
             && echo "C:\\msys64\\mingw64\\bin" >> %GITHUB_PATH%
+          CIBW_TEST_COMMAND_WINDOWS: >-
+            set PATH=C:\msys64\mingw64\bin;%PATH%
         uses: pypa/cibuildwheel@v2.22.0
         # env:
         #   CIBW_SOME_OPTION: value
