@@ -30,6 +30,18 @@ jobs:
           else
             echo "MACOSX_DEPLOYMENT_TARGET=14.0" >> $GITHUB_ENV
           fi
+      - name: Set up Miniconda (Windows)
+        if: runner.os == 'Windows'
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: "3.12"
+          activate-environment: build-env
+  
+      - name: Install OpenBLAS and gfortran (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          conda install -y -c conda-forge openblas gfortran numpy scipy meson ninja
       - name: Install cibuildwheel with uv support
         run: |
           pip install cibuildwheel[uv]
