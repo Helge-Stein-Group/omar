@@ -202,6 +202,7 @@ def test_update():
 
 
 def test_expand_bases():
+    np.random.seed(0)
     x, y, y_true = utils.generate_data()
     model = utils.reference_model(x)
     model.y_mean = y.mean()
@@ -252,6 +253,7 @@ def test_prune_bases():
         assert test_model == model, f"{backend} Backend: \n {model} \n vs. \n {test_model}"
 
 def test_find_bases():
+    np.random.seed(0)
     x, y, y_true = utils.generate_data()
     model = utils.reference_model(x)
     model.y_mean = y.mean()

@@ -44,13 +44,6 @@ jobs:
           CIBW_TEST_COMMAND_WINDOWS: >-
             set PATH=C:\msys64\mingw64\bin;%PATH%
         uses: pypa/cibuildwheel@v2.22.0
-        # env:
-        #   CIBW_SOME_OPTION: value
-        #    ...
-        # with:
-        #   package-dir: .
-        #   output-dir: wheelhouse
-        #   config-file: "{package}/pyproject.toml"
 
       - uses: actions/upload-artifact@v4
         with:
