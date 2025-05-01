@@ -11,6 +11,7 @@ module utils
     public :: reference_data_matrix, reference_covariance_matrix, reference_rhs
     public :: compare_real_arrays, compare_real_scalars, compare_int_arrays, &
                compare_real_matrices
+    public :: print_model_formula
 
 contains
 
@@ -184,4 +185,39 @@ contains
         end if
     end subroutine compare_int_arrays
 
+    subroutine print_model_formula(nbases, mask, truncated, cov, root, coefficients, y_mean, label)
+        integer, intent(in) :: nbases
+        logical, intent(in) :: mask(:,:)
+        logical, intent(in) :: truncated(:,:)
+        integer, intent(in) :: cov(:,:)
+        real(8), intent(in) :: root(:,:)
+        real(8), intent(in) :: coefficients(:)
+        real(8), intent(in) :: y_mean
+        character(len=*), intent(in) :: label
+        integer :: i, j
+        character(len=256) :: term
+        logical :: first_factor
+
+        print *, trim(label)
+        write(*,'(A,F8.2)') 'y = ', y_mean
+        do i = 2, nbases
+            if (any(mask(:,i))) then
+                write(*,'(A,F8.2,A)', advance='no') ' + ', coefficients(i-1), ' * '
+                first_factor = .true.
+                do j = 1, size(mask,1)
+                    if (mask(j,i)) then
+                        if (.not. first_factor) write(*,'(A)', advance='no') ' * '
+                        if (truncated(j,i)) then
+                            write(term, '(A,I0,A,F6.2,A)') 'max(0, x[', cov(j,i), '] - ', root(j,i), ')'
+                        else
+                            write(term, '(A,I0,A,F6.2,A)') '(x[', cov(j,i), '] - ', root(j,i), ')'
+                        end if
+                        write(*,'(A)', advance='no') trim(term)
+                        first_factor = .false.
+                    end if
+                end do
+                print *  ! Newline after each basis
+            end if
+        end do
+    end subroutine print_model_formula
 end module utils
