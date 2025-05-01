@@ -1,4 +1,4 @@
-/* File: fortran_backendmodule.c
+/* File: backendmodule.c
  * This file is auto-generated with f2py (version:2.2.2).
  * f2py is a Fortran to Python Interface Generator (FPIG), Second Edition,
  * written by Pearu Peterson <pearu@cens.ioc.ee>.
@@ -23,8 +23,8 @@ extern "C" {
 #include <math.h>
 
 /**************** See f2py2e/rules.py: mod_rules['modulebody'] ****************/
-static PyObject *fortran_backend_error;
-static PyObject *fortran_backend_module;
+static PyObject *backend_error;
+static PyObject *backend_module;
 
 /*********************** See f2py2e/cfuncs.py: typedefs ***********************/
 typedef signed char signed_char;
@@ -38,7 +38,7 @@ typedef signed char signed_char;
 
 
 #define PRINTPYOBJERR(obj)\
-    fprintf(stderr,"fortran_backend.error is related to ");\
+    fprintf(stderr,"backend.error is related to ");\
     PyObject_Print((PyObject *)obj,stderr,Py_PRINT_RAW);\
     fprintf(stderr,"\n");
 
@@ -193,7 +193,7 @@ int_from_pyobj(int* v, PyObject *obj, const char *errmess)
     {
         PyObject* err = PyErr_Occurred();
         if (err == NULL) {
-            err = fortran_backend_error;
+            err = backend_error;
         }
         PyErr_SetString(err, errmess);
     }
@@ -235,7 +235,7 @@ double_from_pyobj(double* v, PyObject *obj, const char *errmess)
     }
     {
         PyObject* err = PyErr_Occurred();
-        if (err==NULL) err = fortran_backend_error;
+        if (err==NULL) err = backend_error;
         PyErr_SetString(err,errmess);
     }
     return 0;
@@ -268,7 +268,7 @@ static int try_pyarr_from_int(PyObject* obj,int* v) {
 /*********************** See f2py2e/rules.py: buildapi ***********************/
 
 /**************************** active_base_indices ****************************/
-static char doc_f2py_rout_fortran_backend_backend_active_base_indices[] = "\
+static char doc_f2py_rout_backend_backend_active_base_indices[] = "\
 result = active_base_indices(mask,nbases)\n\nWrapper for ``active_base_indices``.\
 \n\nParameters\n----------\n"
 "mask : input rank-2 array('i') with bounds (f2py_mask_d0,f2py_mask_d1)\n"
@@ -276,7 +276,7 @@ result = active_base_indices(mask,nbases)\n\nWrapper for ``active_base_indices``
 "\nReturns\n-------\n"
 "result : rank-1 array('i') with bounds (-1 + nbases)";
 /* #declfortranroutine# */
-static PyObject *f2py_rout_fortran_backend_backend_active_base_indices(const PyObject *capi_self,
+static PyObject *f2py_rout_backend_backend_active_base_indices(const PyObject *capi_self,
                            PyObject *capi_args,
                            PyObject *capi_keywds,
                            void (*f2py_func)(int*,int*,int*,int*,int*)) {
@@ -306,36 +306,36 @@ static PyObject *f2py_rout_fortran_backend_backend_active_base_indices(const PyO
 f2py_start_clock();
 #endif
     if (!PyArg_ParseTupleAndKeywords(capi_args,capi_keywds,\
-        "OO|:fortran_backend.backend.active_base_indices",\
+        "OO|:backend.backend.active_base_indices",\
         capi_kwlist,&mask_capi,&nbases_capi))
         return NULL;
 /*frompyobj*/
     /* Processing variable mask */
     ;
     capi_mask_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.active_base_indices: failed to create array from the 1st argument `mask`";
+    const char * capi_errmess = "backend.backend.backend.active_base_indices: failed to create array from the 1st argument `mask`";
     capi_mask_as_array = ndarray_from_pyobj(  NPY_INT,1,mask_Dims,mask_Rank,  capi_mask_intent,mask_capi,capi_errmess);
     if (capi_mask_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
         mask = (int *)(PyArray_DATA(capi_mask_as_array));
 
     /* Processing variable nbases */
-        f2py_success = int_from_pyobj(&nbases,nbases_capi,"fortran_backend.backend.active_base_indices() 2nd argument (nbases) can't be converted to int");
+        f2py_success = int_from_pyobj(&nbases,nbases_capi,"backend.backend.active_base_indices() 2nd argument (nbases) can't be converted to int");
     if (f2py_success) {
     /* Processing variable result */
     result_Dims[0]=-1 + nbases;
     capi_result_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.active_base_indices: failed to create array from the hidden `result`";
+    const char * capi_errmess = "backend.backend.backend.active_base_indices: failed to create array from the hidden `result`";
     capi_result_as_array = ndarray_from_pyobj(  NPY_INT,1,result_Dims,result_Rank,  capi_result_intent,Py_None,capi_errmess);
     if (capi_result_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -392,7 +392,7 @@ f2py_stop_clock();
 /************************* end of active_base_indices *************************/
 
 /******************************** data_matrix ********************************/
-static char doc_f2py_rout_fortran_backend_backend_data_matrix[] = "\
+static char doc_f2py_rout_backend_backend_data_matrix[] = "\
 data_matrix_out,data_matrix_mean = data_matrix(x,basis_indices,mask,truncated,cov,root)\n\nWrapper for ``data_matrix``.\
 \n\nParameters\n----------\n"
 "x : input rank-2 array('d') with bounds (f2py_x_d0,f2py_x_d1)\n"
@@ -405,7 +405,7 @@ data_matrix_out,data_matrix_mean = data_matrix(x,basis_indices,mask,truncated,co
 "data_matrix_out : rank-2 array('d') with bounds (size(x, 1),size(basis_indices))\n"
 "data_matrix_mean : rank-1 array('d') with bounds (size(basis_indices))";
 /* #declfortranroutine# */
-static PyObject *f2py_rout_fortran_backend_backend_data_matrix(const PyObject *capi_self,
+static PyObject *f2py_rout_backend_backend_data_matrix(const PyObject *capi_self,
                            PyObject *capi_args,
                            PyObject *capi_keywds,
                            void (*f2py_func)(double*,int*,int*,int*,int*,double*,double*,double*,int*,int*,int*,int*,int*,int*,int*,int*,int*,int*,int*)) {
@@ -477,19 +477,19 @@ static PyObject *f2py_rout_fortran_backend_backend_data_matrix(const PyObject *c
 f2py_start_clock();
 #endif
     if (!PyArg_ParseTupleAndKeywords(capi_args,capi_keywds,\
-        "OOOOOO|:fortran_backend.backend.data_matrix",\
+        "OOOOOO|:backend.backend.data_matrix",\
         capi_kwlist,&x_capi,&basis_indices_capi,&mask_capi,&truncated_capi,&cov_capi,&root_capi))
         return NULL;
 /*frompyobj*/
     /* Processing variable x */
     ;
     capi_x_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.data_matrix: failed to create array from the 1st argument `x`";
+    const char * capi_errmess = "backend.backend.backend.data_matrix: failed to create array from the 1st argument `x`";
     capi_x_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,x_Dims,x_Rank,  capi_x_intent,x_capi,capi_errmess);
     if (capi_x_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -498,12 +498,12 @@ f2py_start_clock();
     /* Processing variable basis_indices */
     ;
     capi_basis_indices_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.data_matrix: failed to create array from the 2nd argument `basis_indices`";
+    const char * capi_errmess = "backend.backend.backend.data_matrix: failed to create array from the 2nd argument `basis_indices`";
     capi_basis_indices_as_array = ndarray_from_pyobj(  NPY_INT,1,basis_indices_Dims,basis_indices_Rank,  capi_basis_indices_intent,basis_indices_capi,capi_errmess);
     if (capi_basis_indices_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -512,12 +512,12 @@ f2py_start_clock();
     /* Processing variable mask */
     ;
     capi_mask_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.data_matrix: failed to create array from the 3rd argument `mask`";
+    const char * capi_errmess = "backend.backend.backend.data_matrix: failed to create array from the 3rd argument `mask`";
     capi_mask_as_array = ndarray_from_pyobj(  NPY_INT,1,mask_Dims,mask_Rank,  capi_mask_intent,mask_capi,capi_errmess);
     if (capi_mask_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -526,12 +526,12 @@ f2py_start_clock();
     /* Processing variable truncated */
     ;
     capi_truncated_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.data_matrix: failed to create array from the 4th argument `truncated`";
+    const char * capi_errmess = "backend.backend.backend.data_matrix: failed to create array from the 4th argument `truncated`";
     capi_truncated_as_array = ndarray_from_pyobj(  NPY_INT,1,truncated_Dims,truncated_Rank,  capi_truncated_intent,truncated_capi,capi_errmess);
     if (capi_truncated_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -540,12 +540,12 @@ f2py_start_clock();
     /* Processing variable cov */
     ;
     capi_cov_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.data_matrix: failed to create array from the 5th argument `cov`";
+    const char * capi_errmess = "backend.backend.backend.data_matrix: failed to create array from the 5th argument `cov`";
     capi_cov_as_array = ndarray_from_pyobj(  NPY_INT,1,cov_Dims,cov_Rank,  capi_cov_intent,cov_capi,capi_errmess);
     if (capi_cov_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -554,12 +554,12 @@ f2py_start_clock();
     /* Processing variable root */
     ;
     capi_root_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.data_matrix: failed to create array from the 6th argument `root`";
+    const char * capi_errmess = "backend.backend.backend.data_matrix: failed to create array from the 6th argument `root`";
     capi_root_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,root_Dims,root_Rank,  capi_root_intent,root_capi,capi_errmess);
     if (capi_root_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -568,12 +568,12 @@ f2py_start_clock();
     /* Processing variable data_matrix_out */
     data_matrix_out_Dims[0]=size(x, 1),data_matrix_out_Dims[1]=size(basis_indices);
     capi_data_matrix_out_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.data_matrix: failed to create array from the hidden `data_matrix_out`";
+    const char * capi_errmess = "backend.backend.backend.data_matrix: failed to create array from the hidden `data_matrix_out`";
     capi_data_matrix_out_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,data_matrix_out_Dims,data_matrix_out_Rank,  capi_data_matrix_out_intent,Py_None,capi_errmess);
     if (capi_data_matrix_out_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -582,12 +582,12 @@ f2py_start_clock();
     /* Processing variable data_matrix_mean */
     data_matrix_mean_Dims[0]=size(basis_indices);
     capi_data_matrix_mean_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.data_matrix: failed to create array from the hidden `data_matrix_mean`";
+    const char * capi_errmess = "backend.backend.backend.data_matrix: failed to create array from the hidden `data_matrix_mean`";
     capi_data_matrix_mean_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,data_matrix_mean_Dims,data_matrix_mean_Rank,  capi_data_matrix_mean_intent,Py_None,capi_errmess);
     if (capi_data_matrix_mean_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -691,14 +691,14 @@ f2py_stop_clock();
 /***************************** end of data_matrix *****************************/
 
 /***************************** covariance_matrix *****************************/
-static char doc_f2py_rout_fortran_backend_backend_covariance_matrix[] = "\
+static char doc_f2py_rout_backend_backend_covariance_matrix[] = "\
 covariance_matrix_out = covariance_matrix(data_matrix)\n\nWrapper for ``covariance_matrix``.\
 \n\nParameters\n----------\n"
 "data_matrix : input rank-2 array('d') with bounds (f2py_data_matrix_d0,f2py_data_matrix_d1)\n"
 "\nReturns\n-------\n"
 "covariance_matrix_out : rank-2 array('d') with bounds (size(data_matrix, 2),size(data_matrix, 2))";
 /* #declfortranroutine# */
-static PyObject *f2py_rout_fortran_backend_backend_covariance_matrix(const PyObject *capi_self,
+static PyObject *f2py_rout_backend_backend_covariance_matrix(const PyObject *capi_self,
                            PyObject *capi_args,
                            PyObject *capi_keywds,
                            void (*f2py_func)(double*,double*,int*,int*)) {
@@ -726,19 +726,19 @@ static PyObject *f2py_rout_fortran_backend_backend_covariance_matrix(const PyObj
 f2py_start_clock();
 #endif
     if (!PyArg_ParseTupleAndKeywords(capi_args,capi_keywds,\
-        "O|:fortran_backend.backend.covariance_matrix",\
+        "O|:backend.backend.covariance_matrix",\
         capi_kwlist,&data_matrix_capi))
         return NULL;
 /*frompyobj*/
     /* Processing variable data_matrix */
     ;
     capi_data_matrix_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.covariance_matrix: failed to create array from the 1st argument `data_matrix`";
+    const char * capi_errmess = "backend.backend.backend.covariance_matrix: failed to create array from the 1st argument `data_matrix`";
     capi_data_matrix_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,data_matrix_Dims,data_matrix_Rank,  capi_data_matrix_intent,data_matrix_capi,capi_errmess);
     if (capi_data_matrix_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -747,12 +747,12 @@ f2py_start_clock();
     /* Processing variable covariance_matrix_out */
     covariance_matrix_out_Dims[0]=size(data_matrix, 2),covariance_matrix_out_Dims[1]=size(data_matrix, 2);
     capi_covariance_matrix_out_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.covariance_matrix: failed to create array from the hidden `covariance_matrix_out`";
+    const char * capi_errmess = "backend.backend.backend.covariance_matrix: failed to create array from the hidden `covariance_matrix_out`";
     capi_covariance_matrix_out_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,covariance_matrix_out_Dims,covariance_matrix_out_Rank,  capi_covariance_matrix_out_intent,Py_None,capi_errmess);
     if (capi_covariance_matrix_out_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -807,7 +807,7 @@ f2py_stop_clock();
 /************************** end of covariance_matrix **************************/
 
 /************************************ rhs ************************************/
-static char doc_f2py_rout_fortran_backend_backend_rhs[] = "\
+static char doc_f2py_rout_backend_backend_rhs[] = "\
 rhs_out = rhs(y,y_mean,data_matrix_in)\n\nWrapper for ``rhs``.\
 \n\nParameters\n----------\n"
 "y : input rank-1 array('d') with bounds (f2py_y_d0)\n"
@@ -816,7 +816,7 @@ rhs_out = rhs(y,y_mean,data_matrix_in)\n\nWrapper for ``rhs``.\
 "\nReturns\n-------\n"
 "rhs_out : rank-1 array('d') with bounds (size(data_matrix_in, 2))";
 /* #declfortranroutine# */
-static PyObject *f2py_rout_fortran_backend_backend_rhs(const PyObject *capi_self,
+static PyObject *f2py_rout_backend_backend_rhs(const PyObject *capi_self,
                            PyObject *capi_args,
                            PyObject *capi_keywds,
                            void (*f2py_func)(double*,double*,double*,double*,int*,int*,int*)) {
@@ -853,36 +853,36 @@ static PyObject *f2py_rout_fortran_backend_backend_rhs(const PyObject *capi_self
 f2py_start_clock();
 #endif
     if (!PyArg_ParseTupleAndKeywords(capi_args,capi_keywds,\
-        "OOO|:fortran_backend.backend.rhs",\
+        "OOO|:backend.backend.rhs",\
         capi_kwlist,&y_capi,&y_mean_capi,&data_matrix_in_capi))
         return NULL;
 /*frompyobj*/
     /* Processing variable y */
     ;
     capi_y_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.rhs: failed to create array from the 1st argument `y`";
+    const char * capi_errmess = "backend.backend.backend.rhs: failed to create array from the 1st argument `y`";
     capi_y_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,y_Dims,y_Rank,  capi_y_intent,y_capi,capi_errmess);
     if (capi_y_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
         y = (double *)(PyArray_DATA(capi_y_as_array));
 
     /* Processing variable y_mean */
-        f2py_success = double_from_pyobj(&y_mean,y_mean_capi,"fortran_backend.backend.rhs() 2nd argument (y_mean) can't be converted to double");
+        f2py_success = double_from_pyobj(&y_mean,y_mean_capi,"backend.backend.rhs() 2nd argument (y_mean) can't be converted to double");
     if (f2py_success) {
     /* Processing variable data_matrix_in */
     ;
     capi_data_matrix_in_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.rhs: failed to create array from the 3rd argument `data_matrix_in`";
+    const char * capi_errmess = "backend.backend.backend.rhs: failed to create array from the 3rd argument `data_matrix_in`";
     capi_data_matrix_in_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,data_matrix_in_Dims,data_matrix_in_Rank,  capi_data_matrix_in_intent,data_matrix_in_capi,capi_errmess);
     if (capi_data_matrix_in_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -891,12 +891,12 @@ f2py_start_clock();
     /* Processing variable rhs_out */
     rhs_out_Dims[0]=size(data_matrix_in, 2);
     capi_rhs_out_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.rhs: failed to create array from the hidden `rhs_out`";
+    const char * capi_errmess = "backend.backend.backend.rhs: failed to create array from the hidden `rhs_out`";
     capi_rhs_out_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,rhs_out_Dims,rhs_out_Rank,  capi_rhs_out_intent,Py_None,capi_errmess);
     if (capi_rhs_out_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -960,7 +960,7 @@ f2py_stop_clock();
 /********************************* end of rhs *********************************/
 
 /******************************** coefficients ********************************/
-static char doc_f2py_rout_fortran_backend_backend_coefficients[] = "\
+static char doc_f2py_rout_backend_backend_coefficients[] = "\
 coefficients_out,chol = coefficients(covariance_matrix,rhs)\n\nWrapper for ``coefficients``.\
 \n\nParameters\n----------\n"
 "covariance_matrix : input rank-2 array('d') with bounds (f2py_covariance_matrix_d0,f2py_covariance_matrix_d1)\n"
@@ -969,7 +969,7 @@ coefficients_out,chol = coefficients(covariance_matrix,rhs)\n\nWrapper for ``coe
 "coefficients_out : rank-1 array('d') with bounds (size(rhs))\n"
 "chol : rank-2 array('d') with bounds (size(covariance_matrix, 1),size(covariance_matrix, 2))";
 /* #declfortranroutine# */
-static PyObject *f2py_rout_fortran_backend_backend_coefficients(const PyObject *capi_self,
+static PyObject *f2py_rout_backend_backend_coefficients(const PyObject *capi_self,
                            PyObject *capi_args,
                            PyObject *capi_keywds,
                            void (*f2py_func)(double*,double*,double*,double*,int*,int*,int*)) {
@@ -1009,19 +1009,19 @@ static PyObject *f2py_rout_fortran_backend_backend_coefficients(const PyObject *
 f2py_start_clock();
 #endif
     if (!PyArg_ParseTupleAndKeywords(capi_args,capi_keywds,\
-        "OO|:fortran_backend.backend.coefficients",\
+        "OO|:backend.backend.coefficients",\
         capi_kwlist,&covariance_matrix_capi,&rhs_capi))
         return NULL;
 /*frompyobj*/
     /* Processing variable covariance_matrix */
     ;
     capi_covariance_matrix_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.coefficients: failed to create array from the 1st argument `covariance_matrix`";
+    const char * capi_errmess = "backend.backend.backend.coefficients: failed to create array from the 1st argument `covariance_matrix`";
     capi_covariance_matrix_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,covariance_matrix_Dims,covariance_matrix_Rank,  capi_covariance_matrix_intent,covariance_matrix_capi,capi_errmess);
     if (capi_covariance_matrix_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -1030,12 +1030,12 @@ f2py_start_clock();
     /* Processing variable rhs */
     ;
     capi_rhs_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.coefficients: failed to create array from the 2nd argument `rhs`";
+    const char * capi_errmess = "backend.backend.backend.coefficients: failed to create array from the 2nd argument `rhs`";
     capi_rhs_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,rhs_Dims,rhs_Rank,  capi_rhs_intent,rhs_capi,capi_errmess);
     if (capi_rhs_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -1044,12 +1044,12 @@ f2py_start_clock();
     /* Processing variable coefficients_out */
     coefficients_out_Dims[0]=size(rhs);
     capi_coefficients_out_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.coefficients: failed to create array from the hidden `coefficients_out`";
+    const char * capi_errmess = "backend.backend.backend.coefficients: failed to create array from the hidden `coefficients_out`";
     capi_coefficients_out_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,coefficients_out_Dims,coefficients_out_Rank,  capi_coefficients_out_intent,Py_None,capi_errmess);
     if (capi_coefficients_out_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -1058,12 +1058,12 @@ f2py_start_clock();
     /* Processing variable chol */
     chol_Dims[0]=size(covariance_matrix, 1),chol_Dims[1]=size(covariance_matrix, 2);
     capi_chol_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.coefficients: failed to create array from the hidden `chol`";
+    const char * capi_errmess = "backend.backend.backend.coefficients: failed to create array from the hidden `chol`";
     capi_chol_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,chol_Dims,chol_Rank,  capi_chol_intent,Py_None,capi_errmess);
     if (capi_chol_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -1127,7 +1127,7 @@ f2py_stop_clock();
 /**************************** end of coefficients ****************************/
 
 /************************ generalised_cross_validation ************************/
-static char doc_f2py_rout_fortran_backend_backend_generalised_cross_validation[] = "\
+static char doc_f2py_rout_backend_backend_generalised_cross_validation[] = "\
 lof = generalised_cross_validation(y,y_mean,data_matrix_in,chol,coefficients_in,penalty)\n\nWrapper for ``generalised_cross_validation``.\
 \n\nParameters\n----------\n"
 "y : input rank-1 array('d') with bounds (f2py_y_d0)\n"
@@ -1139,7 +1139,7 @@ lof = generalised_cross_validation(y,y_mean,data_matrix_in,chol,coefficients_in,
 "\nReturns\n-------\n"
 "lof : float";
 /* #declfortranroutine# */
-static PyObject *f2py_rout_fortran_backend_backend_generalised_cross_validation(const PyObject *capi_self,
+static PyObject *f2py_rout_backend_backend_generalised_cross_validation(const PyObject *capi_self,
                            PyObject *capi_args,
                            PyObject *capi_keywds,
                            void (*f2py_func)(double*,double*,double*,double*,double*,int*,double*,int*,int*,int*,int*,int*,int*)) {
@@ -1189,36 +1189,36 @@ static PyObject *f2py_rout_fortran_backend_backend_generalised_cross_validation(
 f2py_start_clock();
 #endif
     if (!PyArg_ParseTupleAndKeywords(capi_args,capi_keywds,\
-        "OOOOOO|:fortran_backend.backend.generalised_cross_validation",\
+        "OOOOOO|:backend.backend.generalised_cross_validation",\
         capi_kwlist,&y_capi,&y_mean_capi,&data_matrix_in_capi,&chol_capi,&coefficients_in_capi,&penalty_capi))
         return NULL;
 /*frompyobj*/
     /* Processing variable y */
     ;
     capi_y_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.generalised_cross_validation: failed to create array from the 1st argument `y`";
+    const char * capi_errmess = "backend.backend.backend.generalised_cross_validation: failed to create array from the 1st argument `y`";
     capi_y_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,y_Dims,y_Rank,  capi_y_intent,y_capi,capi_errmess);
     if (capi_y_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
         y = (double *)(PyArray_DATA(capi_y_as_array));
 
     /* Processing variable y_mean */
-        f2py_success = double_from_pyobj(&y_mean,y_mean_capi,"fortran_backend.backend.generalised_cross_validation() 2nd argument (y_mean) can't be converted to double");
+        f2py_success = double_from_pyobj(&y_mean,y_mean_capi,"backend.backend.generalised_cross_validation() 2nd argument (y_mean) can't be converted to double");
     if (f2py_success) {
     /* Processing variable data_matrix_in */
     ;
     capi_data_matrix_in_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.generalised_cross_validation: failed to create array from the 3rd argument `data_matrix_in`";
+    const char * capi_errmess = "backend.backend.backend.generalised_cross_validation: failed to create array from the 3rd argument `data_matrix_in`";
     capi_data_matrix_in_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,data_matrix_in_Dims,data_matrix_in_Rank,  capi_data_matrix_in_intent,data_matrix_in_capi,capi_errmess);
     if (capi_data_matrix_in_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -1227,12 +1227,12 @@ f2py_start_clock();
     /* Processing variable chol */
     ;
     capi_chol_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.generalised_cross_validation: failed to create array from the 4th argument `chol`";
+    const char * capi_errmess = "backend.backend.backend.generalised_cross_validation: failed to create array from the 4th argument `chol`";
     capi_chol_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,chol_Dims,chol_Rank,  capi_chol_intent,chol_capi,capi_errmess);
     if (capi_chol_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -1241,19 +1241,19 @@ f2py_start_clock();
     /* Processing variable coefficients_in */
     ;
     capi_coefficients_in_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.generalised_cross_validation: failed to create array from the 5th argument `coefficients_in`";
+    const char * capi_errmess = "backend.backend.backend.generalised_cross_validation: failed to create array from the 5th argument `coefficients_in`";
     capi_coefficients_in_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,coefficients_in_Dims,coefficients_in_Rank,  capi_coefficients_in_intent,coefficients_in_capi,capi_errmess);
     if (capi_coefficients_in_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
         coefficients_in = (double *)(PyArray_DATA(capi_coefficients_in_as_array));
 
     /* Processing variable penalty */
-        f2py_success = int_from_pyobj(&penalty,penalty_capi,"fortran_backend.backend.generalised_cross_validation() 6th argument (penalty) can't be converted to int");
+        f2py_success = int_from_pyobj(&penalty,penalty_capi,"backend.backend.generalised_cross_validation() 6th argument (penalty) can't be converted to int");
     if (f2py_success) {
     /* Processing variable lof */
     /* Processing variable f2py_y_d0 */
@@ -1332,7 +1332,7 @@ f2py_stop_clock();
 /******************** end of generalised_cross_validation ********************/
 
 /************************************ fit ************************************/
-static char doc_f2py_rout_fortran_backend_backend_fit[] = "\
+static char doc_f2py_rout_backend_backend_fit[] = "\
 data_matrix_out,data_matrix_mean,covariance_matrix_out,rhs_out,chol,coefficients_out,lof = fit(x,y,y_mean,nbases,mask,truncated,cov,root,penalty)\n\nWrapper for ``fit``.\
 \n\nParameters\n----------\n"
 "x : input rank-2 array('d') with bounds (f2py_x_d0,f2py_x_d1)\n"
@@ -1353,7 +1353,7 @@ data_matrix_out,data_matrix_mean,covariance_matrix_out,rhs_out,chol,coefficients
 "coefficients_out : rank-1 array('d') with bounds (-1 + nbases)\n"
 "lof : float";
 /* #declfortranroutine# */
-static PyObject *f2py_rout_fortran_backend_backend_fit(const PyObject *capi_self,
+static PyObject *f2py_rout_backend_backend_fit(const PyObject *capi_self,
                            PyObject *capi_args,
                            PyObject *capi_keywds,
                            void (*f2py_func)(double*,double*,double*,int*,int*,int*,int*,double*,int*,double*,double*,double*,double*,double*,double*,double*,int*,int*,int*,int*,int*,int*,int*,int*,int*,int*,int*)) {
@@ -1452,19 +1452,19 @@ static PyObject *f2py_rout_fortran_backend_backend_fit(const PyObject *capi_self
 f2py_start_clock();
 #endif
     if (!PyArg_ParseTupleAndKeywords(capi_args,capi_keywds,\
-        "OOOOOOOOO|:fortran_backend.backend.fit",\
+        "OOOOOOOOO|:backend.backend.fit",\
         capi_kwlist,&x_capi,&y_capi,&y_mean_capi,&nbases_capi,&mask_capi,&truncated_capi,&cov_capi,&root_capi,&penalty_capi))
         return NULL;
 /*frompyobj*/
     /* Processing variable x */
     ;
     capi_x_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.fit: failed to create array from the 1st argument `x`";
+    const char * capi_errmess = "backend.backend.backend.fit: failed to create array from the 1st argument `x`";
     capi_x_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,x_Dims,x_Rank,  capi_x_intent,x_capi,capi_errmess);
     if (capi_x_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -1473,32 +1473,32 @@ f2py_start_clock();
     /* Processing variable y */
     ;
     capi_y_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.fit: failed to create array from the 2nd argument `y`";
+    const char * capi_errmess = "backend.backend.backend.fit: failed to create array from the 2nd argument `y`";
     capi_y_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,y_Dims,y_Rank,  capi_y_intent,y_capi,capi_errmess);
     if (capi_y_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
         y = (double *)(PyArray_DATA(capi_y_as_array));
 
     /* Processing variable y_mean */
-        f2py_success = double_from_pyobj(&y_mean,y_mean_capi,"fortran_backend.backend.fit() 3rd argument (y_mean) can't be converted to double");
+        f2py_success = double_from_pyobj(&y_mean,y_mean_capi,"backend.backend.fit() 3rd argument (y_mean) can't be converted to double");
     if (f2py_success) {
     /* Processing variable nbases */
-        f2py_success = int_from_pyobj(&nbases,nbases_capi,"fortran_backend.backend.fit() 4th argument (nbases) can't be converted to int");
+        f2py_success = int_from_pyobj(&nbases,nbases_capi,"backend.backend.fit() 4th argument (nbases) can't be converted to int");
     if (f2py_success) {
     /* Processing variable mask */
     ;
     capi_mask_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.fit: failed to create array from the 5th argument `mask`";
+    const char * capi_errmess = "backend.backend.backend.fit: failed to create array from the 5th argument `mask`";
     capi_mask_as_array = ndarray_from_pyobj(  NPY_INT,1,mask_Dims,mask_Rank,  capi_mask_intent,mask_capi,capi_errmess);
     if (capi_mask_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -1507,12 +1507,12 @@ f2py_start_clock();
     /* Processing variable truncated */
     ;
     capi_truncated_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.fit: failed to create array from the 6th argument `truncated`";
+    const char * capi_errmess = "backend.backend.backend.fit: failed to create array from the 6th argument `truncated`";
     capi_truncated_as_array = ndarray_from_pyobj(  NPY_INT,1,truncated_Dims,truncated_Rank,  capi_truncated_intent,truncated_capi,capi_errmess);
     if (capi_truncated_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -1521,12 +1521,12 @@ f2py_start_clock();
     /* Processing variable cov */
     ;
     capi_cov_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.fit: failed to create array from the 7th argument `cov`";
+    const char * capi_errmess = "backend.backend.backend.fit: failed to create array from the 7th argument `cov`";
     capi_cov_as_array = ndarray_from_pyobj(  NPY_INT,1,cov_Dims,cov_Rank,  capi_cov_intent,cov_capi,capi_errmess);
     if (capi_cov_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -1535,30 +1535,30 @@ f2py_start_clock();
     /* Processing variable root */
     ;
     capi_root_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.fit: failed to create array from the 8th argument `root`";
+    const char * capi_errmess = "backend.backend.backend.fit: failed to create array from the 8th argument `root`";
     capi_root_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,root_Dims,root_Rank,  capi_root_intent,root_capi,capi_errmess);
     if (capi_root_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
         root = (double *)(PyArray_DATA(capi_root_as_array));
 
     /* Processing variable penalty */
-        f2py_success = int_from_pyobj(&penalty,penalty_capi,"fortran_backend.backend.fit() 9th argument (penalty) can't be converted to int");
+        f2py_success = int_from_pyobj(&penalty,penalty_capi,"backend.backend.fit() 9th argument (penalty) can't be converted to int");
     if (f2py_success) {
     /* Processing variable lof */
     /* Processing variable data_matrix_out */
     data_matrix_out_Dims[0]=size(x, 1),data_matrix_out_Dims[1]=-1 + nbases;
     capi_data_matrix_out_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.fit: failed to create array from the hidden `data_matrix_out`";
+    const char * capi_errmess = "backend.backend.backend.fit: failed to create array from the hidden `data_matrix_out`";
     capi_data_matrix_out_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,data_matrix_out_Dims,data_matrix_out_Rank,  capi_data_matrix_out_intent,Py_None,capi_errmess);
     if (capi_data_matrix_out_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -1567,12 +1567,12 @@ f2py_start_clock();
     /* Processing variable data_matrix_mean */
     data_matrix_mean_Dims[0]=-1 + nbases;
     capi_data_matrix_mean_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.fit: failed to create array from the hidden `data_matrix_mean`";
+    const char * capi_errmess = "backend.backend.backend.fit: failed to create array from the hidden `data_matrix_mean`";
     capi_data_matrix_mean_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,data_matrix_mean_Dims,data_matrix_mean_Rank,  capi_data_matrix_mean_intent,Py_None,capi_errmess);
     if (capi_data_matrix_mean_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -1581,12 +1581,12 @@ f2py_start_clock();
     /* Processing variable covariance_matrix_out */
     covariance_matrix_out_Dims[0]=-1 + nbases,covariance_matrix_out_Dims[1]=-1 + nbases;
     capi_covariance_matrix_out_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.fit: failed to create array from the hidden `covariance_matrix_out`";
+    const char * capi_errmess = "backend.backend.backend.fit: failed to create array from the hidden `covariance_matrix_out`";
     capi_covariance_matrix_out_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,covariance_matrix_out_Dims,covariance_matrix_out_Rank,  capi_covariance_matrix_out_intent,Py_None,capi_errmess);
     if (capi_covariance_matrix_out_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -1595,12 +1595,12 @@ f2py_start_clock();
     /* Processing variable rhs_out */
     rhs_out_Dims[0]=-1 + nbases;
     capi_rhs_out_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.fit: failed to create array from the hidden `rhs_out`";
+    const char * capi_errmess = "backend.backend.backend.fit: failed to create array from the hidden `rhs_out`";
     capi_rhs_out_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,rhs_out_Dims,rhs_out_Rank,  capi_rhs_out_intent,Py_None,capi_errmess);
     if (capi_rhs_out_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -1609,12 +1609,12 @@ f2py_start_clock();
     /* Processing variable chol */
     chol_Dims[0]=-1 + nbases,chol_Dims[1]=-1 + nbases;
     capi_chol_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.fit: failed to create array from the hidden `chol`";
+    const char * capi_errmess = "backend.backend.backend.fit: failed to create array from the hidden `chol`";
     capi_chol_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,chol_Dims,chol_Rank,  capi_chol_intent,Py_None,capi_errmess);
     if (capi_chol_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -1623,12 +1623,12 @@ f2py_start_clock();
     /* Processing variable coefficients_out */
     coefficients_out_Dims[0]=-1 + nbases;
     capi_coefficients_out_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.fit: failed to create array from the hidden `coefficients_out`";
+    const char * capi_errmess = "backend.backend.backend.fit: failed to create array from the hidden `coefficients_out`";
     capi_coefficients_out_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,coefficients_out_Dims,coefficients_out_Rank,  capi_coefficients_out_intent,Py_None,capi_errmess);
     if (capi_coefficients_out_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -1747,7 +1747,7 @@ f2py_stop_clock();
 /********************************* end of fit *********************************/
 
 /******************************** update_init ********************************/
-static char doc_f2py_rout_fortran_backend_backend_update_init[] = "\
+static char doc_f2py_rout_backend_backend_update_init[] = "\
 update,update_mean = update_init(x,data_matrix_in,data_matrix_mean,prev_root,parent_idx,nbases,mask,cov,root)\n\nWrapper for ``update_init``.\
 \n\nParameters\n----------\n"
 "x : input rank-2 array('d') with bounds (f2py_x_d0,f2py_x_d1)\n"
@@ -1763,7 +1763,7 @@ update,update_mean = update_init(x,data_matrix_in,data_matrix_mean,prev_root,par
 "update : rank-1 array('d') with bounds (size(data_matrix_in, 1))\n"
 "update_mean : float";
 /* #declfortranroutine# */
-static PyObject *f2py_rout_fortran_backend_backend_update_init(const PyObject *capi_self,
+static PyObject *f2py_rout_backend_backend_update_init(const PyObject *capi_self,
                            PyObject *capi_args,
                            PyObject *capi_keywds,
                            void (*f2py_func)(double*,double*,double*,double*,int*,int*,int*,int*,double*,double*,double*,int*,int*,int*,int*,int*,int*,int*,int*,int*,int*,int*)) {
@@ -1837,19 +1837,19 @@ static PyObject *f2py_rout_fortran_backend_backend_update_init(const PyObject *c
 f2py_start_clock();
 #endif
     if (!PyArg_ParseTupleAndKeywords(capi_args,capi_keywds,\
-        "OOOOOOOOO|:fortran_backend.backend.update_init",\
+        "OOOOOOOOO|:backend.backend.update_init",\
         capi_kwlist,&x_capi,&data_matrix_in_capi,&data_matrix_mean_capi,&prev_root_capi,&parent_idx_capi,&nbases_capi,&mask_capi,&cov_capi,&root_capi))
         return NULL;
 /*frompyobj*/
     /* Processing variable x */
     ;
     capi_x_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_init: failed to create array from the 1st argument `x`";
+    const char * capi_errmess = "backend.backend.backend.update_init: failed to create array from the 1st argument `x`";
     capi_x_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,x_Dims,x_Rank,  capi_x_intent,x_capi,capi_errmess);
     if (capi_x_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -1858,12 +1858,12 @@ f2py_start_clock();
     /* Processing variable data_matrix_in */
     ;
     capi_data_matrix_in_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_init: failed to create array from the 2nd argument `data_matrix_in`";
+    const char * capi_errmess = "backend.backend.backend.update_init: failed to create array from the 2nd argument `data_matrix_in`";
     capi_data_matrix_in_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,data_matrix_in_Dims,data_matrix_in_Rank,  capi_data_matrix_in_intent,data_matrix_in_capi,capi_errmess);
     if (capi_data_matrix_in_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -1872,35 +1872,35 @@ f2py_start_clock();
     /* Processing variable data_matrix_mean */
     ;
     capi_data_matrix_mean_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_init: failed to create array from the 3rd argument `data_matrix_mean`";
+    const char * capi_errmess = "backend.backend.backend.update_init: failed to create array from the 3rd argument `data_matrix_mean`";
     capi_data_matrix_mean_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,data_matrix_mean_Dims,data_matrix_mean_Rank,  capi_data_matrix_mean_intent,data_matrix_mean_capi,capi_errmess);
     if (capi_data_matrix_mean_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
         data_matrix_mean = (double *)(PyArray_DATA(capi_data_matrix_mean_as_array));
 
     /* Processing variable prev_root */
-        f2py_success = double_from_pyobj(&prev_root,prev_root_capi,"fortran_backend.backend.update_init() 4th argument (prev_root) can't be converted to double");
+        f2py_success = double_from_pyobj(&prev_root,prev_root_capi,"backend.backend.update_init() 4th argument (prev_root) can't be converted to double");
     if (f2py_success) {
     /* Processing variable parent_idx */
-        f2py_success = int_from_pyobj(&parent_idx,parent_idx_capi,"fortran_backend.backend.update_init() 5th argument (parent_idx) can't be converted to int");
+        f2py_success = int_from_pyobj(&parent_idx,parent_idx_capi,"backend.backend.update_init() 5th argument (parent_idx) can't be converted to int");
     if (f2py_success) {
     /* Processing variable nbases */
-        f2py_success = int_from_pyobj(&nbases,nbases_capi,"fortran_backend.backend.update_init() 6th argument (nbases) can't be converted to int");
+        f2py_success = int_from_pyobj(&nbases,nbases_capi,"backend.backend.update_init() 6th argument (nbases) can't be converted to int");
     if (f2py_success) {
     /* Processing variable mask */
     ;
     capi_mask_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_init: failed to create array from the 7th argument `mask`";
+    const char * capi_errmess = "backend.backend.backend.update_init: failed to create array from the 7th argument `mask`";
     capi_mask_as_array = ndarray_from_pyobj(  NPY_INT,1,mask_Dims,mask_Rank,  capi_mask_intent,mask_capi,capi_errmess);
     if (capi_mask_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -1909,12 +1909,12 @@ f2py_start_clock();
     /* Processing variable cov */
     ;
     capi_cov_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_init: failed to create array from the 8th argument `cov`";
+    const char * capi_errmess = "backend.backend.backend.update_init: failed to create array from the 8th argument `cov`";
     capi_cov_as_array = ndarray_from_pyobj(  NPY_INT,1,cov_Dims,cov_Rank,  capi_cov_intent,cov_capi,capi_errmess);
     if (capi_cov_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -1923,12 +1923,12 @@ f2py_start_clock();
     /* Processing variable root */
     ;
     capi_root_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_init: failed to create array from the 9th argument `root`";
+    const char * capi_errmess = "backend.backend.backend.update_init: failed to create array from the 9th argument `root`";
     capi_root_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,root_Dims,root_Rank,  capi_root_intent,root_capi,capi_errmess);
     if (capi_root_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -1938,12 +1938,12 @@ f2py_start_clock();
     /* Processing variable update */
     update_Dims[0]=size(data_matrix_in, 1);
     capi_update_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_init: failed to create array from the hidden `update`";
+    const char * capi_errmess = "backend.backend.backend.update_init: failed to create array from the hidden `update`";
     capi_update_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,update_Dims,update_Rank,  capi_update_intent,Py_None,capi_errmess);
     if (capi_update_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -2052,7 +2052,7 @@ f2py_stop_clock();
 /***************************** end of update_init *****************************/
 
 /***************************** update_data_matrix *****************************/
-static char doc_f2py_rout_fortran_backend_backend_update_data_matrix[] = "\
+static char doc_f2py_rout_backend_backend_update_data_matrix[] = "\
 update_data_matrix(data_matrix_in,data_matrix_mean,update,update_mean)\n\nWrapper for ``update_data_matrix``.\
 \n\nParameters\n----------\n"
 "data_matrix_in : in/output rank-2 array('d') with bounds (f2py_data_matrix_in_d0,f2py_data_matrix_in_d1)\n"
@@ -2060,7 +2060,7 @@ update_data_matrix(data_matrix_in,data_matrix_mean,update,update_mean)\n\nWrappe
 "update : input rank-1 array('d') with bounds (f2py_update_d0)\n"
 "update_mean : input float";
 /* #declfortranroutine# */
-static PyObject *f2py_rout_fortran_backend_backend_update_data_matrix(const PyObject *capi_self,
+static PyObject *f2py_rout_backend_backend_update_data_matrix(const PyObject *capi_self,
                            PyObject *capi_args,
                            PyObject *capi_keywds,
                            void (*f2py_func)(double*,double*,double*,double*,int*,int*,int*,int*)) {
@@ -2099,19 +2099,19 @@ static PyObject *f2py_rout_fortran_backend_backend_update_data_matrix(const PyOb
 f2py_start_clock();
 #endif
     if (!PyArg_ParseTupleAndKeywords(capi_args,capi_keywds,\
-        "OOOO|:fortran_backend.backend.update_data_matrix",\
+        "OOOO|:backend.backend.update_data_matrix",\
         capi_kwlist,&data_matrix_in_capi,&data_matrix_mean_capi,&update_capi,&update_mean_capi))
         return NULL;
 /*frompyobj*/
     /* Processing variable data_matrix_in */
     ;
     capi_data_matrix_in_intent |= F2PY_INTENT_INOUT;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_data_matrix: failed to create array from the 1st argument `data_matrix_in`";
+    const char * capi_errmess = "backend.backend.backend.update_data_matrix: failed to create array from the 1st argument `data_matrix_in`";
     capi_data_matrix_in_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,data_matrix_in_Dims,data_matrix_in_Rank,  capi_data_matrix_in_intent,data_matrix_in_capi,capi_errmess);
     if (capi_data_matrix_in_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -2120,12 +2120,12 @@ f2py_start_clock();
     /* Processing variable data_matrix_mean */
     ;
     capi_data_matrix_mean_intent |= F2PY_INTENT_INOUT;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_data_matrix: failed to create array from the 2nd argument `data_matrix_mean`";
+    const char * capi_errmess = "backend.backend.backend.update_data_matrix: failed to create array from the 2nd argument `data_matrix_mean`";
     capi_data_matrix_mean_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,data_matrix_mean_Dims,data_matrix_mean_Rank,  capi_data_matrix_mean_intent,data_matrix_mean_capi,capi_errmess);
     if (capi_data_matrix_mean_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -2134,19 +2134,19 @@ f2py_start_clock();
     /* Processing variable update */
     ;
     capi_update_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_data_matrix: failed to create array from the 3rd argument `update`";
+    const char * capi_errmess = "backend.backend.backend.update_data_matrix: failed to create array from the 3rd argument `update`";
     capi_update_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,update_Dims,update_Rank,  capi_update_intent,update_capi,capi_errmess);
     if (capi_update_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
         update = (double *)(PyArray_DATA(capi_update_as_array));
 
     /* Processing variable update_mean */
-        f2py_success = double_from_pyobj(&update_mean,update_mean_capi,"fortran_backend.backend.update_data_matrix() 4th argument (update_mean) can't be converted to double");
+        f2py_success = double_from_pyobj(&update_mean,update_mean_capi,"backend.backend.update_data_matrix() 4th argument (update_mean) can't be converted to double");
     if (f2py_success) {
     /* Processing variable f2py_data_matrix_in_d0 */
     f2py_data_matrix_in_d0 = shape(data_matrix_in, 0);
@@ -2211,7 +2211,7 @@ f2py_stop_clock();
 /************************* end of update_data_matrix *************************/
 
 /************************** update_covariance_matrix **************************/
-static char doc_f2py_rout_fortran_backend_backend_update_covariance_matrix[] = "\
+static char doc_f2py_rout_backend_backend_update_covariance_matrix[] = "\
 covariance_addition = update_covariance_matrix(covariance_matrix_in,data_matrix_in,update)\n\nWrapper for ``update_covariance_matrix``.\
 \n\nParameters\n----------\n"
 "covariance_matrix_in : in/output rank-2 array('d') with bounds (f2py_covariance_matrix_in_d0,f2py_covariance_matrix_in_d1)\n"
@@ -2220,7 +2220,7 @@ covariance_addition = update_covariance_matrix(covariance_matrix_in,data_matrix_
 "\nReturns\n-------\n"
 "covariance_addition : rank-1 array('d') with bounds (size(covariance_matrix_in, 2))";
 /* #declfortranroutine# */
-static PyObject *f2py_rout_fortran_backend_backend_update_covariance_matrix(const PyObject *capi_self,
+static PyObject *f2py_rout_backend_backend_update_covariance_matrix(const PyObject *capi_self,
                            PyObject *capi_args,
                            PyObject *capi_keywds,
                            void (*f2py_func)(double*,double*,double*,double*,int*,int*,int*,int*,int*)) {
@@ -2263,19 +2263,19 @@ static PyObject *f2py_rout_fortran_backend_backend_update_covariance_matrix(cons
 f2py_start_clock();
 #endif
     if (!PyArg_ParseTupleAndKeywords(capi_args,capi_keywds,\
-        "OOO|:fortran_backend.backend.update_covariance_matrix",\
+        "OOO|:backend.backend.update_covariance_matrix",\
         capi_kwlist,&covariance_matrix_in_capi,&data_matrix_in_capi,&update_capi))
         return NULL;
 /*frompyobj*/
     /* Processing variable covariance_matrix_in */
     ;
     capi_covariance_matrix_in_intent |= F2PY_INTENT_INOUT;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_covariance_matrix: failed to create array from the 1st argument `covariance_matrix_in`";
+    const char * capi_errmess = "backend.backend.backend.update_covariance_matrix: failed to create array from the 1st argument `covariance_matrix_in`";
     capi_covariance_matrix_in_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,covariance_matrix_in_Dims,covariance_matrix_in_Rank,  capi_covariance_matrix_in_intent,covariance_matrix_in_capi,capi_errmess);
     if (capi_covariance_matrix_in_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -2284,12 +2284,12 @@ f2py_start_clock();
     /* Processing variable data_matrix_in */
     ;
     capi_data_matrix_in_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_covariance_matrix: failed to create array from the 2nd argument `data_matrix_in`";
+    const char * capi_errmess = "backend.backend.backend.update_covariance_matrix: failed to create array from the 2nd argument `data_matrix_in`";
     capi_data_matrix_in_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,data_matrix_in_Dims,data_matrix_in_Rank,  capi_data_matrix_in_intent,data_matrix_in_capi,capi_errmess);
     if (capi_data_matrix_in_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -2298,12 +2298,12 @@ f2py_start_clock();
     /* Processing variable update */
     ;
     capi_update_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_covariance_matrix: failed to create array from the 3rd argument `update`";
+    const char * capi_errmess = "backend.backend.backend.update_covariance_matrix: failed to create array from the 3rd argument `update`";
     capi_update_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,update_Dims,update_Rank,  capi_update_intent,update_capi,capi_errmess);
     if (capi_update_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -2312,12 +2312,12 @@ f2py_start_clock();
     /* Processing variable covariance_addition */
     covariance_addition_Dims[0]=size(covariance_matrix_in, 2);
     capi_covariance_addition_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_covariance_matrix: failed to create array from the hidden `covariance_addition`";
+    const char * capi_errmess = "backend.backend.backend.update_covariance_matrix: failed to create array from the hidden `covariance_addition`";
     capi_covariance_addition_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,covariance_addition_Dims,covariance_addition_Rank,  capi_covariance_addition_intent,Py_None,capi_errmess);
     if (capi_covariance_addition_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -2389,7 +2389,7 @@ f2py_stop_clock();
 /********************** end of update_covariance_matrix **********************/
 
 /********************************* update_rhs *********************************/
-static char doc_f2py_rout_fortran_backend_backend_update_rhs[] = "\
+static char doc_f2py_rout_backend_backend_update_rhs[] = "\
 update_rhs(rhs_in,update,y,y_mean)\n\nWrapper for ``update_rhs``.\
 \n\nParameters\n----------\n"
 "rhs_in : in/output rank-1 array('d') with bounds (f2py_rhs_in_d0)\n"
@@ -2397,7 +2397,7 @@ update_rhs(rhs_in,update,y,y_mean)\n\nWrapper for ``update_rhs``.\
 "y : input rank-1 array('d') with bounds (f2py_y_d0)\n"
 "y_mean : input float";
 /* #declfortranroutine# */
-static PyObject *f2py_rout_fortran_backend_backend_update_rhs(const PyObject *capi_self,
+static PyObject *f2py_rout_backend_backend_update_rhs(const PyObject *capi_self,
                            PyObject *capi_args,
                            PyObject *capi_keywds,
                            void (*f2py_func)(double*,double*,double*,double*,int*,int*,int*)) {
@@ -2435,19 +2435,19 @@ static PyObject *f2py_rout_fortran_backend_backend_update_rhs(const PyObject *ca
 f2py_start_clock();
 #endif
     if (!PyArg_ParseTupleAndKeywords(capi_args,capi_keywds,\
-        "OOOO|:fortran_backend.backend.update_rhs",\
+        "OOOO|:backend.backend.update_rhs",\
         capi_kwlist,&rhs_in_capi,&update_capi,&y_capi,&y_mean_capi))
         return NULL;
 /*frompyobj*/
     /* Processing variable rhs_in */
     ;
     capi_rhs_in_intent |= F2PY_INTENT_INOUT;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_rhs: failed to create array from the 1st argument `rhs_in`";
+    const char * capi_errmess = "backend.backend.backend.update_rhs: failed to create array from the 1st argument `rhs_in`";
     capi_rhs_in_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,rhs_in_Dims,rhs_in_Rank,  capi_rhs_in_intent,rhs_in_capi,capi_errmess);
     if (capi_rhs_in_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -2456,12 +2456,12 @@ f2py_start_clock();
     /* Processing variable update */
     ;
     capi_update_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_rhs: failed to create array from the 2nd argument `update`";
+    const char * capi_errmess = "backend.backend.backend.update_rhs: failed to create array from the 2nd argument `update`";
     capi_update_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,update_Dims,update_Rank,  capi_update_intent,update_capi,capi_errmess);
     if (capi_update_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -2470,19 +2470,19 @@ f2py_start_clock();
     /* Processing variable y */
     ;
     capi_y_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_rhs: failed to create array from the 3rd argument `y`";
+    const char * capi_errmess = "backend.backend.backend.update_rhs: failed to create array from the 3rd argument `y`";
     capi_y_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,y_Dims,y_Rank,  capi_y_intent,y_capi,capi_errmess);
     if (capi_y_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
         y = (double *)(PyArray_DATA(capi_y_as_array));
 
     /* Processing variable y_mean */
-        f2py_success = double_from_pyobj(&y_mean,y_mean_capi,"fortran_backend.backend.update_rhs() 4th argument (y_mean) can't be converted to double");
+        f2py_success = double_from_pyobj(&y_mean,y_mean_capi,"backend.backend.update_rhs() 4th argument (y_mean) can't be converted to double");
     if (f2py_success) {
     /* Processing variable f2py_rhs_in_d0 */
     f2py_rhs_in_d0 = shape(rhs_in, 0);
@@ -2544,7 +2544,7 @@ f2py_stop_clock();
 /***************************** end of update_rhs *****************************/
 
 /***************************** decompose_addition *****************************/
-static char doc_f2py_rout_fortran_backend_backend_decompose_addition[] = "\
+static char doc_f2py_rout_backend_backend_decompose_addition[] = "\
 eigenvalues,eigenvectors = decompose_addition(covariance_addition)\n\nWrapper for ``decompose_addition``.\
 \n\nParameters\n----------\n"
 "covariance_addition : input rank-1 array('d') with bounds (f2py_covariance_addition_d0)\n"
@@ -2552,7 +2552,7 @@ eigenvalues,eigenvectors = decompose_addition(covariance_addition)\n\nWrapper fo
 "eigenvalues : rank-1 array('d') with bounds (2)\n"
 "eigenvectors : rank-2 array('d') with bounds (2,size(covariance_addition))";
 /* #declfortranroutine# */
-static PyObject *f2py_rout_fortran_backend_backend_decompose_addition(const PyObject *capi_self,
+static PyObject *f2py_rout_backend_backend_decompose_addition(const PyObject *capi_self,
                            PyObject *capi_args,
                            PyObject *capi_keywds,
                            void (*f2py_func)(double*,double*,double*,int*)) {
@@ -2584,19 +2584,19 @@ static PyObject *f2py_rout_fortran_backend_backend_decompose_addition(const PyOb
 f2py_start_clock();
 #endif
     if (!PyArg_ParseTupleAndKeywords(capi_args,capi_keywds,\
-        "O|:fortran_backend.backend.decompose_addition",\
+        "O|:backend.backend.decompose_addition",\
         capi_kwlist,&covariance_addition_capi))
         return NULL;
 /*frompyobj*/
     /* Processing variable covariance_addition */
     ;
     capi_covariance_addition_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.decompose_addition: failed to create array from the 1st argument `covariance_addition`";
+    const char * capi_errmess = "backend.backend.backend.decompose_addition: failed to create array from the 1st argument `covariance_addition`";
     capi_covariance_addition_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,covariance_addition_Dims,covariance_addition_Rank,  capi_covariance_addition_intent,covariance_addition_capi,capi_errmess);
     if (capi_covariance_addition_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -2605,12 +2605,12 @@ f2py_start_clock();
     /* Processing variable eigenvalues */
     eigenvalues_Dims[0]=2;
     capi_eigenvalues_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.decompose_addition: failed to create array from the hidden `eigenvalues`";
+    const char * capi_errmess = "backend.backend.backend.decompose_addition: failed to create array from the hidden `eigenvalues`";
     capi_eigenvalues_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,eigenvalues_Dims,eigenvalues_Rank,  capi_eigenvalues_intent,Py_None,capi_errmess);
     if (capi_eigenvalues_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -2619,12 +2619,12 @@ f2py_start_clock();
     /* Processing variable eigenvectors */
     eigenvectors_Dims[0]=2,eigenvectors_Dims[1]=size(covariance_addition);
     capi_eigenvectors_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.decompose_addition: failed to create array from the hidden `eigenvectors`";
+    const char * capi_errmess = "backend.backend.backend.decompose_addition: failed to create array from the hidden `eigenvectors`";
     capi_eigenvectors_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,eigenvectors_Dims,eigenvectors_Rank,  capi_eigenvectors_intent,Py_None,capi_errmess);
     if (capi_eigenvectors_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -2678,14 +2678,14 @@ f2py_stop_clock();
 /************************* end of decompose_addition *************************/
 
 /****************************** update_cholesky ******************************/
-static char doc_f2py_rout_fortran_backend_backend_update_cholesky[] = "\
+static char doc_f2py_rout_backend_backend_update_cholesky[] = "\
 update_cholesky(chol,update_vector,multiplier)\n\nWrapper for ``update_cholesky``.\
 \n\nParameters\n----------\n"
 "chol : in/output rank-2 array('d') with bounds (f2py_chol_d0,f2py_chol_d1)\n"
 "update_vector : input rank-1 array('d') with bounds (f2py_update_vector_d0)\n"
 "multiplier : input float";
 /* #declfortranroutine# */
-static PyObject *f2py_rout_fortran_backend_backend_update_cholesky(const PyObject *capi_self,
+static PyObject *f2py_rout_backend_backend_update_cholesky(const PyObject *capi_self,
                            PyObject *capi_args,
                            PyObject *capi_keywds,
                            void (*f2py_func)(double*,double*,double*,int*,int*,int*)) {
@@ -2717,19 +2717,19 @@ static PyObject *f2py_rout_fortran_backend_backend_update_cholesky(const PyObjec
 f2py_start_clock();
 #endif
     if (!PyArg_ParseTupleAndKeywords(capi_args,capi_keywds,\
-        "OOO|:fortran_backend.backend.update_cholesky",\
+        "OOO|:backend.backend.update_cholesky",\
         capi_kwlist,&chol_capi,&update_vector_capi,&multiplier_capi))
         return NULL;
 /*frompyobj*/
     /* Processing variable chol */
     ;
     capi_chol_intent |= F2PY_INTENT_INOUT;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_cholesky: failed to create array from the 1st argument `chol`";
+    const char * capi_errmess = "backend.backend.backend.update_cholesky: failed to create array from the 1st argument `chol`";
     capi_chol_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,chol_Dims,chol_Rank,  capi_chol_intent,chol_capi,capi_errmess);
     if (capi_chol_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -2738,19 +2738,19 @@ f2py_start_clock();
     /* Processing variable update_vector */
     ;
     capi_update_vector_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_cholesky: failed to create array from the 2nd argument `update_vector`";
+    const char * capi_errmess = "backend.backend.backend.update_cholesky: failed to create array from the 2nd argument `update_vector`";
     capi_update_vector_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,update_vector_Dims,update_vector_Rank,  capi_update_vector_intent,update_vector_capi,capi_errmess);
     if (capi_update_vector_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
         update_vector = (double *)(PyArray_DATA(capi_update_vector_as_array));
 
     /* Processing variable multiplier */
-        f2py_success = double_from_pyobj(&multiplier,multiplier_capi,"fortran_backend.backend.update_cholesky() 3rd argument (multiplier) can't be converted to double");
+        f2py_success = double_from_pyobj(&multiplier,multiplier_capi,"backend.backend.update_cholesky() 3rd argument (multiplier) can't be converted to double");
     if (f2py_success) {
     /* Processing variable f2py_chol_d0 */
     f2py_chol_d0 = shape(chol, 0);
@@ -2808,7 +2808,7 @@ f2py_stop_clock();
 /*************************** end of update_cholesky ***************************/
 
 /**************************** update_coefficients ****************************/
-static char doc_f2py_rout_fortran_backend_backend_update_coefficients[] = "\
+static char doc_f2py_rout_backend_backend_update_coefficients[] = "\
 update_coefficients(coefficients_in,chol,covariance_addition,rhs_in)\n\nWrapper for ``update_coefficients``.\
 \n\nParameters\n----------\n"
 "coefficients_in : in/output rank-1 array('d') with bounds (f2py_coefficients_in_d0)\n"
@@ -2816,7 +2816,7 @@ update_coefficients(coefficients_in,chol,covariance_addition,rhs_in)\n\nWrapper 
 "covariance_addition : input rank-1 array('d') with bounds (f2py_covariance_addition_d0)\n"
 "rhs_in : input rank-1 array('d') with bounds (f2py_rhs_in_d0)";
 /* #declfortranroutine# */
-static PyObject *f2py_rout_fortran_backend_backend_update_coefficients(const PyObject *capi_self,
+static PyObject *f2py_rout_backend_backend_update_coefficients(const PyObject *capi_self,
                            PyObject *capi_args,
                            PyObject *capi_keywds,
                            void (*f2py_func)(double*,double*,double*,double*,int*,int*,int*,int*,int*)) {
@@ -2860,19 +2860,19 @@ static PyObject *f2py_rout_fortran_backend_backend_update_coefficients(const PyO
 f2py_start_clock();
 #endif
     if (!PyArg_ParseTupleAndKeywords(capi_args,capi_keywds,\
-        "OOOO|:fortran_backend.backend.update_coefficients",\
+        "OOOO|:backend.backend.update_coefficients",\
         capi_kwlist,&coefficients_in_capi,&chol_capi,&covariance_addition_capi,&rhs_in_capi))
         return NULL;
 /*frompyobj*/
     /* Processing variable coefficients_in */
     ;
     capi_coefficients_in_intent |= F2PY_INTENT_INOUT;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_coefficients: failed to create array from the 1st argument `coefficients_in`";
+    const char * capi_errmess = "backend.backend.backend.update_coefficients: failed to create array from the 1st argument `coefficients_in`";
     capi_coefficients_in_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,coefficients_in_Dims,coefficients_in_Rank,  capi_coefficients_in_intent,coefficients_in_capi,capi_errmess);
     if (capi_coefficients_in_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -2881,12 +2881,12 @@ f2py_start_clock();
     /* Processing variable chol */
     ;
     capi_chol_intent |= F2PY_INTENT_INOUT;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_coefficients: failed to create array from the 2nd argument `chol`";
+    const char * capi_errmess = "backend.backend.backend.update_coefficients: failed to create array from the 2nd argument `chol`";
     capi_chol_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,chol_Dims,chol_Rank,  capi_chol_intent,chol_capi,capi_errmess);
     if (capi_chol_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -2895,12 +2895,12 @@ f2py_start_clock();
     /* Processing variable covariance_addition */
     ;
     capi_covariance_addition_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_coefficients: failed to create array from the 3rd argument `covariance_addition`";
+    const char * capi_errmess = "backend.backend.backend.update_coefficients: failed to create array from the 3rd argument `covariance_addition`";
     capi_covariance_addition_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,covariance_addition_Dims,covariance_addition_Rank,  capi_covariance_addition_intent,covariance_addition_capi,capi_errmess);
     if (capi_covariance_addition_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -2909,12 +2909,12 @@ f2py_start_clock();
     /* Processing variable rhs_in */
     ;
     capi_rhs_in_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_coefficients: failed to create array from the 4th argument `rhs_in`";
+    const char * capi_errmess = "backend.backend.backend.update_coefficients: failed to create array from the 4th argument `rhs_in`";
     capi_rhs_in_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,rhs_in_Dims,rhs_in_Rank,  capi_rhs_in_intent,rhs_in_capi,capi_errmess);
     if (capi_rhs_in_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -2988,7 +2988,7 @@ f2py_stop_clock();
 /************************* end of update_coefficients *************************/
 
 /********************************* update_fit *********************************/
-static char doc_f2py_rout_fortran_backend_backend_update_fit[] = "\
+static char doc_f2py_rout_backend_backend_update_fit[] = "\
 lof = update_fit(data_matrix_in,data_matrix_mean,covariance_matrix_in,rhs_in,chol,coefficients_in,x,y,prev_root,parent_idx,y_mean,nbases,penalty,mask,cov,root)\n\nWrapper for ``update_fit``.\
 \n\nParameters\n----------\n"
 "data_matrix_in : in/output rank-2 array('d') with bounds (f2py_data_matrix_in_d0,f2py_data_matrix_in_d1)\n"
@@ -3010,7 +3010,7 @@ lof = update_fit(data_matrix_in,data_matrix_mean,covariance_matrix_in,rhs_in,cho
 "\nReturns\n-------\n"
 "lof : float";
 /* #declfortranroutine# */
-static PyObject *f2py_rout_fortran_backend_backend_update_fit(const PyObject *capi_self,
+static PyObject *f2py_rout_backend_backend_update_fit(const PyObject *capi_self,
                            PyObject *capi_args,
                            PyObject *capi_keywds,
                            void (*f2py_func)(double*,double*,double*,double*,double*,double*,double*,double*,double*,int*,double*,int*,int*,int*,int*,double*,double*,int*,int*,int*,int*,int*,int*,int*,int*,int*,int*,int*,int*,int*,int*,int*,int*,int*,int*)) {
@@ -3120,19 +3120,19 @@ static PyObject *f2py_rout_fortran_backend_backend_update_fit(const PyObject *ca
 f2py_start_clock();
 #endif
     if (!PyArg_ParseTupleAndKeywords(capi_args,capi_keywds,\
-        "OOOOOOOOOOOOOOOO|:fortran_backend.backend.update_fit",\
+        "OOOOOOOOOOOOOOOO|:backend.backend.update_fit",\
         capi_kwlist,&data_matrix_in_capi,&data_matrix_mean_capi,&covariance_matrix_in_capi,&rhs_in_capi,&chol_capi,&coefficients_in_capi,&x_capi,&y_capi,&prev_root_capi,&parent_idx_capi,&y_mean_capi,&nbases_capi,&penalty_capi,&mask_capi,&cov_capi,&root_capi))
         return NULL;
 /*frompyobj*/
     /* Processing variable data_matrix_in */
     ;
     capi_data_matrix_in_intent |= F2PY_INTENT_INOUT;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_fit: failed to create array from the 1st argument `data_matrix_in`";
+    const char * capi_errmess = "backend.backend.backend.update_fit: failed to create array from the 1st argument `data_matrix_in`";
     capi_data_matrix_in_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,data_matrix_in_Dims,data_matrix_in_Rank,  capi_data_matrix_in_intent,data_matrix_in_capi,capi_errmess);
     if (capi_data_matrix_in_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -3141,12 +3141,12 @@ f2py_start_clock();
     /* Processing variable data_matrix_mean */
     ;
     capi_data_matrix_mean_intent |= F2PY_INTENT_INOUT;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_fit: failed to create array from the 2nd argument `data_matrix_mean`";
+    const char * capi_errmess = "backend.backend.backend.update_fit: failed to create array from the 2nd argument `data_matrix_mean`";
     capi_data_matrix_mean_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,data_matrix_mean_Dims,data_matrix_mean_Rank,  capi_data_matrix_mean_intent,data_matrix_mean_capi,capi_errmess);
     if (capi_data_matrix_mean_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -3155,12 +3155,12 @@ f2py_start_clock();
     /* Processing variable covariance_matrix_in */
     ;
     capi_covariance_matrix_in_intent |= F2PY_INTENT_INOUT;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_fit: failed to create array from the 3rd argument `covariance_matrix_in`";
+    const char * capi_errmess = "backend.backend.backend.update_fit: failed to create array from the 3rd argument `covariance_matrix_in`";
     capi_covariance_matrix_in_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,covariance_matrix_in_Dims,covariance_matrix_in_Rank,  capi_covariance_matrix_in_intent,covariance_matrix_in_capi,capi_errmess);
     if (capi_covariance_matrix_in_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -3169,12 +3169,12 @@ f2py_start_clock();
     /* Processing variable rhs_in */
     ;
     capi_rhs_in_intent |= F2PY_INTENT_INOUT;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_fit: failed to create array from the 4th argument `rhs_in`";
+    const char * capi_errmess = "backend.backend.backend.update_fit: failed to create array from the 4th argument `rhs_in`";
     capi_rhs_in_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,rhs_in_Dims,rhs_in_Rank,  capi_rhs_in_intent,rhs_in_capi,capi_errmess);
     if (capi_rhs_in_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -3183,12 +3183,12 @@ f2py_start_clock();
     /* Processing variable chol */
     ;
     capi_chol_intent |= F2PY_INTENT_INOUT;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_fit: failed to create array from the 5th argument `chol`";
+    const char * capi_errmess = "backend.backend.backend.update_fit: failed to create array from the 5th argument `chol`";
     capi_chol_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,chol_Dims,chol_Rank,  capi_chol_intent,chol_capi,capi_errmess);
     if (capi_chol_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -3197,12 +3197,12 @@ f2py_start_clock();
     /* Processing variable coefficients_in */
     ;
     capi_coefficients_in_intent |= F2PY_INTENT_INOUT;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_fit: failed to create array from the 6th argument `coefficients_in`";
+    const char * capi_errmess = "backend.backend.backend.update_fit: failed to create array from the 6th argument `coefficients_in`";
     capi_coefficients_in_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,coefficients_in_Dims,coefficients_in_Rank,  capi_coefficients_in_intent,coefficients_in_capi,capi_errmess);
     if (capi_coefficients_in_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -3211,12 +3211,12 @@ f2py_start_clock();
     /* Processing variable x */
     ;
     capi_x_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_fit: failed to create array from the 7th argument `x`";
+    const char * capi_errmess = "backend.backend.backend.update_fit: failed to create array from the 7th argument `x`";
     capi_x_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,x_Dims,x_Rank,  capi_x_intent,x_capi,capi_errmess);
     if (capi_x_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -3225,41 +3225,41 @@ f2py_start_clock();
     /* Processing variable y */
     ;
     capi_y_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_fit: failed to create array from the 8th argument `y`";
+    const char * capi_errmess = "backend.backend.backend.update_fit: failed to create array from the 8th argument `y`";
     capi_y_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,y_Dims,y_Rank,  capi_y_intent,y_capi,capi_errmess);
     if (capi_y_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
         y = (double *)(PyArray_DATA(capi_y_as_array));
 
     /* Processing variable prev_root */
-        f2py_success = double_from_pyobj(&prev_root,prev_root_capi,"fortran_backend.backend.update_fit() 9th argument (prev_root) can't be converted to double");
+        f2py_success = double_from_pyobj(&prev_root,prev_root_capi,"backend.backend.update_fit() 9th argument (prev_root) can't be converted to double");
     if (f2py_success) {
     /* Processing variable parent_idx */
-        f2py_success = int_from_pyobj(&parent_idx,parent_idx_capi,"fortran_backend.backend.update_fit() 10th argument (parent_idx) can't be converted to int");
+        f2py_success = int_from_pyobj(&parent_idx,parent_idx_capi,"backend.backend.update_fit() 10th argument (parent_idx) can't be converted to int");
     if (f2py_success) {
     /* Processing variable y_mean */
-        f2py_success = double_from_pyobj(&y_mean,y_mean_capi,"fortran_backend.backend.update_fit() 11st argument (y_mean) can't be converted to double");
+        f2py_success = double_from_pyobj(&y_mean,y_mean_capi,"backend.backend.update_fit() 11st argument (y_mean) can't be converted to double");
     if (f2py_success) {
     /* Processing variable nbases */
-        f2py_success = int_from_pyobj(&nbases,nbases_capi,"fortran_backend.backend.update_fit() 12nd argument (nbases) can't be converted to int");
+        f2py_success = int_from_pyobj(&nbases,nbases_capi,"backend.backend.update_fit() 12nd argument (nbases) can't be converted to int");
     if (f2py_success) {
     /* Processing variable penalty */
-        f2py_success = int_from_pyobj(&penalty,penalty_capi,"fortran_backend.backend.update_fit() 13rd argument (penalty) can't be converted to int");
+        f2py_success = int_from_pyobj(&penalty,penalty_capi,"backend.backend.update_fit() 13rd argument (penalty) can't be converted to int");
     if (f2py_success) {
     /* Processing variable mask */
     ;
     capi_mask_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_fit: failed to create array from the 14th argument `mask`";
+    const char * capi_errmess = "backend.backend.backend.update_fit: failed to create array from the 14th argument `mask`";
     capi_mask_as_array = ndarray_from_pyobj(  NPY_INT,1,mask_Dims,mask_Rank,  capi_mask_intent,mask_capi,capi_errmess);
     if (capi_mask_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -3268,12 +3268,12 @@ f2py_start_clock();
     /* Processing variable cov */
     ;
     capi_cov_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_fit: failed to create array from the 15th argument `cov`";
+    const char * capi_errmess = "backend.backend.backend.update_fit: failed to create array from the 15th argument `cov`";
     capi_cov_as_array = ndarray_from_pyobj(  NPY_INT,1,cov_Dims,cov_Rank,  capi_cov_intent,cov_capi,capi_errmess);
     if (capi_cov_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -3282,12 +3282,12 @@ f2py_start_clock();
     /* Processing variable root */
     ;
     capi_root_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.update_fit: failed to create array from the 16th argument `root`";
+    const char * capi_errmess = "backend.backend.backend.update_fit: failed to create array from the 16th argument `root`";
     capi_root_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,root_Dims,root_Rank,  capi_root_intent,root_capi,capi_errmess);
     if (capi_root_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -3440,14 +3440,14 @@ f2py_stop_clock();
 /***************************** end of update_fit *****************************/
 
 /********************************** argsort **********************************/
-static char doc_f2py_rout_fortran_backend_backend_argsort[] = "\
+static char doc_f2py_rout_backend_backend_argsort[] = "\
 indices = argsort(array)\n\nWrapper for ``argsort``.\
 \n\nParameters\n----------\n"
 "array : input rank-1 array('d') with bounds (f2py_array_d0)\n"
 "\nReturns\n-------\n"
 "indices : rank-1 array('i') with bounds (size(array))";
 /* #declfortranroutine# */
-static PyObject *f2py_rout_fortran_backend_backend_argsort(const PyObject *capi_self,
+static PyObject *f2py_rout_backend_backend_argsort(const PyObject *capi_self,
                            PyObject *capi_args,
                            PyObject *capi_keywds,
                            void (*f2py_func)(double*,int*,int*)) {
@@ -3474,19 +3474,19 @@ static PyObject *f2py_rout_fortran_backend_backend_argsort(const PyObject *capi_
 f2py_start_clock();
 #endif
     if (!PyArg_ParseTupleAndKeywords(capi_args,capi_keywds,\
-        "O|:fortran_backend.backend.argsort",\
+        "O|:backend.backend.argsort",\
         capi_kwlist,&array_capi))
         return NULL;
 /*frompyobj*/
     /* Processing variable array */
     ;
     capi_array_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.argsort: failed to create array from the 1st argument `array`";
+    const char * capi_errmess = "backend.backend.backend.argsort: failed to create array from the 1st argument `array`";
     capi_array_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,array_Dims,array_Rank,  capi_array_intent,array_capi,capi_errmess);
     if (capi_array_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -3495,12 +3495,12 @@ f2py_start_clock();
     /* Processing variable indices */
     indices_Dims[0]=size(array);
     capi_indices_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.argsort: failed to create array from the hidden `indices`";
+    const char * capi_errmess = "backend.backend.backend.argsort: failed to create array from the hidden `indices`";
     capi_indices_as_array = ndarray_from_pyobj(  NPY_INT,1,indices_Dims,indices_Rank,  capi_indices_intent,Py_None,capi_errmess);
     if (capi_indices_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -3552,7 +3552,7 @@ f2py_stop_clock();
 /******************************* end of argsort *******************************/
 
 /********************************* add_bases *********************************/
-static char doc_f2py_rout_fortran_backend_backend_add_bases[] = "\
+static char doc_f2py_rout_backend_backend_add_bases[] = "\
 add_bases(parent,cov_in,root_in,nbases,mask,truncated,cov,root)\n\nWrapper for ``add_bases``.\
 \n\nParameters\n----------\n"
 "parent : input int\n"
@@ -3564,7 +3564,7 @@ add_bases(parent,cov_in,root_in,nbases,mask,truncated,cov,root)\n\nWrapper for `
 "cov : in/output rank-2 array('i') with bounds (f2py_cov_d0,f2py_cov_d1)\n"
 "root : in/output rank-2 array('d') with bounds (f2py_root_d0,f2py_root_d1)";
 /* #declfortranroutine# */
-static PyObject *f2py_rout_fortran_backend_backend_add_bases(const PyObject *capi_self,
+static PyObject *f2py_rout_backend_backend_add_bases(const PyObject *capi_self,
                            PyObject *capi_args,
                            PyObject *capi_keywds,
                            void (*f2py_func)(int*,int*,double*,int*,int*,int*,int*,double*,int*,int*,int*,int*,int*,int*,int*,int*)) {
@@ -3619,31 +3619,31 @@ static PyObject *f2py_rout_fortran_backend_backend_add_bases(const PyObject *cap
 f2py_start_clock();
 #endif
     if (!PyArg_ParseTupleAndKeywords(capi_args,capi_keywds,\
-        "OOOOOOOO|:fortran_backend.backend.add_bases",\
+        "OOOOOOOO|:backend.backend.add_bases",\
         capi_kwlist,&parent_capi,&cov_in_capi,&root_in_capi,&nbases_capi,&mask_capi,&truncated_capi,&cov_capi,&root_capi))
         return NULL;
 /*frompyobj*/
     /* Processing variable parent */
-        f2py_success = int_from_pyobj(&parent,parent_capi,"fortran_backend.backend.add_bases() 1st argument (parent) can't be converted to int");
+        f2py_success = int_from_pyobj(&parent,parent_capi,"backend.backend.add_bases() 1st argument (parent) can't be converted to int");
     if (f2py_success) {
     /* Processing variable cov_in */
-        f2py_success = int_from_pyobj(&cov_in,cov_in_capi,"fortran_backend.backend.add_bases() 2nd argument (cov_in) can't be converted to int");
+        f2py_success = int_from_pyobj(&cov_in,cov_in_capi,"backend.backend.add_bases() 2nd argument (cov_in) can't be converted to int");
     if (f2py_success) {
     /* Processing variable root_in */
-        f2py_success = double_from_pyobj(&root_in,root_in_capi,"fortran_backend.backend.add_bases() 3rd argument (root_in) can't be converted to double");
+        f2py_success = double_from_pyobj(&root_in,root_in_capi,"backend.backend.add_bases() 3rd argument (root_in) can't be converted to double");
     if (f2py_success) {
     /* Processing variable nbases */
-        f2py_success = int_from_pyobj(&nbases,nbases_capi,"fortran_backend.backend.add_bases() 4th argument (nbases) can't be converted to int");
+        f2py_success = int_from_pyobj(&nbases,nbases_capi,"backend.backend.add_bases() 4th argument (nbases) can't be converted to int");
     if (f2py_success) {
     /* Processing variable mask */
     ;
     capi_mask_intent |= F2PY_INTENT_INOUT;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.add_bases: failed to create array from the 5th argument `mask`";
+    const char * capi_errmess = "backend.backend.backend.add_bases: failed to create array from the 5th argument `mask`";
     capi_mask_as_array = ndarray_from_pyobj(  NPY_INT,1,mask_Dims,mask_Rank,  capi_mask_intent,mask_capi,capi_errmess);
     if (capi_mask_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -3652,12 +3652,12 @@ f2py_start_clock();
     /* Processing variable truncated */
     ;
     capi_truncated_intent |= F2PY_INTENT_INOUT;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.add_bases: failed to create array from the 6th argument `truncated`";
+    const char * capi_errmess = "backend.backend.backend.add_bases: failed to create array from the 6th argument `truncated`";
     capi_truncated_as_array = ndarray_from_pyobj(  NPY_INT,1,truncated_Dims,truncated_Rank,  capi_truncated_intent,truncated_capi,capi_errmess);
     if (capi_truncated_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -3666,12 +3666,12 @@ f2py_start_clock();
     /* Processing variable cov */
     ;
     capi_cov_intent |= F2PY_INTENT_INOUT;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.add_bases: failed to create array from the 7th argument `cov`";
+    const char * capi_errmess = "backend.backend.backend.add_bases: failed to create array from the 7th argument `cov`";
     capi_cov_as_array = ndarray_from_pyobj(  NPY_INT,1,cov_Dims,cov_Rank,  capi_cov_intent,cov_capi,capi_errmess);
     if (capi_cov_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -3680,12 +3680,12 @@ f2py_start_clock();
     /* Processing variable root */
     ;
     capi_root_intent |= F2PY_INTENT_INOUT;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.add_bases: failed to create array from the 8th argument `root`";
+    const char * capi_errmess = "backend.backend.backend.add_bases: failed to create array from the 8th argument `root`";
     capi_root_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,root_Dims,root_Rank,  capi_root_intent,root_capi,capi_errmess);
     if (capi_root_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -3776,7 +3776,7 @@ f2py_stop_clock();
 /****************************** end of add_bases ******************************/
 
 /******************************** expand_bases ********************************/
-static char doc_f2py_rout_fortran_backend_backend_expand_bases[] = "\
+static char doc_f2py_rout_backend_backend_expand_bases[] = "\
 lof,nbases,mask,truncated,cov,root,coefficients_out = expand_bases(x,y,y_mean,max_nbases,max_ncandidates,aging_factor,penalty)\n\nWrapper for ``expand_bases``.\
 \n\nParameters\n----------\n"
 "x : input rank-2 array('d') with bounds (f2py_x_d0,f2py_x_d1)\n"
@@ -3795,7 +3795,7 @@ lof,nbases,mask,truncated,cov,root,coefficients_out = expand_bases(x,y,y_mean,ma
 "root : rank-2 array('d') with bounds (max_nbases,max_nbases)\n"
 "coefficients_out : rank-1 array('d') with bounds (-1 + max_nbases)";
 /* #declfortranroutine# */
-static PyObject *f2py_rout_fortran_backend_backend_expand_bases(const PyObject *capi_self,
+static PyObject *f2py_rout_backend_backend_expand_bases(const PyObject *capi_self,
                            PyObject *capi_args,
                            PyObject *capi_keywds,
                            void (*f2py_func)(double*,double*,double*,int*,int*,double*,int*,double*,int*,int*,int*,int*,double*,double*,int*,int*,int*)) {
@@ -3862,19 +3862,19 @@ static PyObject *f2py_rout_fortran_backend_backend_expand_bases(const PyObject *
 f2py_start_clock();
 #endif
     if (!PyArg_ParseTupleAndKeywords(capi_args,capi_keywds,\
-        "OOOOOOO|:fortran_backend.backend.expand_bases",\
+        "OOOOOOO|:backend.backend.expand_bases",\
         capi_kwlist,&x_capi,&y_capi,&y_mean_capi,&max_nbases_capi,&max_ncandidates_capi,&aging_factor_capi,&penalty_capi))
         return NULL;
 /*frompyobj*/
     /* Processing variable x */
     ;
     capi_x_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.expand_bases: failed to create array from the 1st argument `x`";
+    const char * capi_errmess = "backend.backend.backend.expand_bases: failed to create array from the 1st argument `x`";
     capi_x_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,x_Dims,x_Rank,  capi_x_intent,x_capi,capi_errmess);
     if (capi_x_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -3883,43 +3883,43 @@ f2py_start_clock();
     /* Processing variable y */
     ;
     capi_y_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.expand_bases: failed to create array from the 2nd argument `y`";
+    const char * capi_errmess = "backend.backend.backend.expand_bases: failed to create array from the 2nd argument `y`";
     capi_y_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,y_Dims,y_Rank,  capi_y_intent,y_capi,capi_errmess);
     if (capi_y_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
         y = (double *)(PyArray_DATA(capi_y_as_array));
 
     /* Processing variable y_mean */
-        f2py_success = double_from_pyobj(&y_mean,y_mean_capi,"fortran_backend.backend.expand_bases() 3rd argument (y_mean) can't be converted to double");
+        f2py_success = double_from_pyobj(&y_mean,y_mean_capi,"backend.backend.expand_bases() 3rd argument (y_mean) can't be converted to double");
     if (f2py_success) {
     /* Processing variable max_nbases */
-        f2py_success = int_from_pyobj(&max_nbases,max_nbases_capi,"fortran_backend.backend.expand_bases() 4th argument (max_nbases) can't be converted to int");
+        f2py_success = int_from_pyobj(&max_nbases,max_nbases_capi,"backend.backend.expand_bases() 4th argument (max_nbases) can't be converted to int");
     if (f2py_success) {
     /* Processing variable max_ncandidates */
-        f2py_success = int_from_pyobj(&max_ncandidates,max_ncandidates_capi,"fortran_backend.backend.expand_bases() 5th argument (max_ncandidates) can't be converted to int");
+        f2py_success = int_from_pyobj(&max_ncandidates,max_ncandidates_capi,"backend.backend.expand_bases() 5th argument (max_ncandidates) can't be converted to int");
     if (f2py_success) {
     /* Processing variable aging_factor */
-        f2py_success = double_from_pyobj(&aging_factor,aging_factor_capi,"fortran_backend.backend.expand_bases() 6th argument (aging_factor) can't be converted to double");
+        f2py_success = double_from_pyobj(&aging_factor,aging_factor_capi,"backend.backend.expand_bases() 6th argument (aging_factor) can't be converted to double");
     if (f2py_success) {
     /* Processing variable penalty */
-        f2py_success = int_from_pyobj(&penalty,penalty_capi,"fortran_backend.backend.expand_bases() 7th argument (penalty) can't be converted to int");
+        f2py_success = int_from_pyobj(&penalty,penalty_capi,"backend.backend.expand_bases() 7th argument (penalty) can't be converted to int");
     if (f2py_success) {
     /* Processing variable lof */
     /* Processing variable nbases */
     /* Processing variable mask */
     mask_Dims[0]=max_nbases,mask_Dims[1]=max_nbases;
     capi_mask_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.expand_bases: failed to create array from the hidden `mask`";
+    const char * capi_errmess = "backend.backend.backend.expand_bases: failed to create array from the hidden `mask`";
     capi_mask_as_array = ndarray_from_pyobj(  NPY_INT,1,mask_Dims,mask_Rank,  capi_mask_intent,Py_None,capi_errmess);
     if (capi_mask_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -3928,12 +3928,12 @@ f2py_start_clock();
     /* Processing variable truncated */
     truncated_Dims[0]=max_nbases,truncated_Dims[1]=max_nbases;
     capi_truncated_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.expand_bases: failed to create array from the hidden `truncated`";
+    const char * capi_errmess = "backend.backend.backend.expand_bases: failed to create array from the hidden `truncated`";
     capi_truncated_as_array = ndarray_from_pyobj(  NPY_INT,1,truncated_Dims,truncated_Rank,  capi_truncated_intent,Py_None,capi_errmess);
     if (capi_truncated_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -3942,12 +3942,12 @@ f2py_start_clock();
     /* Processing variable cov */
     cov_Dims[0]=max_nbases,cov_Dims[1]=max_nbases;
     capi_cov_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.expand_bases: failed to create array from the hidden `cov`";
+    const char * capi_errmess = "backend.backend.backend.expand_bases: failed to create array from the hidden `cov`";
     capi_cov_as_array = ndarray_from_pyobj(  NPY_INT,1,cov_Dims,cov_Rank,  capi_cov_intent,Py_None,capi_errmess);
     if (capi_cov_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -3956,12 +3956,12 @@ f2py_start_clock();
     /* Processing variable root */
     root_Dims[0]=max_nbases,root_Dims[1]=max_nbases;
     capi_root_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.expand_bases: failed to create array from the hidden `root`";
+    const char * capi_errmess = "backend.backend.backend.expand_bases: failed to create array from the hidden `root`";
     capi_root_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,root_Dims,root_Rank,  capi_root_intent,Py_None,capi_errmess);
     if (capi_root_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -3970,12 +3970,12 @@ f2py_start_clock();
     /* Processing variable coefficients_out */
     coefficients_out_Dims[0]=-1 + max_nbases;
     capi_coefficients_out_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.expand_bases: failed to create array from the hidden `coefficients_out`";
+    const char * capi_errmess = "backend.backend.backend.expand_bases: failed to create array from the hidden `coefficients_out`";
     capi_coefficients_out_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,coefficients_out_Dims,coefficients_out_Rank,  capi_coefficients_out_intent,Py_None,capi_errmess);
     if (capi_coefficients_out_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -4057,7 +4057,7 @@ f2py_stop_clock();
 /**************************** end of expand_bases ****************************/
 
 /******************************** prune_bases ********************************/
-static char doc_f2py_rout_fortran_backend_backend_prune_bases[] = "\
+static char doc_f2py_rout_backend_backend_prune_bases[] = "\
 coefficients_out,mask = prune_bases(x,y,y_mean,lof,nbases,mask_in,truncated,cov,root,penalty)\n\nWrapper for ``prune_bases``.\
 \n\nParameters\n----------\n"
 "x : input rank-2 array('d') with bounds (f2py_x_d0,f2py_x_d1)\n"
@@ -4074,7 +4074,7 @@ coefficients_out,mask = prune_bases(x,y,y_mean,lof,nbases,mask_in,truncated,cov,
 "coefficients_out : rank-1 array('d') with bounds (-1 + nbases)\n"
 "mask : rank-2 array('i') with bounds (size(mask_in, 1),size(mask_in, 2))";
 /* #declfortranroutine# */
-static PyObject *f2py_rout_fortran_backend_backend_prune_bases(const PyObject *capi_self,
+static PyObject *f2py_rout_backend_backend_prune_bases(const PyObject *capi_self,
                            PyObject *capi_args,
                            PyObject *capi_keywds,
                            void (*f2py_func)(double*,double*,double*,double*,int*,int*,int*,int*,double*,int*,double*,int*,int*,int*,int*,int*,int*,int*,int*,int*,int*,int*,int*)) {
@@ -4154,19 +4154,19 @@ static PyObject *f2py_rout_fortran_backend_backend_prune_bases(const PyObject *c
 f2py_start_clock();
 #endif
     if (!PyArg_ParseTupleAndKeywords(capi_args,capi_keywds,\
-        "OOOOOOOOOO|:fortran_backend.backend.prune_bases",\
+        "OOOOOOOOOO|:backend.backend.prune_bases",\
         capi_kwlist,&x_capi,&y_capi,&y_mean_capi,&lof_capi,&nbases_capi,&mask_in_capi,&truncated_capi,&cov_capi,&root_capi,&penalty_capi))
         return NULL;
 /*frompyobj*/
     /* Processing variable x */
     ;
     capi_x_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.prune_bases: failed to create array from the 1st argument `x`";
+    const char * capi_errmess = "backend.backend.backend.prune_bases: failed to create array from the 1st argument `x`";
     capi_x_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,x_Dims,x_Rank,  capi_x_intent,x_capi,capi_errmess);
     if (capi_x_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -4175,35 +4175,35 @@ f2py_start_clock();
     /* Processing variable y */
     ;
     capi_y_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.prune_bases: failed to create array from the 2nd argument `y`";
+    const char * capi_errmess = "backend.backend.backend.prune_bases: failed to create array from the 2nd argument `y`";
     capi_y_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,y_Dims,y_Rank,  capi_y_intent,y_capi,capi_errmess);
     if (capi_y_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
         y = (double *)(PyArray_DATA(capi_y_as_array));
 
     /* Processing variable y_mean */
-        f2py_success = double_from_pyobj(&y_mean,y_mean_capi,"fortran_backend.backend.prune_bases() 3rd argument (y_mean) can't be converted to double");
+        f2py_success = double_from_pyobj(&y_mean,y_mean_capi,"backend.backend.prune_bases() 3rd argument (y_mean) can't be converted to double");
     if (f2py_success) {
     /* Processing variable lof */
-        f2py_success = double_from_pyobj(&lof,lof_capi,"fortran_backend.backend.prune_bases() 4th argument (lof) can't be converted to double");
+        f2py_success = double_from_pyobj(&lof,lof_capi,"backend.backend.prune_bases() 4th argument (lof) can't be converted to double");
     if (f2py_success) {
     /* Processing variable nbases */
-        f2py_success = int_from_pyobj(&nbases,nbases_capi,"fortran_backend.backend.prune_bases() 5th argument (nbases) can't be converted to int");
+        f2py_success = int_from_pyobj(&nbases,nbases_capi,"backend.backend.prune_bases() 5th argument (nbases) can't be converted to int");
     if (f2py_success) {
     /* Processing variable mask_in */
     ;
     capi_mask_in_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.prune_bases: failed to create array from the 6th argument `mask_in`";
+    const char * capi_errmess = "backend.backend.backend.prune_bases: failed to create array from the 6th argument `mask_in`";
     capi_mask_in_as_array = ndarray_from_pyobj(  NPY_INT,1,mask_in_Dims,mask_in_Rank,  capi_mask_in_intent,mask_in_capi,capi_errmess);
     if (capi_mask_in_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -4212,12 +4212,12 @@ f2py_start_clock();
     /* Processing variable truncated */
     ;
     capi_truncated_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.prune_bases: failed to create array from the 7th argument `truncated`";
+    const char * capi_errmess = "backend.backend.backend.prune_bases: failed to create array from the 7th argument `truncated`";
     capi_truncated_as_array = ndarray_from_pyobj(  NPY_INT,1,truncated_Dims,truncated_Rank,  capi_truncated_intent,truncated_capi,capi_errmess);
     if (capi_truncated_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -4226,12 +4226,12 @@ f2py_start_clock();
     /* Processing variable cov */
     ;
     capi_cov_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.prune_bases: failed to create array from the 8th argument `cov`";
+    const char * capi_errmess = "backend.backend.backend.prune_bases: failed to create array from the 8th argument `cov`";
     capi_cov_as_array = ndarray_from_pyobj(  NPY_INT,1,cov_Dims,cov_Rank,  capi_cov_intent,cov_capi,capi_errmess);
     if (capi_cov_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -4240,29 +4240,29 @@ f2py_start_clock();
     /* Processing variable root */
     ;
     capi_root_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.prune_bases: failed to create array from the 9th argument `root`";
+    const char * capi_errmess = "backend.backend.backend.prune_bases: failed to create array from the 9th argument `root`";
     capi_root_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,root_Dims,root_Rank,  capi_root_intent,root_capi,capi_errmess);
     if (capi_root_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
         root = (double *)(PyArray_DATA(capi_root_as_array));
 
     /* Processing variable penalty */
-        f2py_success = int_from_pyobj(&penalty,penalty_capi,"fortran_backend.backend.prune_bases() 10th argument (penalty) can't be converted to int");
+        f2py_success = int_from_pyobj(&penalty,penalty_capi,"backend.backend.prune_bases() 10th argument (penalty) can't be converted to int");
     if (f2py_success) {
     /* Processing variable coefficients_out */
     coefficients_out_Dims[0]=-1 + nbases;
     capi_coefficients_out_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.prune_bases: failed to create array from the hidden `coefficients_out`";
+    const char * capi_errmess = "backend.backend.backend.prune_bases: failed to create array from the hidden `coefficients_out`";
     capi_coefficients_out_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,coefficients_out_Dims,coefficients_out_Rank,  capi_coefficients_out_intent,Py_None,capi_errmess);
     if (capi_coefficients_out_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -4271,12 +4271,12 @@ f2py_start_clock();
     /* Processing variable mask */
     mask_Dims[0]=size(mask_in, 1),mask_Dims[1]=size(mask_in, 2);
     capi_mask_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.prune_bases: failed to create array from the hidden `mask`";
+    const char * capi_errmess = "backend.backend.backend.prune_bases: failed to create array from the hidden `mask`";
     capi_mask_as_array = ndarray_from_pyobj(  NPY_INT,1,mask_Dims,mask_Rank,  capi_mask_intent,Py_None,capi_errmess);
     if (capi_mask_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -4394,7 +4394,7 @@ f2py_stop_clock();
 /***************************** end of prune_bases *****************************/
 
 /********************************* find_bases *********************************/
-static char doc_f2py_rout_fortran_backend_backend_find_bases[] = "\
+static char doc_f2py_rout_backend_backend_find_bases[] = "\
 lof,nbases,mask,truncated,cov,root,coefficients_out = find_bases(x,y,y_mean,max_nbases,max_ncandidates,aging_factor,penalty)\n\nWrapper for ``find_bases``.\
 \n\nParameters\n----------\n"
 "x : input rank-2 array('d') with bounds (f2py_x_d0,f2py_x_d1)\n"
@@ -4413,7 +4413,7 @@ lof,nbases,mask,truncated,cov,root,coefficients_out = find_bases(x,y,y_mean,max_
 "root : rank-2 array('d') with bounds (max_nbases,max_nbases)\n"
 "coefficients_out : rank-1 array('d') with bounds (-1 + max_nbases)";
 /* #declfortranroutine# */
-static PyObject *f2py_rout_fortran_backend_backend_find_bases(const PyObject *capi_self,
+static PyObject *f2py_rout_backend_backend_find_bases(const PyObject *capi_self,
                            PyObject *capi_args,
                            PyObject *capi_keywds,
                            void (*f2py_func)(double*,double*,double*,int*,int*,double*,int*,double*,int*,int*,int*,int*,double*,double*,int*,int*,int*)) {
@@ -4480,19 +4480,19 @@ static PyObject *f2py_rout_fortran_backend_backend_find_bases(const PyObject *ca
 f2py_start_clock();
 #endif
     if (!PyArg_ParseTupleAndKeywords(capi_args,capi_keywds,\
-        "OOOOOOO|:fortran_backend.backend.find_bases",\
+        "OOOOOOO|:backend.backend.find_bases",\
         capi_kwlist,&x_capi,&y_capi,&y_mean_capi,&max_nbases_capi,&max_ncandidates_capi,&aging_factor_capi,&penalty_capi))
         return NULL;
 /*frompyobj*/
     /* Processing variable x */
     ;
     capi_x_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.find_bases: failed to create array from the 1st argument `x`";
+    const char * capi_errmess = "backend.backend.backend.find_bases: failed to create array from the 1st argument `x`";
     capi_x_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,x_Dims,x_Rank,  capi_x_intent,x_capi,capi_errmess);
     if (capi_x_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -4501,43 +4501,43 @@ f2py_start_clock();
     /* Processing variable y */
     ;
     capi_y_intent |= F2PY_INTENT_IN;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.find_bases: failed to create array from the 2nd argument `y`";
+    const char * capi_errmess = "backend.backend.backend.find_bases: failed to create array from the 2nd argument `y`";
     capi_y_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,y_Dims,y_Rank,  capi_y_intent,y_capi,capi_errmess);
     if (capi_y_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
         y = (double *)(PyArray_DATA(capi_y_as_array));
 
     /* Processing variable y_mean */
-        f2py_success = double_from_pyobj(&y_mean,y_mean_capi,"fortran_backend.backend.find_bases() 3rd argument (y_mean) can't be converted to double");
+        f2py_success = double_from_pyobj(&y_mean,y_mean_capi,"backend.backend.find_bases() 3rd argument (y_mean) can't be converted to double");
     if (f2py_success) {
     /* Processing variable max_nbases */
-        f2py_success = int_from_pyobj(&max_nbases,max_nbases_capi,"fortran_backend.backend.find_bases() 4th argument (max_nbases) can't be converted to int");
+        f2py_success = int_from_pyobj(&max_nbases,max_nbases_capi,"backend.backend.find_bases() 4th argument (max_nbases) can't be converted to int");
     if (f2py_success) {
     /* Processing variable max_ncandidates */
-        f2py_success = int_from_pyobj(&max_ncandidates,max_ncandidates_capi,"fortran_backend.backend.find_bases() 5th argument (max_ncandidates) can't be converted to int");
+        f2py_success = int_from_pyobj(&max_ncandidates,max_ncandidates_capi,"backend.backend.find_bases() 5th argument (max_ncandidates) can't be converted to int");
     if (f2py_success) {
     /* Processing variable aging_factor */
-        f2py_success = double_from_pyobj(&aging_factor,aging_factor_capi,"fortran_backend.backend.find_bases() 6th argument (aging_factor) can't be converted to double");
+        f2py_success = double_from_pyobj(&aging_factor,aging_factor_capi,"backend.backend.find_bases() 6th argument (aging_factor) can't be converted to double");
     if (f2py_success) {
     /* Processing variable penalty */
-        f2py_success = int_from_pyobj(&penalty,penalty_capi,"fortran_backend.backend.find_bases() 7th argument (penalty) can't be converted to int");
+        f2py_success = int_from_pyobj(&penalty,penalty_capi,"backend.backend.find_bases() 7th argument (penalty) can't be converted to int");
     if (f2py_success) {
     /* Processing variable lof */
     /* Processing variable nbases */
     /* Processing variable mask */
     mask_Dims[0]=max_nbases,mask_Dims[1]=max_nbases;
     capi_mask_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.find_bases: failed to create array from the hidden `mask`";
+    const char * capi_errmess = "backend.backend.backend.find_bases: failed to create array from the hidden `mask`";
     capi_mask_as_array = ndarray_from_pyobj(  NPY_INT,1,mask_Dims,mask_Rank,  capi_mask_intent,Py_None,capi_errmess);
     if (capi_mask_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -4546,12 +4546,12 @@ f2py_start_clock();
     /* Processing variable truncated */
     truncated_Dims[0]=max_nbases,truncated_Dims[1]=max_nbases;
     capi_truncated_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.find_bases: failed to create array from the hidden `truncated`";
+    const char * capi_errmess = "backend.backend.backend.find_bases: failed to create array from the hidden `truncated`";
     capi_truncated_as_array = ndarray_from_pyobj(  NPY_INT,1,truncated_Dims,truncated_Rank,  capi_truncated_intent,Py_None,capi_errmess);
     if (capi_truncated_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -4560,12 +4560,12 @@ f2py_start_clock();
     /* Processing variable cov */
     cov_Dims[0]=max_nbases,cov_Dims[1]=max_nbases;
     capi_cov_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.find_bases: failed to create array from the hidden `cov`";
+    const char * capi_errmess = "backend.backend.backend.find_bases: failed to create array from the hidden `cov`";
     capi_cov_as_array = ndarray_from_pyobj(  NPY_INT,1,cov_Dims,cov_Rank,  capi_cov_intent,Py_None,capi_errmess);
     if (capi_cov_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -4574,12 +4574,12 @@ f2py_start_clock();
     /* Processing variable root */
     root_Dims[0]=max_nbases,root_Dims[1]=max_nbases;
     capi_root_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.find_bases: failed to create array from the hidden `root`";
+    const char * capi_errmess = "backend.backend.backend.find_bases: failed to create array from the hidden `root`";
     capi_root_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,root_Dims,root_Rank,  capi_root_intent,Py_None,capi_errmess);
     if (capi_root_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -4588,12 +4588,12 @@ f2py_start_clock();
     /* Processing variable coefficients_out */
     coefficients_out_Dims[0]=-1 + max_nbases;
     capi_coefficients_out_intent |= F2PY_INTENT_OUT|F2PY_INTENT_HIDE;
-    const char * capi_errmess = "fortran_backend.fortran_backend.backend.find_bases: failed to create array from the hidden `coefficients_out`";
+    const char * capi_errmess = "backend.backend.backend.find_bases: failed to create array from the hidden `coefficients_out`";
     capi_coefficients_out_as_array = ndarray_from_pyobj(  NPY_DOUBLE,1,coefficients_out_Dims,coefficients_out_Rank,  capi_coefficients_out_intent,Py_None,capi_errmess);
     if (capi_coefficients_out_as_array == NULL) {
         PyObject* capi_err = PyErr_Occurred();
         if (capi_err == NULL) {
-            capi_err = fortran_backend_error;
+            capi_err = backend_error;
             PyErr_SetString(capi_err, capi_errmess);
         }
     } else {
@@ -4678,26 +4678,26 @@ f2py_stop_clock();
 /******************* See f2py2e/f90mod_rules.py: buildhooks *******************/
 
 static FortranDataDef f2py_backend_def[] = {
-  {"active_base_indices",-1,{{-1}},0,0,NULL,(void *)f2py_rout_fortran_backend_backend_active_base_indices,doc_f2py_rout_fortran_backend_backend_active_base_indices},
-  {"data_matrix",-1,{{-1}},0,0,NULL,(void *)f2py_rout_fortran_backend_backend_data_matrix,doc_f2py_rout_fortran_backend_backend_data_matrix},
-  {"covariance_matrix",-1,{{-1}},0,0,NULL,(void *)f2py_rout_fortran_backend_backend_covariance_matrix,doc_f2py_rout_fortran_backend_backend_covariance_matrix},
-  {"rhs",-1,{{-1}},0,0,NULL,(void *)f2py_rout_fortran_backend_backend_rhs,doc_f2py_rout_fortran_backend_backend_rhs},
-  {"coefficients",-1,{{-1}},0,0,NULL,(void *)f2py_rout_fortran_backend_backend_coefficients,doc_f2py_rout_fortran_backend_backend_coefficients},
-  {"generalised_cross_validation",-1,{{-1}},0,0,NULL,(void *)f2py_rout_fortran_backend_backend_generalised_cross_validation,doc_f2py_rout_fortran_backend_backend_generalised_cross_validation},
-  {"fit",-1,{{-1}},0,0,NULL,(void *)f2py_rout_fortran_backend_backend_fit,doc_f2py_rout_fortran_backend_backend_fit},
-  {"update_init",-1,{{-1}},0,0,NULL,(void *)f2py_rout_fortran_backend_backend_update_init,doc_f2py_rout_fortran_backend_backend_update_init},
-  {"update_data_matrix",-1,{{-1}},0,0,NULL,(void *)f2py_rout_fortran_backend_backend_update_data_matrix,doc_f2py_rout_fortran_backend_backend_update_data_matrix},
-  {"update_covariance_matrix",-1,{{-1}},0,0,NULL,(void *)f2py_rout_fortran_backend_backend_update_covariance_matrix,doc_f2py_rout_fortran_backend_backend_update_covariance_matrix},
-  {"update_rhs",-1,{{-1}},0,0,NULL,(void *)f2py_rout_fortran_backend_backend_update_rhs,doc_f2py_rout_fortran_backend_backend_update_rhs},
-  {"decompose_addition",-1,{{-1}},0,0,NULL,(void *)f2py_rout_fortran_backend_backend_decompose_addition,doc_f2py_rout_fortran_backend_backend_decompose_addition},
-  {"update_cholesky",-1,{{-1}},0,0,NULL,(void *)f2py_rout_fortran_backend_backend_update_cholesky,doc_f2py_rout_fortran_backend_backend_update_cholesky},
-  {"update_coefficients",-1,{{-1}},0,0,NULL,(void *)f2py_rout_fortran_backend_backend_update_coefficients,doc_f2py_rout_fortran_backend_backend_update_coefficients},
-  {"update_fit",-1,{{-1}},0,0,NULL,(void *)f2py_rout_fortran_backend_backend_update_fit,doc_f2py_rout_fortran_backend_backend_update_fit},
-  {"argsort",-1,{{-1}},0,0,NULL,(void *)f2py_rout_fortran_backend_backend_argsort,doc_f2py_rout_fortran_backend_backend_argsort},
-  {"add_bases",-1,{{-1}},0,0,NULL,(void *)f2py_rout_fortran_backend_backend_add_bases,doc_f2py_rout_fortran_backend_backend_add_bases},
-  {"expand_bases",-1,{{-1}},0,0,NULL,(void *)f2py_rout_fortran_backend_backend_expand_bases,doc_f2py_rout_fortran_backend_backend_expand_bases},
-  {"prune_bases",-1,{{-1}},0,0,NULL,(void *)f2py_rout_fortran_backend_backend_prune_bases,doc_f2py_rout_fortran_backend_backend_prune_bases},
-  {"find_bases",-1,{{-1}},0,0,NULL,(void *)f2py_rout_fortran_backend_backend_find_bases,doc_f2py_rout_fortran_backend_backend_find_bases},
+  {"active_base_indices",-1,{{-1}},0,0,NULL,(void *)f2py_rout_backend_backend_active_base_indices,doc_f2py_rout_backend_backend_active_base_indices},
+  {"data_matrix",-1,{{-1}},0,0,NULL,(void *)f2py_rout_backend_backend_data_matrix,doc_f2py_rout_backend_backend_data_matrix},
+  {"covariance_matrix",-1,{{-1}},0,0,NULL,(void *)f2py_rout_backend_backend_covariance_matrix,doc_f2py_rout_backend_backend_covariance_matrix},
+  {"rhs",-1,{{-1}},0,0,NULL,(void *)f2py_rout_backend_backend_rhs,doc_f2py_rout_backend_backend_rhs},
+  {"coefficients",-1,{{-1}},0,0,NULL,(void *)f2py_rout_backend_backend_coefficients,doc_f2py_rout_backend_backend_coefficients},
+  {"generalised_cross_validation",-1,{{-1}},0,0,NULL,(void *)f2py_rout_backend_backend_generalised_cross_validation,doc_f2py_rout_backend_backend_generalised_cross_validation},
+  {"fit",-1,{{-1}},0,0,NULL,(void *)f2py_rout_backend_backend_fit,doc_f2py_rout_backend_backend_fit},
+  {"update_init",-1,{{-1}},0,0,NULL,(void *)f2py_rout_backend_backend_update_init,doc_f2py_rout_backend_backend_update_init},
+  {"update_data_matrix",-1,{{-1}},0,0,NULL,(void *)f2py_rout_backend_backend_update_data_matrix,doc_f2py_rout_backend_backend_update_data_matrix},
+  {"update_covariance_matrix",-1,{{-1}},0,0,NULL,(void *)f2py_rout_backend_backend_update_covariance_matrix,doc_f2py_rout_backend_backend_update_covariance_matrix},
+  {"update_rhs",-1,{{-1}},0,0,NULL,(void *)f2py_rout_backend_backend_update_rhs,doc_f2py_rout_backend_backend_update_rhs},
+  {"decompose_addition",-1,{{-1}},0,0,NULL,(void *)f2py_rout_backend_backend_decompose_addition,doc_f2py_rout_backend_backend_decompose_addition},
+  {"update_cholesky",-1,{{-1}},0,0,NULL,(void *)f2py_rout_backend_backend_update_cholesky,doc_f2py_rout_backend_backend_update_cholesky},
+  {"update_coefficients",-1,{{-1}},0,0,NULL,(void *)f2py_rout_backend_backend_update_coefficients,doc_f2py_rout_backend_backend_update_coefficients},
+  {"update_fit",-1,{{-1}},0,0,NULL,(void *)f2py_rout_backend_backend_update_fit,doc_f2py_rout_backend_backend_update_fit},
+  {"argsort",-1,{{-1}},0,0,NULL,(void *)f2py_rout_backend_backend_argsort,doc_f2py_rout_backend_backend_argsort},
+  {"add_bases",-1,{{-1}},0,0,NULL,(void *)f2py_rout_backend_backend_add_bases,doc_f2py_rout_backend_backend_add_bases},
+  {"expand_bases",-1,{{-1}},0,0,NULL,(void *)f2py_rout_backend_backend_expand_bases,doc_f2py_rout_backend_backend_expand_bases},
+  {"prune_bases",-1,{{-1}},0,0,NULL,(void *)f2py_rout_backend_backend_prune_bases,doc_f2py_rout_backend_backend_prune_bases},
+  {"find_bases",-1,{{-1}},0,0,NULL,(void *)f2py_rout_backend_backend_find_bases,doc_f2py_rout_backend_backend_find_bases},
   {NULL}
 };
 
@@ -4752,7 +4752,7 @@ static PyMethodDef f2py_module_methods[] = {
 
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
-    "fortran_backend",
+    "backend",
     NULL,
     -1,
     f2py_module_methods,
@@ -4762,33 +4762,33 @@ static struct PyModuleDef moduledef = {
     NULL
 };
 
-PyMODINIT_FUNC PyInit_fortran_backend(void) {
+PyMODINIT_FUNC PyInit_backend(void) {
     int i;
     PyObject *m,*d, *s, *tmp;
-    m = fortran_backend_module = PyModule_Create(&moduledef);
+    m = backend_module = PyModule_Create(&moduledef);
     Py_SET_TYPE(&PyFortran_Type, &PyType_Type);
     import_array();
     if (PyErr_Occurred())
-        {PyErr_SetString(PyExc_ImportError, "can't initialize module fortran_backend (failed to import numpy)"); return m;}
+        {PyErr_SetString(PyExc_ImportError, "can't initialize module backend (failed to import numpy)"); return m;}
     d = PyModule_GetDict(m);
     s = PyUnicode_FromString("2.2.2");
     PyDict_SetItemString(d, "__version__", s);
     Py_DECREF(s);
     s = PyUnicode_FromString(
-        "This module 'fortran_backend' is auto-generated with f2py (version:2.2.2).\nFunctions:\n"
+        "This module 'backend' is auto-generated with f2py (version:2.2.2).\nFunctions:\n"
 "Fortran 90/95 modules:\n""  backend --- active_base_indices(),data_matrix(),covariance_matrix(),rhs(),coefficients(),generalised_cross_validation(),fit(),update_init(),update_data_matrix(),update_covariance_matrix(),update_rhs(),decompose_addition(),update_cholesky(),update_coefficients(),update_fit(),argsort(),add_bases(),expand_bases(),prune_bases(),find_bases()"".");
     PyDict_SetItemString(d, "__doc__", s);
     Py_DECREF(s);
     s = PyUnicode_FromString("2.2.2");
     PyDict_SetItemString(d, "__f2py_numpy_version__", s);
     Py_DECREF(s);
-    fortran_backend_error = PyErr_NewException ("fortran_backend.error", NULL, NULL);
+    backend_error = PyErr_NewException ("backend.error", NULL, NULL);
     /*
      * Store the error object inside the dict, so that it could get deallocated.
      * (in practice, this is a module, so it likely will not and cannot.)
      */
-    PyDict_SetItemString(d, "_fortran_backend_error", fortran_backend_error);
-    Py_DECREF(fortran_backend_error);
+    PyDict_SetItemString(d, "_backend_error", backend_error);
+    Py_DECREF(backend_error);
     for(i=0;f2py_routine_defs[i].name!=NULL;i++) {
         tmp = PyFortranObject_NewAsAttr(&f2py_routine_defs[i]);
         PyDict_SetItemString(d, f2py_routine_defs[i].name, tmp);
@@ -4828,7 +4828,7 @@ PyMODINIT_FUNC PyInit_fortran_backend(void) {
 
 #ifdef F2PY_REPORT_ATEXIT
     if (! PyErr_Occurred())
-        on_exit(f2py_report_on_exit,(void*)"fortran_backend");
+        on_exit(f2py_report_on_exit,(void*)"backend");
 #endif
 
     if (PyType_Ready(&PyFortran_Type) < 0) {

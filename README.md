@@ -32,7 +32,7 @@ If you wish to build from source (e.g., for development or if wheels are not ava
 
 ```bash
 # Example build command (see meson.build for actual build process)
-python -m numpy.f2py -c --f90flags="-fopenmp" -m fortran_backend ./omar/fortran_backend.f90 -lgomp -lblas -llapack
+python -m numpy.f2py -c --f90flags="-fopenmp" -m backend ./omar/backend.f90 -lgomp -lblas -llapack
 ```
 
 Refer to the `meson.build` file for the definitive build instructions.

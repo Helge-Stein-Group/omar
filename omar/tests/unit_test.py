@@ -98,10 +98,10 @@ def test_coefficients():
 
     for backend in omar.Backend:
         model.backend = backend
-        assert np.allclose(ref_coefficients,
-                           model._coefficients(ref_cov_matrix, ref_rhs)[0]), f"{backend} Backend: Coefficients"
         assert np.allclose(ref_chol,
                            model._coefficients(ref_cov_matrix, ref_rhs)[1]), f"{backend} Backend: Chol"
+        assert np.allclose(ref_coefficients,
+                           model._coefficients(ref_cov_matrix, ref_rhs)[0]), f"{backend} Backend: Coefficients"
 
 
 def test_generalised_cross_validation():

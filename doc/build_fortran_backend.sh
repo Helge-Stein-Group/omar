@@ -1,1 +1,1 @@
-python -m numpy.f2py -c --f90flags="-fopenmp" -m fortran_backend ./omar/fortran_backend.f90 -lgomp -lblas -llapack
+python -m numpy.f2py -c --f90flags="-fopenmp" -m backend ./omar/backend.f90 -lgomp -lblas -llapack

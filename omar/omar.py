@@ -7,7 +7,7 @@ from jaxtyping import Float, Integer, jaxtyped
 from beartype import beartype
 from scipy.linalg import cho_factor, cho_solve
 
-import fortran_backend as fortran
+import backend as fortran
 
 
 class Backend(Enum):

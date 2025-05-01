@@ -1,8 +1,8 @@
-py.extension_module('fortran_backend',
+py.extension_module('backend',
                      [
-                     '''fortran_backend.f90''',
-                     '''fortran_backendmodule.c''',
-                     '''fortran_backend-f2pywrappers2.f90''',
+                     '''backend.f90''',
+                     '''backendmodule.c''',
+                     '''backend-f2pywrappers2.f90''',
                      fortranobject_c
                      ],
                      include_directories: [
