@@ -8,7 +8,7 @@ project('omar',
                           ])
 fc = meson.get_compiler('fortran')
 
-py = import('python').find_installation('''/home/tim/venv/OMARS/bin/python''', pure: false)
+py = import('python').find_installation(pure: false)
 py_dep = py.dependency()
 
 incdir_numpy = run_command(py,
@@ -22,13 +22,14 @@ incdir_f2py = run_command(py,
 ).stdout().strip()
 
 inc_np = include_directories(incdir_numpy)
-np_dep = declare_dependency(include_directories: inc_np)
-
-incdir_f2py = incdir_numpy / '..' / '..' / 'f2py' / 'src'
 inc_f2py = include_directories(incdir_f2py)
-fortranobject_c = incdir_f2py / 'fortranobject.c'
-
 inc_np = include_directories(incdir_numpy, incdir_f2py)
+
+fortranobject_c = run_command(py,
+    ['-c', 'import os; os.chdir(".."); import numpy.f2py; print(os.path.join(numpy.f2py.get_include(), "fortranobject.c"))'],
+    check : true
+).stdout().strip()
+
 # gh-25000
 quadmath_dep = fc.find_library('quadmath', required: false)
 
