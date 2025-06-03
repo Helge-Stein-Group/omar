@@ -9,9 +9,42 @@ on:
       - deployment
 
 jobs:
+  test_fortran:
+    name: Test Fortran components
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gfortran libblas-dev liblapack-dev meson ninja-build
+          
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: Install Python dependencies
+        run: |
+          pip install numpy meson ninja
+          
+      - name: Configure Meson build
+        run: |
+          meson setup builddir --buildtype=debug
+          
+      - name: Compile Fortran tests
+        run: |
+          meson compile -C builddir
+          
+      - name: Run Fortran tests
+        run: |
+          meson test -C builddir --verbose
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    needs: test_fortran
     strategy:
       fail-fast: false
       matrix:

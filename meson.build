@@ -46,3 +46,4 @@ else
 endif
 
 subdir('omar')
+subdir('tests')
