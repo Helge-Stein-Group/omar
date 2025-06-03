@@ -34,7 +34,7 @@ program fortran_unit_test
     real(8), allocatable :: cov_matrix_update(:,:), rhs_update(:), chol_update(:,:)
     real(8), allocatable :: coefficients_update(:)
     real(8) :: next_roots(4)
-    integer :: i, k, n, info
+    integer :: i, k, info
     real(8) :: lof_update
 
     ! Variables for expand/prune/find tests
@@ -46,9 +46,6 @@ program fortran_unit_test
     real(8) :: root_expand(max_nbases_test, max_nbases_test)
     real(8) :: coefficients_expand(max_nbases_test - 1)
     real(8) :: lof_expand
-    logical :: mask_prune(max_nbases_test, max_nbases_test)
-    real(8) :: coefficients_prune(max_nbases_test - 1)
-    real(8) :: lof_prune
     logical :: mask_find(max_nbases_test, max_nbases_test)
     logical :: truncated_find(max_nbases_test, max_nbases_test)
     integer :: cov_find(max_nbases_test, max_nbases_test)
