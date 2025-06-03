@@ -19,3 +19,5 @@ py.extension_module('backend',
                      install : true)
 
 py.install_sources('omar.py')
+
+subdir('tests')
