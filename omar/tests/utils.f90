@@ -15,6 +15,19 @@ module utils
 
 contains
 
+    subroutine rnorm(x, mu, sigma)
+        real(8), intent(out) :: x(:)
+        real(8), intent(in) :: mu, sigma
+        real(8), allocatable :: u1(:), u2(:)
+        allocate(u1(size(x)), u2(size(x)))
+        call random_number(u1)
+        call random_number(u2)
+        u1 = 1d0 - u1
+        u2 = 1d0 - u2
+        x = mu + sigma*sqrt(-2d0*log(u1))*cos(2d0 * 4.0 * atan(1.0)*u2)
+        deallocate(u1, u2)
+    end subroutine  
+
     subroutine generate_data(x, y, y_true)
         real(8), intent(out) :: x(N_SAMPLES, DIM)
         real(8), intent(out) :: y(N_SAMPLES)
@@ -22,20 +35,17 @@ contains
         real(8) :: noise(N_SAMPLES)
 
         call random_seed()
-        call random_number(x)
-        ! Scale to normal(2, 1) approx
-        x = (x - 0.5) * sqrt(12.0) * 1.0 + 2.0
+        call rnorm(x(:, 1), 2.0d0, 1.0d0)
+        call rnorm(x(:, 2), 2.0d0, 1.0d0)
 
         y_true = x(:, 1) + &
                  max(0.0d0, x(:, 1) - 1.0d0) + &
                  max(0.0d0, x(:, 1) - 1.0d0) * x(:, 2) + &
                  max(0.0d0, x(:, 1) - 1.0d0) * max(0.0d0, x(:, 2) - 0.8d0)
 
-        call random_number(noise)
-        ! Scale to normal(0, 0.12) approx
-        noise = (noise - 0.5) * sqrt(12.0) * 0.12
+        call rnorm(noise, 0.0d0, 1.0d0)
 
-        y = y_true + noise
+        y = y_true + 0.12 * noise
     end subroutine generate_data
 
     subroutine reference_model(x, nbases, mask, truncated, cov, root)
@@ -47,12 +57,12 @@ contains
         real(8), intent(out) :: root(5, 5)
 
         real(8) :: x1_val, x08_val
-        integer :: x1_idx(1), x08_idx(1)
+        integer :: x1_idx, x08_idx
 
         x1_idx = minloc(abs(x(:, 1) - 1.0d0), dim=1)
-        x1_val = x(x1_idx(1), 1)
+        x1_val = x(x1_idx, 1)
         x08_idx = minloc(abs(x(:, 2) - 0.8d0), dim=1)
-        x08_val = x(x08_idx(1), 2)
+        x08_val = x(x08_idx, 2)
 
         nbases = 5
         mask = .false.
@@ -153,6 +163,10 @@ contains
             print '(A)', "Matrix 2:"
             do i = 1, size(mat2,1)
                 print '( *(F8.2,1X) )', mat2(i,:)
+            end do
+            print '(A)', "Difference:"
+            do i = 1, size(mat2,1)
+                print *,  mat2(i,:) - mat1(i,:)
             end do
         end if
     end subroutine compare_real_matrices
