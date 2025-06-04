@@ -20,7 +20,7 @@ class Backend(Enum):
 
 class OMAR:
     """
-    Open Multivariate Adaptive Regression Splines (omar) model.
+    Open Multivariate Adaptive Regression (omar) model.
     Use it to find localised, linear relationships in your data.
     Based on:
     - Friedman, J. (1991). Multivariate adaptive regression splines.
@@ -108,7 +108,7 @@ class OMAR:
         Returns:
             Description of the basis functions.
         """
-        desc = "omar (Open Multivariate Adaptive Splines Regression) Model\n"
+        desc = "omar (Open Multivariate Adaptive Regression) Model\n"
         desc += "Basis functions: \n"
         desc += f"{self.y_mean} * 1 + \n"
         for basis_idx in self._active_base_indices():
