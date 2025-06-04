@@ -3,10 +3,10 @@ name: Build and Publish to TestPyPI
 on:
   push:
     branches:
-      - deployment # Trigger on pushes to main for testing
+      - main
   pull_request:
     branches:
-      - deployment
+      - main
 
 jobs:
   test_fortran:
@@ -122,7 +122,7 @@ jobs:
     permissions:
       id-token: write  # IMPORTANT: mandatory for trusted publishing
 
-    if: github.event_name == 'push' && github.ref == 'refs/heads/deployment'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
       - name: Download all distribution artifacts
