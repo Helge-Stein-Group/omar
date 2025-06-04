@@ -113,9 +113,15 @@ jobs:
           path: dist/*.tar.gz
 
   publish_to_testpypi:
-    name: Publish Python distribution to TestPyPI
+    name: Publish Wheels & Sdist to TestPyPI
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/omar
+    permissions:
+      id-token: write  # IMPORTANT: mandatory for trusted publishing
+
     if: github.event_name == 'push' && github.ref == 'refs/heads/deployment'
 
     steps:
