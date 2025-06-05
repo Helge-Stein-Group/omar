@@ -1,7 +1,6 @@
 from enum import Enum
 
 import numpy as np
-from beartype import beartype
 from numba import njit
 from jaxtyping import Float, Integer, jaxtyped
 from beartype import beartype
@@ -111,8 +110,8 @@ class OMAR:
         desc = "omar (Open Multivariate Adaptive Regression) Model\n"
         desc += "Basis functions: \n"
         desc += f"{self.y_mean} * 1 + \n"
-        for basis_idx in self._active_base_indices():
-            desc += f"{self.coefficients[basis_idx]:.2f} * "
+        for i, basis_idx in enumerate(self._active_base_indices()):
+            desc += f"{self.coefficients[i]:.2f} * "
             for func_idx in range(self.max_nbases):
                 if self.mask[func_idx, basis_idx]:
                     truncated = self.truncated[func_idx, basis_idx]
@@ -154,7 +153,8 @@ class OMAR:
         sub_model.root[:, i:i + 1] = self.root[:, i:i + 1]
 
         if i != 0:
-            sub_model.coefficients = self.coefficients[i:i + 1]
+            n = self._active_base_indices()[i]
+            sub_model.coefficients = self.coefficients[n:n + 1]
             sub_model.nbases = 2
 
         sub_model.y_mean = self.y_mean
