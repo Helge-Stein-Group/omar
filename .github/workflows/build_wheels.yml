@@ -136,3 +136,72 @@ jobs:
         with:
           repository-url: https://test.pypi.org/legacy/
           verbose: true
+
+  create_github_release:
+    name: Create GitHub Release
+    needs: [publish_to_testpypi]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required for creating releases
+      id-token: write
+
+    if: ${{ ! github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, 'BUILD!') }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for proper version detection
+
+      - name: Download all distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/
+          pattern: python-package-*
+          merge-multiple: true
+
+      - name: Extract version from package
+        id: extract_version
+        run: |
+          # Extract version from the sdist filename
+          SDIST_FILE=$(ls dist/*.tar.gz | head -n 1)
+          VERSION=$(basename "$SDIST_FILE" .tar.gz | sed 's/.*-//')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Detected version: $VERSION"
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          # Create basic release notes
+          cat > release_notes.md << EOF
+          ## Release ${{ steps.extract_version.outputs.version }}
+
+          This release has been automatically published to TestPyPI.
+
+          ### Installation
+          \`\`\`bash
+          pip install -i https://test.pypi.org/simple/ omar==${{ steps.extract_version.outputs.version }}
+          \`\`\`
+
+          ### Changes
+          - Built from commit ${{ github.sha }}
+          - Commit message: ${{ github.event.head_commit.message }}
+
+          ### Artifacts
+          This release includes:
+          - Source distribution (sdist)
+          - Binary wheels for multiple platforms (Linux, Windows, macOS)
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.extract_version.outputs.version }}
+          name: Release v${{ steps.extract_version.outputs.version }}
+          body_path: release_notes.md
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+          draft: false
+          prerelease: true  # Mark as prerelease since it's going to TestPyPI
+          generate_release_notes: true  # This will append auto-generated notes
