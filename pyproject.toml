@@ -71,8 +71,8 @@ before-build = """
     C:\\msys64\\usr\\bin\\bash -lc "pacman -Syu --noconfirm" && \
     C:\\msys64\\usr\\bin\\bash -lc "pacman -S --noconfirm mingw-w64-x86_64-openblas mingw-w64-x86_64-lapack" && \
     echo "C:\\msys64\\mingw64\\lib" >> %GITHUB_PATH% && \
-    echo "C:\\msys64\\mingw64\\bin" >> %GITHUB_PATH% \
-    pip install delvewheel
+    echo "C:\\msys64\\mingw64\\bin" >> %GITHUB_PATH% && \
+    uv pip install delvewheel
 """
 repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel} --add-path C:\\msys64\\mingw64\\bin"
 test-command = "set PATH=C:\\msys64\\mingw64\\bin;%PATH%"
