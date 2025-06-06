@@ -73,5 +73,8 @@ before-build = """
     echo "C:\\msys64\\mingw64\\lib" >> %GITHUB_PATH% && \
     echo "C:\\msys64\\mingw64\\bin" >> %GITHUB_PATH%
 """
+environment = { PATH = "C:\\msys64\\mingw64\\bin;$PATH" }
+repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"
+before-build-pip = "pip install delvewheel"
 test-command = "set PATH=C:\\msys64\\mingw64\\bin;%PATH%"
 

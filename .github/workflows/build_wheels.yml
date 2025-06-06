@@ -1,4 +1,4 @@
-name: Build and Publish to TestPyPI
+name: Testing, Building & Publishing omar
 
 on:
   push:
@@ -9,8 +9,8 @@ on:
       - main
 
 jobs:
-  test_fortran:
-    name: Test Fortran components
+  test_fortran_backend:
+    name: Test Fortran backend
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -24,7 +24,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.13.2'
           
       - name: Install Python dependencies
         run: |
@@ -44,13 +44,12 @@ jobs:
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    needs: test_fortran
+    needs: test_fortran_backend
     strategy:
       fail-fast: false
       matrix:
         # macos-13 is an intel runner, macos-14 is apple silicon
         os: [ ubuntu-latest, windows-latest, macos-13, macos-14 ]
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -88,7 +87,7 @@ jobs:
         with:
           name: python-package-wheels-${{ matrix.os }}
           path: ./wheelhouse/*.whl
-  build_sdist:
+  build_source_distribution:
     name: Build source distribution
     runs-on: ubuntu-latest
     steps:
@@ -103,7 +102,7 @@ jobs:
       - name: Install uv
         run: pip install uv
 
-      - name: Build sdist
+      - name: Build source distribution
         run: uv build --sdist
 
       - name: Upload sdist artifact
@@ -113,7 +112,7 @@ jobs:
           path: dist/*.tar.gz
   publish_to_testpypi:
     name: Publish Wheels & Sdist to TestPyPI
-    needs: [build_wheels, build_sdist]
+    needs: [build_wheels, build_source_distribution]
     runs-on: ubuntu-latest
     environment:
       name: testpypi
