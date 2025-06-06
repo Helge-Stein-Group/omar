@@ -75,6 +75,6 @@ before-build = """
 """
 environment = { PATH = "C:\\msys64\\mingw64\\bin;$PATH" }
 repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"
-before-build-pip = "pip install delvewheel"
+before-build = "pip install delvewheel"
 test-command = "set PATH=C:\\msys64\\mingw64\\bin;%PATH%"
 
