@@ -44,7 +44,7 @@ class OMAR:
         """
         Initialize the omar model.
         Args:
-            max_nbases: Maximum number of basis functions. Since they are added in pairs, this number should be odd.
+            max_nbases: Maximum number of basis functions.
             max_ncandidates: Maximum queue length for parent candidates. (See Fast Mars paper)
             aging_factor: Determines how fast unused parent basis functions need recalculation. (See Fast Mars paper)
             penalty: Cost for each basis function optimization, parameter of the generalized cross validation.
@@ -63,7 +63,7 @@ class OMAR:
             coefficients: Coefficients for the superposition of bases.
             y_mean: Mean of the response variables, which makes it also the coefficient for the first (constant) basis.
         """
-        assert max_nbases % 2 == 1, "Parameter \"max_nbases\" should be odd."
+        assert max_nbases > 1, "Parameter \"max_nbases\" should be larger than 1."
         assert max_ncandidates <= max_nbases, ("""Maximum queue length for parent candidates should be less than the
                                                maximum number of basis functions.""")
 
@@ -193,7 +193,7 @@ class OMAR:
             return np.where(np.any(self.mask, axis=0))[0]
         elif self.backend is Backend.FORTRAN:
             # Fortran indexes from 1
-            return fortran.backend.active_base_indices(self.mask, self.nbases) - 1
+            return (fortran.backend.active_base_indices(self.mask, self.nbases) - 1).astype(np.int64)
 
     @jaxtyped(typechecker=beartype)
     def _data_matrix(self, x: Float[np.ndarray, "N d"], basis_indices: Integer[np.ndarray, "{self.nbases}-1"]) \
