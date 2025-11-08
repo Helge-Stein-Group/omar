@@ -110,13 +110,13 @@ jobs:
         with:
           name: python-package-sdist
           path: dist/*.tar.gz
-  publish_to_testpypi:
-    name: Publish Wheels & Sdist to TestPyPI
+  publish_to_pypi:
+    name: Publish Wheels & Sdist to PyPI
     needs: [build_wheels, build_source_distribution]
     runs-on: ubuntu-latest
     environment:
-      name: testpypi
-      url: https://test.pypi.org/p/omar
+      name: pypi
+      url: https://pypi.org/p/omar
     permissions:
       id-token: write  # IMPORTANT: mandatory for trusted publishing
 
@@ -130,15 +130,13 @@ jobs:
           pattern: python-package-*
           merge-multiple: true
 
-      - name: Publish distribution to TestPyPI
+      - name: Publish distribution to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          repository-url: https://test.pypi.org/legacy/
           verbose: true
-
   create_github_release:
     name: Create GitHub Release
-    needs: [publish_to_testpypi]
+    needs: [publish_to_pypi]
     runs-on: ubuntu-latest
     permissions:
       contents: write  # Required for creating releases
@@ -174,11 +172,11 @@ jobs:
           cat > release_notes.md << EOF
           ## Release ${{ steps.extract_version.outputs.version }}
 
-          This release has been automatically published to TestPyPI.
+          This release has been automatically published to PyPI.
 
           ### Installation
           \`\`\`bash
-          pip install -i https://test.pypi.org/simple/ omar==${{ steps.extract_version.outputs.version }}
+          pip install omar==${{ steps.extract_version.outputs.version }}
           \`\`\`
 
           ### Changes
@@ -201,5 +199,5 @@ jobs:
             dist/*.whl
             dist/*.tar.gz
           draft: false
-          prerelease: true  # Mark as prerelease since it's going to TestPyPI
+          prerelease: false
           generate_release_notes: true  # This will append auto-generated notes
