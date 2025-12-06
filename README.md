@@ -14,7 +14,7 @@ pip install omar
 
 ### From Source
 
-See the [Getting Started](https://github.com/Helge-Stein-Group/omar/wiki/Getting-Started) wiki page.
+See the [Getting Started](https://github.com/Helge-Stein-Group/omar/wiki/1.-Getting-Started) wiki page.
 
 ---
 
