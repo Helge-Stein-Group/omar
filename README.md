@@ -1,6 +1,6 @@
 # omar
 
-[![PyPI version](https://badge.fury.io/py/omar.svg)](https://badge.fury.io/py/omar) WIP (name conflict see https://github.com/pypi/support/issues/6159)
+[![PyPI version](https://badge.fury.io/py/omar.svg)](https://badge.fury.io/py/omar)
 
 `omar` (**O**pen **M**ultivariate **A**daptive **R**egression) is a Python package for discovering localised, linear structure in complex, high-dimensional datasets. It implements a modernized version of the Multivariate Adaptive Regression Splines (MARS) algorithm with improved numerical efficiency, based on modern rank-one update strategies and optional Fortran acceleration.
 
