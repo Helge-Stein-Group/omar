@@ -120,7 +120,7 @@ jobs:
     permissions:
       id-token: write  # IMPORTANT: mandatory for trusted publishing
 
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, 'BUILD!')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, 'release')
 
     steps:
       - name: Download all distribution artifacts
@@ -142,7 +142,7 @@ jobs:
       contents: write  # Required for creating releases
       id-token: write
 
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, 'BUILD!')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, 'release')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
