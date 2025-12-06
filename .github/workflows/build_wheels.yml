@@ -173,7 +173,7 @@ jobs:
           ## Release ${{ steps.extract_version.outputs.version }}
 
           This release has been automatically published to PyPI.
-
+          
           ### Installation
           \`\`\`bash
           pip install omar==${{ steps.extract_version.outputs.version }}
